@@ -1,4 +1,4 @@
-# Fantasy Football League Web App
+# FF Dashboard
 
 A comprehensive web application for tracking fantasy football league records, statistics, and rules.
 
@@ -22,7 +22,7 @@ A comprehensive web application for tracking fantasy football league records, st
 
 ## Live Demo
 
-Visit the live application at: `https://yourusername.github.io/fantasy-football-league`
+Visit the live application at: `https://marsbars439.github.io/ff-dashboard`
 
 ## Technologies Used
 
@@ -30,13 +30,14 @@ Visit the live application at: `https://yourusername.github.io/fantasy-football-
 - Tailwind CSS (via CDN)
 - Lucide React (for icons)
 - GitHub Pages (for hosting)
+- Docker (for containerized deployment)
 
 ## Local Development
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/fantasy-football-league.git
-   cd fantasy-football-league
+   git clone https://github.com/marsbars439/ff-dashboard.git
+   cd ff-dashboard
    ```
 
 2. Install dependencies:
@@ -51,9 +52,33 @@ Visit the live application at: `https://yourusername.github.io/fantasy-football-
 
 4. Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
-## Deployment
+## Deployment Options
 
+### GitHub Pages
 This project is configured for automatic deployment to GitHub Pages using GitHub Actions.
+
+### Docker Deployment
+
+#### Using Pre-built Images
+```bash
+# Deploy using pre-built image from GitHub Container Registry
+docker run -d -p 3000:80 ghcr.io/marsbars439/ff-dashboard:latest
+```
+
+#### Using Docker Compose
+```bash
+# Production deployment
+docker-compose -f docker-compose.prod.yml up -d
+
+# Local development with hot reloading
+make dev
+```
+
+#### Using Deployment Script
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
 
 ### Manual Deployment
 
@@ -64,23 +89,22 @@ If you prefer to deploy manually:
    npm install --save-dev gh-pages
    ```
 
-2. Update the `homepage` field in `package.json` with your GitHub username and repository name.
-
-3. Deploy:
+2. Deploy:
    ```bash
    npm run deploy
    ```
 
-### Automatic Deployment
-
-The project includes a GitHub Actions workflow that automatically builds and deploys the app when you push to the main branch.
-
 ## Project Structure
 
 ```
-fantasy-football-league/
+ff-dashboard/
+├── .github/
+│   └── workflows/
+│       ├── deploy.yml          # GitHub Pages deployment
+│       └── docker-build.yml    # Docker image building
 ├── public/
-│   └── index.html
+│   ├── index.html
+│   └── manifest.json
 ├── src/
 │   ├── components/
 │   │   └── FantasyFootballApp.js
@@ -88,9 +112,13 @@ fantasy-football-league/
 │   ├── App.css
 │   ├── index.js
 │   └── index.css
-├── .github/
-│   └── workflows/
-│       └── deploy.yml
+├── docker-compose.yml          # Local Docker development
+├── docker-compose.prod.yml     # Production Docker deployment
+├── docker-compose.dev.yml      # Development with hot reload
+├── Dockerfile                  # Production Docker build
+├── Dockerfile.dev             # Development Docker build
+├── deploy.sh                  # Production deployment script
+├── Makefile                   # Convenience commands
 ├── package.json
 └── README.md
 ```
@@ -98,6 +126,14 @@ fantasy-football-league/
 ## Data Updates
 
 To update league data, modify the `managersData` and `allTeamSeasons` arrays in `src/components/FantasyFootballApp.js`.
+
+## Docker Images
+
+The project automatically builds and publishes Docker images to GitHub Container Registry:
+
+- **Production**: `ghcr.io/marsbars439/ff-dashboard:latest`
+- **Development**: `ghcr.io/marsbars439/ff-dashboard:dev`
+- **Tagged versions**: `ghcr.io/marsbars439/ff-dashboard:v1.0.0`
 
 ## Contributing
 

@@ -2,8 +2,8 @@ version: '3.8'
 
 services:
   fantasy-football-app:
-    image: ghcr.io/marsbars439/ff-dashboard:latest
-    container_name: fantasy-football-league
+    build: .
+    container_name: ff-dashboard
     ports:
       - "3000:80"
     restart: unless-stopped
@@ -11,9 +11,23 @@ services:
       - NODE_ENV=production
     networks:
       - fantasy-network
-    labels:
-      - "com.docker.compose.project=fantasy-football-league"
 
 networks:
   fantasy-network:
     driver: bridge
+
+# Optional: Add a reverse proxy for production
+  # nginx-proxy:
+  #   image: nginx:alpine
+  #   container_name: nginx-proxy
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro  # If you have SSL certificates
+  #   depends_on:
+  #     - fantasy-football-app
+  #   restart: unless-stopped
+  #   networks:
+  #     - fantasy-network

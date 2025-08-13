@@ -4,7 +4,7 @@
 
 # Configuration
 REGISTRY = ghcr.io
-USERNAME = marsbars439
+USERNAME = marsbars439  # Replace with your GitHub username
 REPO_NAME = ff-dashboard
 IMAGE_TAG = latest
 

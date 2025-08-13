@@ -7,13 +7,13 @@ set -e
 
 # Configuration
 REGISTRY="ghcr.io"
-USERNAME="${1:-marsbars439}"
+USERNAME="${1:-marsbars439}"  # Replace with your GitHub username
 REPO_NAME="ff-dashboard"
 IMAGE_TAG="${2:-latest}"
 CONTAINER_NAME="ff-dashboard"
 PORT="${3:-3000}"
 
-echo "🚀 Deploying Fantasy Football League App"
+echo "🚀 Deploying FF Dashboard"
 echo "   Registry: $REGISTRY"
 echo "   Image: $USERNAME/$REPO_NAME:$IMAGE_TAG"
 echo "   Port: $PORT"
@@ -76,7 +76,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 echo ""
-echo "🎉 Fantasy Football League is now live!"
+echo "🎉 FF Dashboard is now live!"
 echo "   URL: http://localhost:$PORT"
 echo "   Container: $CONTAINER_NAME"
 echo "   Image: $REGISTRY/$USERNAME/$REPO_NAME:$IMAGE_TAG"

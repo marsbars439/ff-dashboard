@@ -1,6 +1,6 @@
 # GitHub Docker Image Publishing Setup
 
-This guide will help you set up automatic Docker image building and publishing using GitHub Actions and GitHub Container Registry (GHCR).
+This guide will help you set up automatic Docker image building and publishing using GitHub Actions and GitHub Container Registry (GHCR) for your FF Dashboard.
 
 ## Overview
 
@@ -14,42 +14,269 @@ Your setup will automatically:
 
 ## Prerequisites
 
-- GitHub repository (public or private)
+- GitHub repository: `marsbars439/ff-dashboard`
 - Docker installed locally (for testing)
 - Basic familiarity with GitHub Actions
 
 ## Setup Steps
 
-### Step 1: Update Configuration Files
+### Step 1: Configuration Already Updated
 
-1. **Update `docker-compose.prod.yml`**:
-   Replace `YOURUSERNAME` with your actual GitHub username:
-   ```yaml
-   image: ghcr.io/YOUR_ACTUAL_USERNAME/fantasy-football-league:latest
-   ```
-
-2. **Update `deploy.sh`**:
-   Replace `YOURUSERNAME` with your GitHub username on line 8:
-   ```bash
-   USERNAME="${1:-YOUR_ACTUAL_USERNAME}"
-   ```
-
-3. **Update `Makefile`**:
-   Replace `YOURUSERNAME` with your GitHub username on line 8:
-   ```makefile
-   USERNAME = YOUR_ACTUAL_USERNAME
-   ```
-
-   Or use the convenience command:
-   ```bash
-   make update-username
-   ```
+All configuration files have been updated with your details:
+- GitHub username: `marsbars439`
+- Repository name: `ff-dashboard`
+- Container name: `ff-dashboard`
 
 ### Step 2: Enable GitHub Container Registry
 
-1. Go to your GitHub repository
+1. Go to your GitHub repository: `https://github.com/marsbars439/ff-dashboard`
 2. Navigate to **Settings** → **Actions** → **General**
 3. Under "Workflow permissions", ensure:
+   - ☑️ "Read and write permissions" is selected
+   - ☑️ "Allow GitHub Actions to create and approve pull requests" is checked
+
+### Step 3: Push Your Code
+
+```bash
+git add .
+git commit -m "Add Docker build workflow"
+git push origin main
+```
+
+### Step 4: Monitor the Build
+
+1. Go to your repository on GitHub
+2. Click the **Actions** tab
+3. You should see "Build and Push Docker Images" workflow running
+4. Click on it to see the build progress
+
+## Available Images
+
+After successful build, your images will be available at:
+
+### Production Image
+```
+ghcr.io/marsbars439/ff-dashboard:latest
+ghcr.io/marsbars439/ff-dashboard:main
+```
+
+### Development Image
+```
+ghcr.io/marsbars439/ff-dashboard:dev
+```
+
+### Tagged Versions (when you create releases)
+```
+ghcr.io/marsbars439/ff-dashboard:v1.0.0
+ghcr.io/marsbars439/ff-dashboard:1.0
+ghcr.io/marsbars439/ff-dashboard:1
+```
+
+## Deployment Options
+
+### Option 1: Using Docker Compose (Recommended)
+
+```bash
+# Deploy using pre-built image
+docker-compose -f docker-compose.prod.yml up -d
+
+# Or using make
+make deploy-prod
+```
+
+### Option 2: Using Deployment Script
+
+```bash
+# Make script executable
+chmod +x deploy.sh
+
+# Deploy latest version
+./deploy.sh
+
+# Deploy specific version
+./deploy.sh marsbars439 v1.0.0
+
+# Deploy to different port
+./deploy.sh marsbars439 latest 8080
+```
+
+### Option 3: Manual Docker Run
+
+```bash
+# Pull and run latest image
+docker pull ghcr.io/marsbars439/ff-dashboard:latest
+docker run -d --name ff-dashboard -p 3000:80 ghcr.io/marsbars439/ff-dashboard:latest
+```
+
+## Workflow Triggers
+
+The Docker build workflow runs on:
+
+- **Push to `main` branch** → Builds and pushes `latest` and `main` tags
+- **Push to `develop` branch** → Builds and pushes `develop` tag
+- **Git tags starting with `v`** → Builds version-specific tags (e.g., `v1.0.0`)
+- **Pull requests** → Builds but doesn't push (for testing)
+
+## Creating Releases
+
+To create versioned releases:
+
+```bash
+# Create and push a tag
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This will trigger a build that creates:
+- `ghcr.io/marsbars439/ff-dashboard:v1.0.0`
+- `ghcr.io/marsbars439/ff-dashboard:1.0`
+- `ghcr.io/marsbars439/ff-dashboard:1`
+
+## Image Visibility
+
+### Making Images Public (Recommended)
+
+1. Go to your GitHub profile: `https://github.com/marsbars439`
+2. Click **Packages** tab
+3. Find your `ff-dashboard` package
+4. Click **Package settings**
+5. Scroll to **Danger Zone**
+6. Click **Change visibility** → **Public**
+
+This allows anyone to pull your Docker images without authentication.
+
+### Private Images
+
+If you keep images private, users will need to authenticate:
+
+```bash
+# Login to GitHub Container Registry
+echo $GITHUB_TOKEN | docker login ghcr.io -u marsbars439 --password-stdin
+
+# Then pull/run as normal
+docker pull ghcr.io/marsbars439/ff-dashboard:latest
+```
+
+## Multi-Architecture Support
+
+Your images are built for both:
+- **AMD64** (Intel/AMD processors)
+- **ARM64** (Apple Silicon, Raspberry Pi, ARM servers)
+
+This means they'll work on:
+- ✅ Regular PCs and servers
+- ✅ Apple Silicon Macs (M1/M2)
+- ✅ Raspberry Pi 4+
+- ✅ ARM-based cloud instances
+
+## Local Development Workflow
+
+```bash
+# Work on your code locally
+make dev
+
+# Test production build locally
+make prod-up
+
+# When ready, push to GitHub
+git add .
+git commit -m "Update league data"
+git push origin main
+
+# GitHub Actions automatically builds and publishes
+# Deploy the new image
+make deploy-prod
+```
+
+## Updating Your Application
+
+### Method 1: Automatic (Recommended)
+1. Push code changes to GitHub
+2. Wait for GitHub Actions to build new image
+3. Pull and restart: `make deploy-prod`
+
+### Method 2: Manual
+```bash
+# Pull latest image
+docker pull ghcr.io/marsbars439/ff-dashboard:latest
+
+# Restart with new image
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+## Quick Commands
+
+```bash
+# Local development
+make dev
+
+# Deploy production locally
+make prod-up
+
+# Deploy from GitHub registry
+make deploy-prod
+
+# View logs
+make logs
+
+# Clean up
+make clean
+```
+
+## Troubleshooting
+
+### Build Failures
+
+1. **Check the Actions tab** in your GitHub repository
+2. **Look at the build logs** for specific errors
+3. **Common issues**:
+   - Missing dependencies in package.json
+   - Syntax errors in Dockerfile
+   - File path issues
+
+### Permission Errors
+
+If you get permission errors:
+1. Check repository settings → Actions → General
+2. Ensure "Read and write permissions" is enabled
+3. Make sure the repository has proper access to packages
+
+### Image Pull Errors
+
+```bash
+# Login to GitHub Container Registry
+echo $GITHUB_TOKEN | docker login ghcr.io -u marsbars439 --password-stdin
+
+# Or make the package public (easier)
+```
+
+### Container Won't Start
+
+```bash
+# Check logs
+docker logs ff-dashboard
+
+# Common issues:
+# - Port already in use (change port in docker-compose.prod.yml)
+# - Missing environment variables
+# - File permission issues
+```
+
+## Your Image URLs
+
+- **Production**: `ghcr.io/marsbars439/ff-dashboard:latest`
+- **Development**: `ghcr.io/marsbars439/ff-dashboard:dev`
+- **GitHub Pages**: `https://marsbars439.github.io/ff-dashboard`
+
+## Security Best Practices
+
+1. **Use official base images** (already configured)
+2. **Regular updates** - GitHub Dependabot will help
+3. **Scan for vulnerabilities** - GitHub automatically scans your images
+4. **Minimal permissions** - Workflow only has necessary permissions
+5. **No secrets in images** - Use environment variables instead
+
+Your FF Dashboard will now have professional-grade Docker image building and deployment! 🎉", ensure:
    - ☑️ "Read and write permissions" is selected
    - ☑️ "Allow GitHub Actions to create and approve pull requests" is checked
 
