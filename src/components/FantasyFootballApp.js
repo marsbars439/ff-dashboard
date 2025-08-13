@@ -7,6 +7,121 @@ const FantasyFootballApp = () => {
   const [managers, setManagers] = useState([]);
   const [teamSeasons, setTeamSeasons] = useState([]);
 
+  // Manager data
+  const managersData = [
+    { name_id: 'byronkou', full_name: 'Byron Kou', sleeper_username: 'bsbllplyr968', active: true },
+    { name_id: 'carlosortiz', full_name: 'Carlos Ortiz', sleeper_username: 'jcmbortiz', active: true },
+    { name_id: 'danguadronjasonvoss', full_name: 'Dan Guadron/Jason Voss', sleeper_username: 'jvoss7', active: true },
+    { name_id: 'davepasi', full_name: 'Dave Pasi', sleeper_username: 'depiii26', active: true },
+    { name_id: 'markreischel', full_name: 'Mark Reischel', sleeper_username: 'markr729', active: true },
+    { name_id: 'marshallroshto', full_name: 'Marshall Roshto', sleeper_username: 'roshto', active: true },
+    { name_id: 'robcolaneri', full_name: 'Rob Colaneri', sleeper_username: 'raabcalamari', active: true },
+    { name_id: 'ruairilynch', full_name: 'Ruairi Lynch', sleeper_username: 'rlynch9', active: true },
+    { name_id: 'stevescicchitano', full_name: 'Steve Scicchitano', sleeper_username: 'SteveScicc', active: true },
+    { name_id: 'willhubbard', full_name: 'Will Hubbard', sleeper_username: 'whubbard9', active: true },
+    { name_id: 'samcarlos', full_name: 'Sam Carlos', sleeper_username: 'samlols', active: false },
+    { name_id: 'scottzagorski', full_name: 'Scott Zagorski', sleeper_username: '', active: false },
+    { name_id: 'steveshiffer', full_name: 'Steve Shiffer', sleeper_username: 'shiffnasty', active: false }
+  ];
+
+  // Complete historical data from your Excel file
+  const allTeamSeasons = [
+    { year: 2016, name_id: "stevescicchitano", team_name: "stephen's Team", wins: 11, losses: 3, points_for: 1818.66, points_against: 1490.6, regular_season_rank: 1, playoff_finish: null, dues: 200, payout: 200, high_game: null },
+    { year: 2016, name_id: "carlosortiz", team_name: "Gostkowski for Pres.", wins: 9, losses: 5, points_for: 1732.22, points_against: 1611.92, regular_season_rank: 2, playoff_finish: 2, dues: 200, payout: 400, high_game: null },
+    { year: 2016, name_id: "willhubbard", team_name: "Hubba-D", wins: 9, losses: 5, points_for: 1855.6, points_against: 1717.16, regular_season_rank: 3, playoff_finish: 3, dues: 200, payout: 200, high_game: null },
+    { year: 2016, name_id: "robcolaneri", team_name: "Tebows Shaggin Flies", wins: 7, losses: 7, points_for: 1739.88, points_against: 1740.36, regular_season_rank: 4, playoff_finish: 1, dues: 200, payout: 800, high_game: null },
+    { year: 2016, name_id: "marshallroshto", team_name: "My Ball Zach Ertz", wins: 7, losses: 7, points_for: 1695.76, points_against: 1770.98, regular_season_rank: 5, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2016, name_id: "markreischel", team_name: "Mark's Team", wins: 7, losses: 7, points_for: 1599.28, points_against: 1633.96, regular_season_rank: 6, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2016, name_id: "scottzagorski", team_name: "¯\\_(?)_/¯", wins: 3, losses: 11, points_for: 1531.28, points_against: 1839.66, regular_season_rank: 7, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2016, name_id: "samcarlos", team_name: "savages", wins: 3, losses: 11, points_for: 1522.26, points_against: 1690.3, regular_season_rank: 8, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2017, name_id: "marshallroshto", team_name: "The Marsh Men", wins: 11, losses: 3, points_for: 1818.66, points_against: 1490.6, regular_season_rank: 1, playoff_finish: 2, dues: 200, payout: 600, high_game: null },
+    { year: 2017, name_id: "stevescicchitano", team_name: "stephen's Team", wins: 9, losses: 5, points_for: 1732.22, points_against: 1611.92, regular_season_rank: 2, playoff_finish: 1, dues: 200, payout: 800, high_game: null },
+    { year: 2017, name_id: "willhubbard", team_name: "Hubba-D", wins: 9, losses: 5, points_for: 1855.6, points_against: 1717.16, regular_season_rank: 3, playoff_finish: 3, dues: 200, payout: 200, high_game: null },
+    { year: 2017, name_id: "robcolaneri", team_name: "Tebows Shaggin Flies", wins: 7, losses: 7, points_for: 1739.88, points_against: 1740.36, regular_season_rank: 4, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2017, name_id: "carlosortiz", team_name: "Gostkowski for Pres.", wins: 7, losses: 7, points_for: 1695.76, points_against: 1770.98, regular_season_rank: 5, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2017, name_id: "markreischel", team_name: "Mark's Team", wins: 7, losses: 7, points_for: 1599.28, points_against: 1633.96, regular_season_rank: 6, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2017, name_id: "scottzagorski", team_name: "¯\\_(?)_/¯", wins: 3, losses: 11, points_for: 1531.28, points_against: 1839.66, regular_season_rank: 7, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2017, name_id: "samcarlos", team_name: "savages", wins: 3, losses: 11, points_for: 1522.26, points_against: 1690.3, regular_season_rank: 8, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2018, name_id: "marshallroshto", team_name: "The Marsh Men", wins: 10, losses: 4, points_for: 1873.78, points_against: 1584.56, regular_season_rank: 1, playoff_finish: 2, dues: 200, payout: 500, high_game: null },
+    { year: 2018, name_id: "robcolaneri", team_name: "Tebows Shaggin Flies", wins: 8, losses: 6, points_for: 1971, points_against: 1798.68, regular_season_rank: 2, playoff_finish: 1, dues: 200, payout: 1000, high_game: null },
+    { year: 2018, name_id: "stevescicchitano", team_name: "stephen's Team", wins: 8, losses: 6, points_for: 1862.66, points_against: 1850.02, regular_season_rank: 3, playoff_finish: 3, dues: 200, payout: 250, high_game: null },
+    { year: 2018, name_id: "willhubbard", team_name: "Hubba-D", wins: 8, losses: 6, points_for: 1825.76, points_against: 1774.98, regular_season_rank: 4, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2018, name_id: "carlosortiz", team_name: "Gostkowski for Pres.", wins: 7, losses: 7, points_for: 1815.04, points_against: 1824.2, regular_season_rank: 5, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2018, name_id: "markreischel", team_name: "Mark's Team", wins: 7, losses: 7, points_for: 1702.32, points_against: 1851.96, regular_season_rank: 6, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2018, name_id: "davepasi", team_name: "Laces Out", wins: 5, losses: 9, points_for: 1743.5, points_against: 1965.76, regular_season_rank: 7, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2018, name_id: "scottzagorski", team_name: "¯\\_(?)_/¯", wins: 5, losses: 9, points_for: 1711.5, points_against: 1978.58, regular_season_rank: 8, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2018, name_id: "samcarlos", team_name: "savages", wins: 4, losses: 10, points_for: 1629.44, points_against: 1867.48, regular_season_rank: 9, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2018, name_id: "byronkou", team_name: "Rice Rice Baby", wins: 2, losses: 12, points_for: 1470.04, points_against: 1892.52, regular_season_rank: 10, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2019, name_id: "markreischel", team_name: "Mark's Team", wins: 10, losses: 4, points_for: 1867.36, points_against: 1711.66, regular_season_rank: 1, playoff_finish: 2, dues: 200, payout: 400, high_game: null },
+    { year: 2019, name_id: "marshallroshto", team_name: "The Marsh Men", wins: 9, losses: 5, points_for: 1784.58, points_against: 1714.02, regular_season_rank: 2, playoff_finish: 3, dues: 200, payout: 200, high_game: null },
+    { year: 2019, name_id: "robcolaneri", team_name: "Tebows Shaggin Flies", wins: 8, losses: 6, points_for: 1780.6, points_against: 1780.54, regular_season_rank: 3, playoff_finish: 1, dues: 200, payout: 800, high_game: null },
+    { year: 2019, name_id: "carlosortiz", team_name: "Gostkowski for Pres.", wins: 8, losses: 6, points_for: 1705.04, points_against: 1747.54, regular_season_rank: 4, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2019, name_id: "stevescicchitano", team_name: "stephen's Team", wins: 7, losses: 7, points_for: 1749.46, points_against: 1750.24, regular_season_rank: 5, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2019, name_id: "willhubbard", team_name: "Hubba-D", wins: 7, losses: 7, points_for: 1716.18, points_against: 1695.3, regular_season_rank: 6, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2019, name_id: "davepasi", team_name: "Laces Out", wins: 6, losses: 8, points_for: 1618.64, points_against: 1706.96, regular_season_rank: 7, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2019, name_id: "byronkou", team_name: "Rice Rice Baby", wins: 6, losses: 8, points_for: 1610.04, points_against: 1748.36, regular_season_rank: 8, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2019, name_id: "scottzagorski", team_name: "¯\\_(?)_/¯", wins: 4, losses: 10, points_for: 1501.84, points_against: 1750.82, regular_season_rank: 9, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2019, name_id: "samcarlos", team_name: "savages", wins: 1, losses: 13, points_for: 1468.16, points_against: 1891.94, regular_season_rank: 10, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2020, name_id: "markreischel", team_name: "Mark's Team", wins: 11, losses: 3, points_for: 2084.9, points_against: 1822.9, regular_season_rank: 1, playoff_finish: 1, dues: 200, payout: 1000, high_game: null },
+    { year: 2020, name_id: "byronkou", team_name: "Rice Rice Baby", wins: 10, losses: 4, points_for: 2073.3, points_against: 1863.78, regular_season_rank: 2, playoff_finish: 2, dues: 200, payout: 600, high_game: null },
+    { year: 2020, name_id: "robcolaneri", team_name: "Tebows Shaggin Flies", wins: 9, losses: 5, points_for: 1884.5, points_against: 1834.98, regular_season_rank: 3, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2020, name_id: "marshallroshto", team_name: "The Marsh Men", wins: 8, losses: 6, points_for: 1925.88, points_against: 1836.3, regular_season_rank: 4, playoff_finish: 3, dues: 200, payout: 200, high_game: null },
+    { year: 2020, name_id: "carlosortiz", team_name: "Gostkowski for Pres.", wins: 8, losses: 6, points_for: 1901.46, points_against: 1874.42, regular_season_rank: 5, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2020, name_id: "willhubbard", team_name: "Hubba-D", wins: 7, losses: 7, points_for: 1828.02, points_against: 1918.06, regular_season_rank: 6, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2020, name_id: "stevescicchitano", team_name: "stephen's Team", wins: 6, losses: 8, points_for: 1854.3, points_against: 1933.74, regular_season_rank: 7, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2020, name_id: "davepasi", team_name: "Laces Out", wins: 4, losses: 10, points_for: 1712.76, points_against: 1924.7, regular_season_rank: 8, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2020, name_id: "ruairilynch", team_name: "Hail Mary", wins: 4, losses: 10, points_for: 1734.32, points_against: 1968.28, regular_season_rank: 9, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2020, name_id: "danguadronjasonvoss", team_name: "Taylor Ham Egg & Cheese", wins: 3, losses: 11, points_for: 1709.58, points_against: 1949.32, regular_season_rank: 10, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2021, name_id: "steveshiffer", team_name: "Philly Shif Eaters", wins: 10, losses: 4, points_for: 2001.88, points_against: 1839.24, regular_season_rank: 1, playoff_finish: 1, dues: 200, payout: 1250, high_game: null },
+    { year: 2021, name_id: "carlosortiz", team_name: "Gostkowski for Pres.", wins: 10, losses: 4, points_for: 1939.44, points_against: 1856.96, regular_season_rank: 2, playoff_finish: 3, dues: 200, payout: 250, high_game: null },
+    { year: 2021, name_id: "byronkou", team_name: "Rice Rice Baby", wins: 9, losses: 5, points_for: 1843.92, points_against: 1728.06, regular_season_rank: 3, playoff_finish: 2, dues: 200, payout: 500, high_game: null },
+    { year: 2021, name_id: "robcolaneri", team_name: "Tebows Shaggin Flies", wins: 8, losses: 6, points_for: 1877.5, points_against: 1786.82, regular_season_rank: 4, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2021, name_id: "marshallroshto", team_name: "The Marsh Men", wins: 8, losses: 6, points_for: 1778.5, points_against: 1828.62, regular_season_rank: 5, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2021, name_id: "markreischel", team_name: "Mark's Team", wins: 7, losses: 7, points_for: 1776.54, points_against: 1756.38, regular_season_rank: 6, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2021, name_id: "willhubbard", team_name: "Hubba-D", wins: 7, losses: 7, points_for: 1742.24, points_against: 1806.58, regular_season_rank: 7, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2021, name_id: "davepasi", team_name: "Laces Out", wins: 5, losses: 9, points_for: 1667.94, points_against: 1854.96, regular_season_rank: 8, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2021, name_id: "stevescicchitano", team_name: "stephen's Team", wins: 4, losses: 10, points_for: 1708.3, points_against: 1869.04, regular_season_rank: 9, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2021, name_id: "ruairilynch", team_name: "Hail Mary", wins: 2, losses: 12, points_for: 1546.2, points_against: 1932.46, regular_season_rank: 10, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2022, name_id: "robcolaneri", team_name: "Colaneri FC", wins: 11, losses: 3, points_for: 1994.38, points_against: 1657.88, regular_season_rank: 1, playoff_finish: 2, dues: 200, payout: 750, high_game: null },
+    { year: 2022, name_id: "davepasi", team_name: "Laces Out", wins: 10, losses: 4, points_for: 1880.14, points_against: 1709.9, regular_season_rank: 2, playoff_finish: 1, dues: 200, payout: 1000, high_game: null },
+    { year: 2022, name_id: "byronkou", team_name: "Rice Rice Baby", wins: 9, losses: 5, points_for: 1857.58, points_against: 1720.14, regular_season_rank: 3, playoff_finish: 3, dues: 200, payout: 250, high_game: null },
+    { year: 2022, name_id: "willhubbard", team_name: "HubbaD", wins: 8, losses: 6, points_for: 1709.72, points_against: 1671.36, regular_season_rank: 4, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2022, name_id: "marshallroshto", team_name: "The Marsh Men", wins: 8, losses: 6, points_for: 1682.54, points_against: 1705.9, regular_season_rank: 5, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2022, name_id: "carlosortiz", team_name: "Slightly Brown Mamba", wins: 7, losses: 7, points_for: 1723.06, points_against: 1731.7, regular_season_rank: 6, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2022, name_id: "markreischel", team_name: "Mark's Team", wins: 6, losses: 8, points_for: 1664.28, points_against: 1716.7, regular_season_rank: 7, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2022, name_id: "ruairilynch", team_name: "Hail Mary", wins: 6, losses: 8, points_for: 1612.14, points_against: 1751.24, regular_season_rank: 8, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2022, name_id: "stevescicchitano", team_name: "stephen's Team", wins: 4, losses: 10, points_for: 1583.4, points_against: 1832.24, regular_season_rank: 9, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2022, name_id: "danguadronjasonvoss", team_name: "Taylor Ham Egg & Cheese", wins: 3, losses: 11, points_for: 1530.16, points_against: 1795.44, regular_season_rank: 10, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2023, name_id: "byronkou", team_name: "Rice Rice Baby", wins: 11, losses: 3, points_for: 2045.7, points_against: 1808.06, regular_season_rank: 1, playoff_finish: 3, dues: 200, payout: 250, high_game: null },
+    { year: 2023, name_id: "marshallroshto", team_name: "The Marsh Men", wins: 9, losses: 5, points_for: 2051.64, points_against: 1767.56, regular_season_rank: 2, playoff_finish: 1, dues: 200, payout: 1250, high_game: null },
+    { year: 2023, name_id: "carlosortiz", team_name: "Slightly Brown Mamba", wins: 8, losses: 6, points_for: 1916.26, points_against: 1789.5, regular_season_rank: 3, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2023, name_id: "willhubbard", team_name: "HubbaD", wins: 8, losses: 6, points_for: 1858.16, points_against: 1786.56, regular_season_rank: 4, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2023, name_id: "robcolaneri", team_name: "Colaneri FC", wins: 8, losses: 6, points_for: 1629.22, points_against: 1676.3, regular_season_rank: 5, playoff_finish: 2, dues: 200, payout: 500, high_game: null },
+    { year: 2023, name_id: "markreischel", team_name: "Mark's Team", wins: 7, losses: 7, points_for: 1807.96, points_against: 1823.18, regular_season_rank: 6, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2023, name_id: "ruairilynch", team_name: "Hail Mary", wins: 6, losses: 8, points_for: 1747.66, points_against: 1898.78, regular_season_rank: 7, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2023, name_id: "danguadronjasonvoss", team_name: "Taylor Ham Egg & Cheese", wins: 6, losses: 8, points_for: 1656.82, points_against: 1829.54, regular_season_rank: 8, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2023, name_id: "davepasi", team_name: "Laces Out", wins: 5, losses: 9, points_for: 1726.6, points_against: 1797.64, regular_season_rank: 9, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2023, name_id: "stevescicchitano", team_name: "stephen's Team", wins: 2, losses: 12, points_for: 1637.1, points_against: 1900, regular_season_rank: 10, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2024, name_id: "robcolaneri", team_name: "Colaneri FC", wins: 10, losses: 4, points_for: 1796.44, points_against: 1496, regular_season_rank: 1, playoff_finish: 1, dues: 200, payout: 1540, high_game: null },
+    { year: 2024, name_id: "marshallroshto", team_name: "The Marsh Men", wins: 8, losses: 6, points_for: 1764.38, points_against: 1582.18, regular_season_rank: 2, playoff_finish: 3, dues: 200, payout: 0, high_game: null },
+    { year: 2024, name_id: "davepasi", team_name: "Laces Out", wins: 8, losses: 6, points_for: 1622.88, points_against: 1651.08, regular_season_rank: 3, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2024, name_id: "markreischel", team_name: "Mark's Team", wins: 8, losses: 6, points_for: 1575.78, points_against: 1485.52, regular_season_rank: 4, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2024, name_id: "willhubbard", team_name: "HubbaD", wins: 8, losses: 6, points_for: 1457.38, points_against: 1429.18, regular_season_rank: 5, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2024, name_id: "byronkou", team_name: "Rice Rice Baby", wins: 7, losses: 7, points_for: 1567.54, points_against: 1563.52, regular_season_rank: 6, playoff_finish: 2, dues: 200, payout: 500, high_game: null },
+    { year: 2024, name_id: "ruairilynch", team_name: "Hail Mary", wins: 7, losses: 7, points_for: 1535.82, points_against: 1554.1, regular_season_rank: 7, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2024, name_id: "carlosortiz", team_name: "Slightly Brown Mamba", wins: 7, losses: 7, points_for: 1458.9, points_against: 1557.04, regular_season_rank: 8, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2024, name_id: "stevescicchitano", team_name: "stephen's Team", wins: 5, losses: 9, points_for: 1448.46, points_against: 1524.36, regular_season_rank: 9, playoff_finish: null, dues: 200, payout: 0, high_game: null },
+    { year: 2024, name_id: "danguadronjasonvoss", team_name: "Taylor Ham Egg & Cheese", wins: 2, losses: 12, points_for: 1388.96, points_against: 1773.46, regular_season_rank: 10, playoff_finish: null, dues: 240, payout: 0, high_game: null }
+  ];
+    import React, { useState, useEffect } from 'react';
+import { Trophy, Users, TrendingUp, DollarSign, Calendar, BookOpen, BarChart3, Award, Zap, Crown, Target, ChevronDown } from 'lucide-react';
+
+const FantasyFootballApp = () => {
+  const [activeTab, setActiveTab] = useState('records');
+  const [selectedManager, setSelectedManager] = useState('');
+  const [managers, setManagers] = useState([]);
+  const [teamSeasons, setTeamSeasons] = useState([]);
+
   // Sample data based on your CSVs - expanded with more complete data
   const managersData = [
     { name_id: 'byronkou', full_name: 'Byron Kou', sleeper_username: 'bsbllplyr968', active: true },
