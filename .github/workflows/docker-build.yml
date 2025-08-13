@@ -46,26 +46,27 @@ jobs:
           type=semver,pattern={{major}}
           type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: Build and push Docker image
+    - name: Build and push Docker image (Simple)
       uses: docker/build-push-action@v5
       with:
         context: .
-        platforms: linux/amd64,linux/arm64
+        file: ./Dockerfile.simple
+        platforms: linux/amd64
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Build development image
+    - name: Build and push Docker image (Nginx)
       if: github.ref == 'refs/heads/main'
       uses: docker/build-push-action@v5
       with:
         context: .
-        file: ./Dockerfile.dev
-        platforms: linux/amd64,linux/arm64
+        file: ./Dockerfile
+        platforms: linux/amd64
         push: true
-        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:nginx
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max

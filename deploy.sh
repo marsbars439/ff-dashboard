@@ -48,7 +48,7 @@ echo "🎯 Starting new container..."
 docker run -d \
     --name $CONTAINER_NAME \
     --restart unless-stopped \
-    -p $PORT:80 \
+    -p $PORT:3000 \
     -e NODE_ENV=production \
     $REGISTRY/$USERNAME/$REPO_NAME:$IMAGE_TAG
 

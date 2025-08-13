@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  fantasy-football-app:
+  ff-dashboard:
     image: ghcr.io/marsbars439/ff-dashboard:latest
     container_name: ff-dashboard
     ports:
-      - "3000:80"
+      - "3000:3000"
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -20,7 +20,7 @@ networks:
 
 # Optional: Health check
   # healthcheck:
-  #   test: ["CMD", "curl", "-f", "http://localhost:80"]
+  #   test: ["CMD", "curl", "-f", "http://localhost:3000"]
   #   interval: 30s
   #   timeout: 10s
   #   retries: 3
