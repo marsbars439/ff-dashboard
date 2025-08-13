@@ -4,11 +4,10 @@ npm-debug.log
 .gitignore
 README.md
 SETUP.md
-Dockerfile
-.dockerignore
-docker-compose.yml
+DOCKER-SETUP.md
+GITHUB-DOCKER-SETUP.md
+DOCKER-TROUBLESHOOTING.md
 .github
-build
 .env.local
 .env.development.local
 .env.test.local
@@ -16,3 +15,8 @@ build
 coverage
 .DS_Store
 *.log
+Dockerfile*
+docker-compose*.yml
+deploy.sh
+Makefile
+test-build.sh

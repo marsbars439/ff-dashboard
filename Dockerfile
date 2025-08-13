@@ -1,20 +1,23 @@
-# Simple, reliable Dockerfile
+# Production Dockerfile for FF Dashboard
 FROM node:18-alpine
 
-# Install serve globally for serving the built app
+# Install serve for serving the built app
 RUN npm install -g serve
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package.json
 COPY package.json ./
 
 # Install dependencies
-RUN npm install --legacy-peer-deps
+RUN npm install
 
-# Copy all source files
-COPY . .
+# Copy public directory (needed for React build)
+COPY public/ ./public/
+
+# Copy src directory (the React source code)
+COPY src/ ./src/
 
 # Build the React app
 RUN npm run build
