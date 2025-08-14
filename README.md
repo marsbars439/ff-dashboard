@@ -22,25 +22,36 @@ A comprehensive web application for tracking fantasy football league records, st
 
 ## Quick Start
 
-### Using Pre-built Docker Image
-```bash
-docker run -d -p 3000:3000 ghcr.io/marsbars439/ff-dashboard:latest
+### Using Pre-built Docker Images (Recommended)
+
+# Deploy production with nginx reverse proxy
+docker-compose up -d
+
+# Or using make
+make deploy
 ```
 Then visit: http://localhost:3000
 
-### Using Docker Compose
-```bash
-docker-compose -f docker-compose.prod.yml up -d
+### Local Development
+# Development with hot reloading
+docker-compose -f docker-compose.dev.yml up --build
+
+# Or using make
+make dev
 ```
 
-### Local Development
-```bash
-# Development with hot reloading
-docker-compose up -d
+### Management Commands
+# Deploy latest version
+make deploy
 
-# Or run locally
-npm install
-npm start
+# View logs
+make logs
+
+# Stop application
+make down
+
+# Clean up everything
+make clean
 ```
 
 ## Technologies

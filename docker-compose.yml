@@ -1,33 +1,47 @@
-version: '3.8'
-
 services:
-  fantasy-football-app:
-    build: .
-    container_name: ff-dashboard
-    ports:
-      - "3000:80"
-    restart: unless-stopped
+  # Backend API
+  ff-dashboard-api:
+    image: ghcr.io/marsbars439/ff-dashboard-backend:latest
+    container_name: ff-dashboard-api
     environment:
       - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      - ff-data:/app/data
+    restart: unless-stopped
     networks:
-      - fantasy-network
+      - ff-network
+
+  # Frontend React App
+  ff-dashboard-web:
+    image: ghcr.io/marsbars439/ff-dashboard:latest
+    container_name: ff-dashboard-web
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=/api
+    restart: unless-stopped
+    networks:
+      - ff-network
+
+  # Nginx Reverse Proxy (single entry point)
+  nginx:
+    image: nginx:alpine
+    container_name: ff-dashboard-nginx
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ff-dashboard-web
+      - ff-dashboard-api
+    restart: unless-stopped
+    networks:
+      - ff-network
+
+volumes:
+  ff-data:
+    driver: local
 
 networks:
-  fantasy-network:
+  ff-network:
     driver: bridge
-
-# Optional: Add a reverse proxy for production
-  # nginx-proxy:
-  #   image: nginx:alpine
-  #   container_name: nginx-proxy
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
-  #     - ./ssl:/etc/nginx/ssl:ro  # If you have SSL certificates
-  #   depends_on:
-  #     - fantasy-football-app
-  #   restart: unless-stopped
-  #   networks:
-  #     - fantasy-network

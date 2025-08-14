@@ -1,33 +1,27 @@
-# Fantasy Football League - Docker Commands
+# FF Dashboard - Docker Commands
 
-.PHONY: help build up down logs restart clean dev dev-down prod-build prod-up deploy-prod pull-latest
+.PHONY: help build up down logs restart clean dev dev-down deploy pull-latest
 
 # Configuration
 REGISTRY = ghcr.io
-USERNAME = marsbars439  # Replace with your GitHub username
+USERNAME = marsbars439
 REPO_NAME = ff-dashboard
 IMAGE_TAG = latest
 
 # Default target
 help:
 	@echo "Available commands:"
-	@echo "  make build       - Build the production Docker image locally"
-	@echo "  make up          - Start the application (local build)"
+	@echo "  make up          - Start production (with nginx)"
 	@echo "  make down        - Stop the application"
 	@echo "  make logs        - View application logs"
 	@echo "  make restart     - Restart the application"
-	@echo "  make clean       - Remove containers and images"
+	@echo "  make deploy      - Deploy using pre-built GitHub images"
 	@echo "  make dev         - Start development environment"
 	@echo "  make dev-down    - Stop development environment"
-	@echo "  make prod-build  - Build and start production locally"
-	@echo "  make prod-up     - Start production (build if needed)"
-	@echo "  make pull-latest - Pull latest image from GitHub registry"
-	@echo "  make deploy-prod - Deploy using pre-built GitHub image"
+	@echo "  make clean       - Remove containers and images"
+	@echo "  make pull-latest - Pull latest images from GitHub registry"
 
-# Local development and building
-build:
-	docker-compose build
-
+# Production commands (main docker-compose.yml)
 up:
 	docker-compose up -d
 
@@ -40,6 +34,11 @@ logs:
 restart:
 	docker-compose restart
 
+# Deployment (pull latest images and start)
+deploy: pull-latest up
+	@echo "✅ Deployment complete!"
+	@echo "🌐 Application available at: http://localhost:3000"
+
 # Development commands
 dev:
 	docker-compose -f docker-compose.dev.yml up --build
@@ -47,32 +46,27 @@ dev:
 dev-down:
 	docker-compose -f docker-compose.dev.yml down
 
-# Local production commands
-prod-build: build up
-
-prod-up:
-	docker-compose up -d --build
-
-# GitHub registry commands
+# Pull latest images from GitHub Container Registry
 pull-latest:
-	docker pull $(REGISTRY)/$(USERNAME)/$(REPO_NAME):$(IMAGE_TAG)
-
-deploy-prod:
-	docker-compose -f docker-compose.prod.yml pull
-	docker-compose -f docker-compose.prod.yml up -d
+	docker-compose pull
 
 # Cleanup commands
 clean:
 	docker-compose down --volumes --remove-orphans
 	docker-compose -f docker-compose.dev.yml down --volumes --remove-orphans
-	docker-compose -f docker-compose.prod.yml down --volumes --remove-orphans
 	docker system prune -f
 	docker image prune -f
 
-# Force rebuild everything
-rebuild: clean prod-build
+# Status check
+status:
+	docker-compose ps
 
-# Update deployment script username
-update-username:
-	@read -p "Enter your GitHub username: " username; \
-	sed -i 's/YOURUSERNAME/'$username'/g' Makefile docker-compose.prod.yml deploy.sh
+# View specific service logs
+logs-api:
+	docker-compose logs -f ff-dashboard-api
+
+logs-web:
+	docker-compose logs -f ff-dashboard-web
+
+logs-nginx:
+	docker-compose logs -f nginx

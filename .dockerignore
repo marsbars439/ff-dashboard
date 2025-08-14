@@ -15,8 +15,10 @@ DOCKER-TROUBLESHOOTING.md
 coverage
 .DS_Store
 *.log
-Dockerfile*
-docker-compose*.yml
+Dockerfile.dev
 deploy.sh
 Makefile
 test-build.sh
+backend/node_modules
+backend/uploads
+backend/data/*.db
