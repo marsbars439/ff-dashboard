@@ -1,4 +1,4 @@
-# Backend Dockerfile
+# Simplest Backend Dockerfile - Remove build-time DB init
 FROM node:18-alpine
 
 # Install build dependencies for SQLite3
@@ -14,7 +14,7 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies and rebuild SQLite3 for Alpine
+# Install dependencies and rebuild SQLite3
 RUN npm ci --only=production && \
     npm rebuild sqlite3
 
@@ -24,11 +24,8 @@ COPY . .
 # Create data directory for SQLite
 RUN mkdir -p data uploads
 
-# Initialize database
-RUN npm run init-db
-
 # Expose port
 EXPOSE 3001
 
-# Start the server
+# Start the server (database will be created automatically on first API call)
 CMD ["npm", "start"]
