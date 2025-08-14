@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # Backend API
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ff-dashboard-api
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      - ./backend/data:/app/data
+    networks:
+      - ff-network
+    restart: unless-stopped
+
+  # Frontend React App
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ff-dashboard-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=http://localhost:3001/api
+    depends_on:
+      - api
+    networks:
+      - ff-network
+    restart: unless-stopped
+
+  # Optional: Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: ff-dashboard-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+      - api
+    networks:
+      - ff-network
+    restart: unless-stopped
+
+networks:
+  ff-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local
