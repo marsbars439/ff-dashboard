@@ -1,7 +1,7 @@
-# Backend Dockerfile - Fixed
+# Backend Dockerfile - Multi-architecture SQLite3 fix
 FROM node:18-alpine
 
-# Install build dependencies for SQLite3  
+# Install build dependencies for SQLite3
 RUN apk add --no-cache \
     python3 \
     make \
@@ -14,23 +14,25 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies and rebuild SQLite3
-RUN npm ci --only=production && \
-    npm rebuild sqlite3
+# Install dependencies first (without building SQLite3 yet)
+RUN npm ci --only=production
 
 # Copy source code
 COPY . .
 
-# Create data directory for SQLite
+# Create directories
 RUN mkdir -p data uploads
 
-# Create a startup script that handles everything
+# Create startup script that rebuilds SQLite3 at runtime for current architecture
 RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'echo "🚀 Starting FF Dashboard Backend..."' >> /app/start.sh && \
+    echo 'echo "🔧 Rebuilding SQLite3 for current architecture..."' >> /app/start.sh && \
+    echo 'npm rebuild sqlite3' >> /app/start.sh && \
+    echo 'echo "✅ SQLite3 rebuild completed"' >> /app/start.sh && \
     echo 'echo "🗄️  Initializing database..."' >> /app/start.sh && \
     echo 'npm run init-db || echo "⚠️  Database might already exist"' >> /app/start.sh && \
     echo 'echo "🎯 Starting server..."' >> /app/start.sh && \
-    echo 'exec npm start' >> /app/start.sh && \
+    echo 'exec node server.js' >> /app/start.sh && \
     chmod +x /app/start.sh
 
 # Expose port
