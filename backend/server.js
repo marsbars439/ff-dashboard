@@ -114,11 +114,11 @@ app.post('/api/managers', (req, res) => {
   });
 });
 
-// Add a new team season
+// Add a new team season (updated to include dues_chumpion)
 app.post('/api/team-seasons', (req, res) => {
   const {
     year, name_id, team_name, wins, losses, points_for, points_against,
-    regular_season_rank, playoff_finish, dues, payout, high_game
+    regular_season_rank, playoff_finish, dues, payout, dues_chumpion, high_game
   } = req.body;
   
   if (!year || !name_id || wins === undefined || losses === undefined) {
@@ -128,13 +128,14 @@ app.post('/api/team-seasons', (req, res) => {
   const query = `
     INSERT INTO team_seasons (
       year, name_id, team_name, wins, losses, points_for, points_against,
-      regular_season_rank, playoff_finish, dues, payout, high_game
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      regular_season_rank, playoff_finish, dues, payout, dues_chumpion, high_game
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   
   const values = [
     year, name_id, team_name || '', wins, losses, points_for || 0, points_against || 0,
-    regular_season_rank || null, playoff_finish || null, dues || 200, payout || 0, high_game || null
+    regular_season_rank || null, playoff_finish || null, dues || 250, payout || 0, 
+    dues_chumpion || 0, high_game || null
   ];
   
   db.run(query, values, function(err) {
@@ -149,25 +150,25 @@ app.post('/api/team-seasons', (req, res) => {
   });
 });
 
-// Update a team season
+// Update a team season (updated to include dues_chumpion)
 app.put('/api/team-seasons/:id', (req, res) => {
   const id = req.params.id;
   const {
     year, name_id, team_name, wins, losses, points_for, points_against,
-    regular_season_rank, playoff_finish, dues, payout, high_game
+    regular_season_rank, playoff_finish, dues, payout, dues_chumpion, high_game
   } = req.body;
 
   const query = `
     UPDATE team_seasons SET
       year = ?, name_id = ?, team_name = ?, wins = ?, losses = ?, 
       points_for = ?, points_against = ?, regular_season_rank = ?, 
-      playoff_finish = ?, dues = ?, payout = ?, high_game = ?
+      playoff_finish = ?, dues = ?, payout = ?, dues_chumpion = ?, high_game = ?
     WHERE id = ?
   `;
   
   const values = [
     year, name_id, team_name, wins, losses, points_for, points_against,
-    regular_season_rank, playoff_finish, dues, payout, high_game, id
+    regular_season_rank, playoff_finish, dues, payout, dues_chumpion || 0, high_game, id
   ];
   
   db.run(query, values, function(err) {
@@ -192,7 +193,7 @@ app.delete('/api/team-seasons/:id', (req, res) => {
   });
 });
 
-// Upload Excel file and import data
+// Upload Excel file and import data (updated to include dues_chumpion)
 app.post('/api/upload-excel', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
@@ -211,12 +212,12 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
       }
     });
 
-    // Insert new data
+    // Insert new data with dues_chumpion support
     const insertQuery = `
       INSERT INTO team_seasons (
         year, name_id, team_name, wins, losses, points_for, points_against,
-        regular_season_rank, playoff_finish, dues, payout, high_game
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        regular_season_rank, playoff_finish, dues, payout, dues_chumpion, high_game
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     let insertedCount = 0;
@@ -231,8 +232,9 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
         row.points_against || 0,
         row.regular_season_rank || null,
         row.playoff_finish || null,
-        row.dues || 200,
+        row.dues || 250,
         row.payout || 0,
+        row.dues_chumpion || 0, // New column support
         row.high_game || null
       ];
 
@@ -256,6 +258,69 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to process Excel file: ' + error.message });
   }
+});
+
+// Get rules
+app.get('/api/rules', (req, res) => {
+  // For now, return the hardcoded rules
+  // Later you can store this in the database
+  const rulesContent = `# League Rules
+
+## Keeper Rules
+- Each manager may keep **up to 2 players** from year to year.
+- A player **cannot be kept more than two consecutive years**, regardless of which manager keeps the player.
+
+## Draft Rules
+- **Base draft salary:** **$200** per team.
+- **Nomination order:** reverse of the previous season's final **regular season** standings.
+
+## 2025 League Dues & Payouts
+- **2025 League Dues:** **$250** per team.
+
+### 2025 Payouts
+- **$1,250** to **1st place**
+- **$650** to **2nd place**
+- **$300** for **best regular season record**
+- **$300** for **most regular season points**
+
+## Playoffs
+- **6 teams** qualify.
+- Weeks **15, 16, 17**.
+- **Seeds 1 & 2** receive **byes in Week 15**.
+
+## Trade Rules
+- Trade deadline is **Week 10**.
+- All trades must be **unanimous approval** from all non-trading managers.
+
+## Scoring
+- Standard PPR scoring with **1 point per reception**.
+- **6 points** for passing TDs.
+- **-2 points** for interceptions and fumbles.
+
+## Lineup Requirements
+- **1 QB, 2 RB, 3 WR, 1 TE, 1 K, 1 DEF**
+- **6 bench spots**
+- **1 IR spot**
+
+## Waiver Rules
+- **FAAB** (Free Agent Acquisition Budget) system.
+- **$100 budget** per season.
+- Waivers process **Wednesday mornings**.`;
+
+  res.json({ rules: rulesContent });
+});
+
+// Update rules
+app.put('/api/rules', (req, res) => {
+  const { rules } = req.body;
+  
+  if (!rules) {
+    return res.status(400).json({ error: 'Rules content is required' });
+  }
+
+  // For now, just return success
+  // Later you can implement storing in database or file system
+  res.json({ message: 'Rules updated successfully' });
 });
 
 // Get statistics/aggregated data
