@@ -1,7 +1,7 @@
-# Simplest Backend Dockerfile - Remove build-time DB init
+# Backend Dockerfile - Fixed
 FROM node:18-alpine
 
-# Install build dependencies for SQLite3
+# Install build dependencies for SQLite3  
 RUN apk add --no-cache \
     python3 \
     make \
@@ -24,8 +24,17 @@ COPY . .
 # Create data directory for SQLite
 RUN mkdir -p data uploads
 
+# Create a startup script that handles everything
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'echo "🚀 Starting FF Dashboard Backend..."' >> /app/start.sh && \
+    echo 'echo "🗄️  Initializing database..."' >> /app/start.sh && \
+    echo 'npm run init-db || echo "⚠️  Database might already exist"' >> /app/start.sh && \
+    echo 'echo "🎯 Starting server..."' >> /app/start.sh && \
+    echo 'exec npm start' >> /app/start.sh && \
+    chmod +x /app/start.sh
+
 # Expose port
 EXPOSE 3001
 
-# Start the server (database will be created automatically on first API call)
-CMD ["npm", "start"]
+# Use startup script
+CMD ["/app/start.sh"]
