@@ -530,7 +530,134 @@
                   <div className="flex items-center justify-between mb-6">
                     <h4 className="text-2xl font-bold text-gray-900">
                       {allRecords[selectedManager].name}
-                    </h4>import React, { useState, useEffect } from 'react';
+                    </h4>
+                    {!allRecords[selectedManager].active && (
+                      <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+                        INACTIVE
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="bg-white p-4 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600 mb-1">Franchise Record</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {allRecords[selectedManager].totalWins}-{allRecords[selectedManager].totalLosses}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {(allRecords[selectedManager].winPct * 100).toFixed(1)}% win rate
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600 mb-1">Playoff Appearances</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {allRecords[selectedManager].playoffAppearances}/{allRecords[selectedManager].seasons}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {allRecords[selectedManager].seasons > 0 ? 
+                          ((allRecords[selectedManager].playoffAppearances / allRecords[selectedManager].seasons) * 100).toFixed(0) : 0}% rate
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600 mb-1">Net Earnings</p>
+                      <p className={`text-2xl font-bold ${
+                        allRecords[selectedManager].netEarnings >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {allRecords[selectedManager].netEarnings >= 0 ? '+' : '-'}${Math.abs(allRecords[selectedManager].netEarnings)}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        ${allRecords[selectedManager].totalPayout} won - ${allRecords[selectedManager].totalDues} dues
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600 mb-1">Championships</p>
+                      <p className="text-2xl font-bold text-yellow-600">
+                        {allRecords[selectedManager].championships}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {allRecords[selectedManager].totalMedals} total medals
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white p-4 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600 mb-2">Best Season</p>
+                      {allRecords[selectedManager].bestRecord ? (
+                        <div>
+                          <p className="text-lg font-bold">
+                            {allRecords[selectedManager].bestRecord.wins}-{allRecords[selectedManager].bestRecord.losses}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {allRecords[selectedManager].bestRecord.year} • {(allRecords[selectedManager].bestRecord.pct * 100).toFixed(1)}% win rate
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 italic">No data available</p>
+                      )}
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600 mb-2">Scoring Stats</p>
+                      <p className="text-lg font-bold">
+                        {allRecords[selectedManager].pointsPerGame.toFixed(1)} PPG
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {allRecords[selectedManager].totalPointsFor.toFixed(0)} total points in {allRecords[selectedManager].gamesPlayed} games
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'rules' && (
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="flex items-center space-x-3 mb-8">
+              <BookOpen className="w-8 h-8 text-blue-500" />
+              <h2 className="text-3xl font-bold text-gray-900">League Rules</h2>
+            </div>
+            <div className="prose prose-lg max-w-none">
+              {rulesContent.split('\n').map((line, index) => {
+                if (line.startsWith('# ')) {
+                  return <h1 key={index} className="text-3xl font-bold text-gray-900 mt-8 mb-4">{line.slice(2)}</h1>;
+                } else if (line.startsWith('## ')) {
+                  return <h2 key={index} className="text-2xl font-bold text-gray-800 mt-6 mb-3">{line.slice(3)}</h2>;
+                } else if (line.startsWith('### ')) {
+                  return <h3 key={index} className="text-xl font-bold text-gray-700 mt-4 mb-2">{line.slice(4)}</h3>;
+                } else if (line.startsWith('- ')) {
+                  return <li key={index} className="ml-4 text-gray-700 mb-1">{line.slice(2)}</li>;
+                } else if (line.startsWith('> ')) {
+                  return <blockquote key={index} className="border-l-4 border-gray-300 pl-4 italic text-gray-600 my-4">{line.slice(2)}</blockquote>;
+                } else if (line.includes('**') && line.includes('**')) {
+                  const parts = line.split('**');
+                  return (
+                    <p key={index} className="text-gray-700 mb-2">
+                      {parts.map((part, i) => 
+                        i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+                      )}
+                    </p>
+                  );
+                } else if (line.trim() === '' || line.trim() === '---') {
+                  return <br key={index} />;
+                } else {
+                  return <p key={index} className="text-gray-700 mb-2">{line}</p>;
+                }
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default FantasyFootballApp;import React, { useState, useEffect } from 'react';
 import { Trophy, Users, TrendingUp, DollarSign, Calendar, BookOpen, BarChart3, Award, Zap, Crown, Target, ChevronDown } from 'lucide-react';
 
 const FantasyFootballApp = () => {
