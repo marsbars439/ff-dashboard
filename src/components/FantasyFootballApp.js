@@ -204,6 +204,28 @@ const FantasyFootballApp = () => {
       };
     });
 
+    // Group seasons by year to find the chumpion (worst regular season rank) for each year
+    const seasonsByYear = {};
+    teamSeasons.forEach(season => {
+      if (!seasonsByYear[season.year]) {
+        seasonsByYear[season.year] = [];
+      }
+      seasonsByYear[season.year].push(season);
+    });
+
+    // For each year, find the chumpion (highest regular_season_rank number)
+    const chumpionsByYear = {};
+    Object.keys(seasonsByYear).forEach(year => {
+      const seasonsInYear = seasonsByYear[year];
+      const validRanks = seasonsInYear.filter(s => s.regular_season_rank && s.regular_season_rank > 0);
+      if (validRanks.length > 0) {
+        const chumpion = validRanks.reduce((worst, current) => 
+          current.regular_season_rank > worst.regular_season_rank ? current : worst
+        );
+        chumpionsByYear[year] = chumpion.name_id;
+      }
+    });
+
     teamSeasons.forEach(season => {
       if (records[season.name_id]) {
         const record = records[season.name_id];
@@ -221,7 +243,11 @@ const FantasyFootballApp = () => {
         if (season.playoff_finish === 2) record.secondPlace += 1;
         if (season.playoff_finish === 3) record.thirdPlace += 1;
         
-        if (season.regular_season_rank === 10) record.chumpionships += 1;
+        // Check if this manager was the chumpion this year
+        if (chumpionsByYear[season.year] === season.name_id) {
+          record.chumpionships += 1;
+        }
+        
         if (season.regular_season_rank <= 6) record.playoffAppearances += 1;
         
         const winPct = season.wins / (season.wins + season.losses);
@@ -258,7 +284,13 @@ const FantasyFootballApp = () => {
   };
 
   const getCurrentYearChumpionDues = () => {
-    const currentChumpionSeason = currentYearSeasons.find(s => s.regular_season_rank === 10);
+    // Find the chumpion for the current year (highest regular_season_rank)
+    const currentYearSeasonsWithRank = currentYearSeasons.filter(s => s.regular_season_rank && s.regular_season_rank > 0);
+    if (currentYearSeasonsWithRank.length === 0) return 0;
+    
+    const currentChumpionSeason = currentYearSeasonsWithRank.reduce((worst, current) => 
+      current.regular_season_rank > worst.regular_season_rank ? current : worst
+    );
     return currentChumpionSeason?.dues_chumpion || 0;
   };
 
@@ -299,7 +331,14 @@ const FantasyFootballApp = () => {
   const mostRecentYear = teamSeasons.length > 0 ? Math.max(...teamSeasons.map(s => s.year)) : new Date().getFullYear();
   const currentYearSeasons = teamSeasons.filter(s => s.year === mostRecentYear);
   const currentChampion = currentYearSeasons.find(s => s.playoff_finish === 1);
-  const currentChumpion = currentYearSeasons.find(s => s.regular_season_rank === 10);
+  
+  // Find current chumpion (highest regular_season_rank number)
+  const currentYearSeasonsWithRank = currentYearSeasons.filter(s => s.regular_season_rank && s.regular_season_rank > 0);
+  const currentChumpion = currentYearSeasonsWithRank.length > 0 
+    ? currentYearSeasonsWithRank.reduce((worst, current) => 
+        current.regular_season_rank > worst.regular_season_rank ? current : worst
+      )
+    : null;
 
   const medalRankings = [...activeRecords, ...inactiveRecords].sort((a, b) => {
     if (b.championships !== a.championships) return b.championships - a.championships;
@@ -421,9 +460,133 @@ const FantasyFootballApp = () => {
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center text-2xl">
-                    🏮
+                    💩
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Medal Count Rankings - MOVED TO TOP - FULL WIDTH LAYOUT */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
+                <Award className="w-5 h-5 text-yellow-500" />
+                <span>Medal Count Rankings</span>
+              </h3>
+              
+              <div className="space-y-3">
+                {medalRankings.map((manager, index) => (
+                  <div 
+                    key={manager.name} 
+                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all duration-200 ${
+                      manager.active 
+                        ? 'bg-gradient-to-r from-white to-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-md' 
+                        : 'bg-gray-50 border-gray-300 opacity-60'
+                    }`}
+                  >
+                    {/* Left side - Rank and Name */}
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${
+                        index === 0 && manager.active
+                          ? 'bg-yellow-500 text-white shadow-lg'
+                          : index === 1 && manager.active
+                          ? 'bg-gray-400 text-white shadow-md'
+                          : index === 2 && manager.active
+                          ? 'bg-amber-600 text-white shadow-md'
+                          : manager.active
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-400 text-gray-600'
+                      }`}>
+                        {index + 1}
+                      </div>
+                      
+                      <div>
+                        <h4 className={`font-bold text-xl ${
+                          manager.active ? 'text-gray-900' : 'text-gray-500'
+                        }`}>
+                          {manager.name}
+                        </h4>
+                        {!manager.active && (
+                          <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded-full">
+                            INACTIVE
+                          </span>
+                        )}
+                        {manager.active && (
+                          <div className="text-sm text-gray-500">
+                            {(manager.winPct * 100).toFixed(1)}% win rate • {manager.seasons} seasons
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right side - Medal counts */}
+                    <div className="flex items-center space-x-6">
+                      {/* Championships */}
+                      <div className="text-center">
+                        <div className="flex items-center space-x-1 mb-1">
+                          <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">🏆</span>
+                          </div>
+                          <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Championships
+                          </span>
+                        </div>
+                        <span className={`font-bold text-2xl ${
+                          manager.championships > 0 && manager.active ? 'text-yellow-600' : 'text-gray-400'
+                        }`}>
+                          {manager.championships}
+                        </span>
+                      </div>
+
+                      {/* Second Place */}
+                      <div className="text-center">
+                        <div className="flex items-center space-x-1 mb-1">
+                          <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">🥈</span>
+                          </div>
+                          <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Runner-up
+                          </span>
+                        </div>
+                        <span className={`font-bold text-2xl ${
+                          manager.secondPlace > 0 && manager.active ? 'text-gray-600' : 'text-gray-400'
+                        }`}>
+                          {manager.secondPlace}
+                        </span>
+                      </div>
+
+                      {/* Third Place */}
+                      <div className="text-center">
+                        <div className="flex items-center space-x-1 mb-1">
+                          <div className="w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">🥉</span>
+                          </div>
+                          <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Third place
+                          </span>
+                        </div>
+                        <span className={`font-bold text-2xl ${
+                          manager.thirdPlace > 0 && manager.active ? 'text-amber-600' : 'text-gray-400'
+                        }`}>
+                          {manager.thirdPlace}
+                        </span>
+                      </div>
+
+                      {/* Total Medals */}
+                      <div className="text-center">
+                        <div className="text-xs font-medium text-gray-600 mb-1">
+                          Total Medals
+                        </div>
+                        <div className={`px-4 py-2 rounded-full text-xl font-bold ${
+                          manager.totalMedals > 0 && manager.active
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {manager.totalMedals}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -515,135 +678,6 @@ const FantasyFootballApp = () => {
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-
-            {/* Improved Medal Count Rankings */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
-                <Award className="w-5 h-5 text-yellow-500" />
-                <span>Medal Count Rankings</span>
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {medalRankings.map((manager, index) => (
-                  <div 
-                    key={manager.name} 
-                    className={`relative p-5 rounded-lg border-2 transition-all duration-200 ${
-                      manager.active 
-                        ? 'bg-gradient-to-br from-white to-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-md' 
-                        : 'bg-gray-50 border-gray-300 opacity-60'
-                    }`}
-                  >
-                    {/* Rank Badge */}
-                    <div className={`absolute -top-2 -left-2 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                      index === 0 && manager.active
-                        ? 'bg-yellow-500 text-white shadow-lg'
-                        : index === 1 && manager.active
-                        ? 'bg-gray-400 text-white shadow-md'
-                        : index === 2 && manager.active
-                        ? 'bg-amber-600 text-white shadow-md'
-                        : manager.active
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-400 text-gray-600'
-                    }`}>
-                      {index + 1}
-                    </div>
-
-                    {/* Manager Name */}
-                    <div className="mb-3">
-                      <h4 className={`font-bold text-lg leading-tight ${
-                        manager.active ? 'text-gray-900' : 'text-gray-500'
-                      }`}>
-                        {manager.name}
-                      </h4>
-                      {!manager.active && (
-                        <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded-full">
-                          INACTIVE
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Medal Counts */}
-                    <div className="space-y-2">
-                      {/* Championships */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">🏆</span>
-                          </div>
-                          <span className={`text-sm font-medium ${manager.active ? 'text-gray-700' : 'text-gray-500'}`}>
-                            Championships
-                          </span>
-                        </div>
-                        <span className={`font-bold text-lg ${
-                          manager.championships > 0 && manager.active ? 'text-yellow-600' : 'text-gray-400'
-                        }`}>
-                          {manager.championships}
-                        </span>
-                      </div>
-
-                      {/* Second Place */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">🥈</span>
-                          </div>
-                          <span className={`text-sm font-medium ${manager.active ? 'text-gray-700' : 'text-gray-500'}`}>
-                            Runner-up
-                          </span>
-                        </div>
-                        <span className={`font-bold ${
-                          manager.secondPlace > 0 && manager.active ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
-                          {manager.secondPlace}
-                        </span>
-                      </div>
-
-                      {/* Third Place */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-4 h-4 bg-amber-600 rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">🥉</span>
-                          </div>
-                          <span className={`text-sm font-medium ${manager.active ? 'text-gray-700' : 'text-gray-500'}`}>
-                            Third place
-                          </span>
-                        </div>
-                        <span className={`font-bold ${
-                          manager.thirdPlace > 0 && manager.active ? 'text-amber-600' : 'text-gray-400'
-                        }`}>
-                          {manager.thirdPlace}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Total Medals */}
-                    <div className={`mt-3 pt-3 border-t ${manager.active ? 'border-gray-200' : 'border-gray-300'}`}>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm font-semibold ${manager.active ? 'text-gray-800' : 'text-gray-500'}`}>
-                          Total Medals
-                        </span>
-                        <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          manager.totalMedals > 0 && manager.active
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {manager.totalMedals}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Win Percentage (bonus info) */}
-                    {manager.active && (
-                      <div className="mt-2 text-center">
-                        <span className="text-xs text-gray-500">
-                          {(manager.winPct * 100).toFixed(1)}% win rate
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
               </div>
             </div>
 
@@ -919,7 +953,7 @@ const FantasyFootballApp = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select Rank</option>
-                      {[1,2,3,4,5,6,7,8,9,10].map(rank => (
+                      {[1,2,3,4,5,6,7,8,9,10,11,12].map(rank => (
                         <option key={rank} value={rank}>{rank}</option>
                       ))}
                     </select>
