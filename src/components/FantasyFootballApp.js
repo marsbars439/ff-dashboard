@@ -386,6 +386,7 @@ const FantasyFootballApp = () => {
         secondPlace: 0,
         thirdPlace: 0,
         chumpionships: 0,
+        chumpionYears: [], // Track years when manager was chumpion
         totalWins: 0,
         totalLosses: 0,
         totalPointsFor: 0,
@@ -447,6 +448,7 @@ const FantasyFootballApp = () => {
         // Check if this manager was the chumpion this year
         if (chumpionsByYear[season.year] === season.name_id) {
           record.chumpionships += 1;
+          record.chumpionYears.push(season.year); // Track the year
         }
         
         if (season.regular_season_rank <= 6) record.playoffAppearances += 1;
@@ -479,6 +481,9 @@ const FantasyFootballApp = () => {
       record.pointsPerGame = record.gamesPlayed > 0 ? record.totalPointsFor / record.gamesPlayed : 0;
       record.netEarnings = record.totalPayout - record.totalDues - record.totalDuesChumpion;
       record.totalMedals = record.championships + record.secondPlace + record.thirdPlace;
+      
+      // Sort chumpion years in descending order (most recent first)
+      record.chumpionYears.sort((a, b) => b - a);
     });
 
     return records;
@@ -548,8 +553,11 @@ const FantasyFootballApp = () => {
     return b.thirdPlace - a.thirdPlace;
   });
 
-  // Chumpion Rankings: Sort by chumpionships only, don't separate active/inactive
-  const chumpionRankings = Object.values(allRecords).sort((a, b) => b.chumpionships - a.chumpionships);
+  // Chumpion Rankings: Sort by chumpionships, then by seasons (fewer seasons = worse ranking)
+  const chumpionRankings = Object.values(allRecords).sort((a, b) => {
+    if (b.chumpionships !== a.chumpionships) return b.chumpionships - a.chumpionships;
+    return a.seasons - b.seasons; // Fewer seasons = worse ranking when tied
+  });
   
   const winPctRankings = [
     ...activeRecords.sort((a, b) => b.winPct - a.winPct),
@@ -895,10 +903,10 @@ const FantasyFootballApp = () => {
                     </div>
                     <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-gray-600">
-                        {manager.totalMedals} total medals
+                        {manager.seasons} seasons
                       </span>
                       <span className="text-gray-600">
-                        {manager.seasons} seasons
+                        {manager.chumpionYears.length > 0 ? manager.chumpionYears.join(', ') : 'None'}
                       </span>
                     </div>
                   </div>
@@ -1046,20 +1054,13 @@ const FantasyFootballApp = () => {
               </div>
             </div>
 
-            {/* NEW: Manager Data Table */}
+            {/* Manager Data Table - Display Only */}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center space-x-2">
                   <Users className="w-5 h-5 text-blue-500" />
                   <span>Manager Data</span>
                 </h3>
-                <button
-                  onClick={addNewManager}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2 text-sm sm:text-base"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add New Manager</span>
-                </button>
               </div>
               
               <div className="overflow-x-auto">
@@ -1070,7 +1071,6 @@ const FantasyFootballApp = () => {
                       <th className="text-left p-2 font-medium text-gray-700">Full Name</th>
                       <th className="text-left p-2 font-medium text-gray-700">Sleeper Username</th>
                       <th className="text-left p-2 font-medium text-gray-700">Active</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1079,106 +1079,26 @@ const FantasyFootballApp = () => {
                       return a.full_name.localeCompare(b.full_name); // Then alphabetical
                     }).map((manager) => (
                       <tr key={manager.id} className="border-b hover:bg-gray-50">
-                        {editingManager === manager.id ? (
-                          <>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={editedManagerData.name_id}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, name_id: e.target.value})}
-                                className="w-20 px-1 py-1 border rounded text-xs"
-                                placeholder="Name ID"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={editedManagerData.full_name}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, full_name: e.target.value})}
-                                className="w-32 px-1 py-1 border rounded text-xs"
-                                placeholder="Full Name"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={editedManagerData.sleeper_username || ''}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, sleeper_username: e.target.value})}
-                                className="w-24 px-1 py-1 border rounded text-xs"
-                                placeholder="Username"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <select
-                                value={editedManagerData.active}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, active: parseInt(e.target.value)})}
-                                className="w-16 px-1 py-1 border rounded text-xs"
-                              >
-                                <option value={1}>Yes</option>
-                                <option value={0}>No</option>
-                              </select>
-                            </td>
-                            <td className="p-2">
-                              <div className="flex space-x-1">
-                                <button
-                                  onClick={saveManagerEdit}
-                                  className="bg-green-500 hover:bg-green-600 text-white p-1 rounded transition-colors"
-                                  title="Save"
-                                >
-                                  <Save className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={cancelManagerEdit}
-                                  className="bg-gray-500 hover:bg-gray-600 text-white p-1 rounded transition-colors"
-                                  title="Cancel"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="p-2">
-                              <span className="font-mono text-xs">{manager.name_id}</span>
-                            </td>
-                            <td className="p-2">
-                              <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                                {manager.full_name}
-                              </span>
-                            </td>
-                            <td className="p-2">
-                              <span className="text-gray-600">{manager.sleeper_username || '-'}</span>
-                            </td>
-                            <td className="p-2">
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                manager.active 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {manager.active ? 'Active' : 'Inactive'}
-                              </span>
-                            </td>
-                            <td className="p-2">
-                              <div className="flex space-x-1">
-                                <button
-                                  onClick={() => startManagerEdit(manager)}
-                                  className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded transition-colors"
-                                  title="Edit"
-                                >
-                                  <Edit3 className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={() => deleteManager(manager.id)}
-                                  className="bg-red-500 hover:bg-red-600 text-white p-1 rounded transition-colors"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        )}
+                        <td className="p-2">
+                          <span className="font-mono text-xs">{manager.name_id}</span>
+                        </td>
+                        <td className="p-2">
+                          <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                            {manager.full_name}
+                          </span>
+                        </td>
+                        <td className="p-2">
+                          <span className="text-gray-600">{manager.sleeper_username || '-'}</span>
+                        </td>
+                        <td className="p-2">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            manager.active 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {manager.active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1186,20 +1106,14 @@ const FantasyFootballApp = () => {
               </div>
             </div>
 
-            {/* Season Data Table */}
+            {/* Season Data Table - Limited Editing */}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center space-x-2">
                   <Edit3 className="w-5 h-5 text-green-500" />
                   <span>Season Data</span>
                 </h3>
-                <button
-                  onClick={addNewRow}
-                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2 text-sm sm:text-base"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add New Season</span>
-                </button>
+                <p className="text-sm text-gray-600">Only Dues, Payout, and Chumpion fields are editable</p>
               </div>
               
               <div className="overflow-x-auto">
@@ -1225,93 +1139,21 @@ const FantasyFootballApp = () => {
                       <tr key={season.id} className="border-b hover:bg-gray-50">
                         {editingRow === season.id ? (
                           <>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                value={editedData.year}
-                                onChange={(e) => setEditedData({...editedData, year: parseInt(e.target.value)})}
-                                className="w-16 px-1 py-1 border rounded text-xs"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <select
-                                value={editedData.name_id}
-                                onChange={(e) => setEditedData({...editedData, name_id: e.target.value})}
-                                className="w-24 px-1 py-1 border rounded text-xs"
-                              >
-                                {managers.map(manager => (
-                                  <option key={manager.name_id} value={manager.name_id}>
-                                    {manager.full_name.split(' ')[0]}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={editedData.team_name}
-                                onChange={(e) => setEditedData({...editedData, team_name: e.target.value})}
-                                className="w-20 px-1 py-1 border rounded text-xs"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <div className="flex space-x-1">
-                                <input
-                                  type="number"
-                                  value={editedData.wins}
-                                  onChange={(e) => setEditedData({...editedData, wins: parseInt(e.target.value)})}
-                                  className="w-8 px-1 py-1 border rounded text-xs"
-                                />
-                                <span className="text-xs self-center">-</span>
-                                <input
-                                  type="number"
-                                  value={editedData.losses}
-                                  onChange={(e) => setEditedData({...editedData, losses: parseInt(e.target.value)})}
-                                  className="w-8 px-1 py-1 border rounded text-xs"
-                                />
-                              </div>
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                step="0.1"
-                                value={editedData.points_for}
-                                onChange={(e) => setEditedData({...editedData, points_for: parseFloat(e.target.value)})}
-                                className="w-16 px-1 py-1 border rounded text-xs"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                step="0.1"
-                                value={editedData.points_against}
-                                onChange={(e) => setEditedData({...editedData, points_against: parseFloat(e.target.value)})}
-                                className="w-16 px-1 py-1 border rounded text-xs"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                value={editedData.regular_season_rank || ''}
-                                onChange={(e) => setEditedData({...editedData, regular_season_rank: e.target.value ? parseInt(e.target.value) : null})}
-                                className="w-12 px-1 py-1 border rounded text-xs"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                value={editedData.playoff_finish || ''}
-                                onChange={(e) => setEditedData({...editedData, playoff_finish: e.target.value ? parseInt(e.target.value) : null})}
-                                className="w-12 px-1 py-1 border rounded text-xs"
-                              />
-                            </td>
+                            <td className="p-2">{season.year}</td>
+                            <td className="p-2">{managers.find(m => m.name_id === season.name_id)?.full_name.split(' ')[0] || season.name_id}</td>
+                            <td className="p-2">{season.team_name}</td>
+                            <td className="p-2">{season.wins}-{season.losses}</td>
+                            <td className="p-2">{season.points_for}</td>
+                            <td className="p-2">{season.points_against}</td>
+                            <td className="p-2">{season.regular_season_rank || '-'}</td>
+                            <td className="p-2">{season.playoff_finish || '-'}</td>
                             <td className="p-2">
                               <input
                                 type="number"
                                 step="0.01"
                                 value={editedData.dues}
                                 onChange={(e) => setEditedData({...editedData, dues: parseFloat(e.target.value)})}
-                                className="w-16 px-1 py-1 border rounded text-xs"
+                                className="w-16 px-1 py-1 border rounded text-xs bg-yellow-50"
                               />
                             </td>
                             <td className="p-2">
@@ -1320,7 +1162,7 @@ const FantasyFootballApp = () => {
                                 step="0.01"
                                 value={editedData.payout}
                                 onChange={(e) => setEditedData({...editedData, payout: parseFloat(e.target.value)})}
-                                className="w-16 px-1 py-1 border rounded text-xs"
+                                className="w-16 px-1 py-1 border rounded text-xs bg-yellow-50"
                               />
                             </td>
                             <td className="p-2">
@@ -1329,7 +1171,7 @@ const FantasyFootballApp = () => {
                                 step="0.01"
                                 value={editedData.dues_chumpion || ''}
                                 onChange={(e) => setEditedData({...editedData, dues_chumpion: e.target.value ? parseFloat(e.target.value) : 0})}
-                                className="w-16 px-1 py-1 border rounded text-xs"
+                                className="w-16 px-1 py-1 border rounded text-xs bg-yellow-50"
                               />
                             </td>
                             <td className="p-2">
@@ -1361,24 +1203,17 @@ const FantasyFootballApp = () => {
                             <td className="p-2">{season.points_against}</td>
                             <td className="p-2">{season.regular_season_rank || '-'}</td>
                             <td className="p-2">{season.playoff_finish || '-'}</td>
-                            <td className="p-2">${season.dues}</td>
-                            <td className="p-2">${season.payout}</td>
-                            <td className="p-2">${season.dues_chumpion || 0}</td>
+                            <td className="p-2 bg-yellow-50">${season.dues}</td>
+                            <td className="p-2 bg-yellow-50">${season.payout}</td>
+                            <td className="p-2 bg-yellow-50">${season.dues_chumpion || 0}</td>
                             <td className="p-2">
-                              <div className="flex space-x-1">
-                                <button
-                                  onClick={() => startEdit(season)}
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => deleteRow(season.id)}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
+                              <button
+                                onClick={() => startEdit(season)}
+                                className="text-blue-600 hover:text-blue-800"
+                                title="Edit financial data"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
                             </td>
                           </>
                         )}
