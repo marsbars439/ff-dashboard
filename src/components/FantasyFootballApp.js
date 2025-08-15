@@ -191,7 +191,7 @@ const FantasyFootballApp = () => {
         totalPointsAgainst: 0,
         totalPayout: 0,
         totalDues: 0,
-        totalDuesChumpion: 0, // New field
+        totalDuesChumpion: 0,
         seasons: 0,
         playoffAppearances: 0,
         gamesPlayed: 0,
@@ -235,7 +235,7 @@ const FantasyFootballApp = () => {
         record.totalPointsAgainst += season.points_against;
         record.totalPayout += season.payout || 0;
         record.totalDues += season.dues || 250;
-        record.totalDuesChumpion += season.dues_chumpion || 0; // Track chumpion dues
+        record.totalDuesChumpion += season.dues_chumpion || 0;
         record.seasons += 1;
         record.gamesPlayed += (season.wins + season.losses);
         
@@ -276,7 +276,7 @@ const FantasyFootballApp = () => {
     Object.values(records).forEach(record => {
       record.winPct = record.gamesPlayed > 0 ? record.totalWins / (record.totalWins + record.totalLosses) : 0;
       record.pointsPerGame = record.gamesPlayed > 0 ? record.totalPointsFor / record.gamesPlayed : 0;
-      record.netEarnings = record.totalPayout - record.totalDues - record.totalDuesChumpion; // Include chumpion dues in net
+      record.netEarnings = record.totalPayout - record.totalDues - record.totalDuesChumpion;
       record.totalMedals = record.championships + record.secondPlace + record.thirdPlace;
     });
 
@@ -296,10 +296,10 @@ const FantasyFootballApp = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading FF Dashboard...</p>
+          <div className="animate-spin rounded-full h-24 w-24 sm:h-32 sm:w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-sm sm:text-base">Loading FF Dashboard...</p>
         </div>
       </div>
     );
@@ -307,14 +307,14 @@ const FantasyFootballApp = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+        <div className="text-center max-w-md w-full">
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             <p className="font-bold">Error</p>
-            <p>{error}</p>
+            <p className="text-sm">{error}</p>
             <button 
               onClick={fetchData}
-              className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+              className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm"
             >
               Retry
             </button>
@@ -362,15 +362,15 @@ const FantasyFootballApp = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="bg-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex flex-col sm:flex-row justify-between items-center py-4 sm:py-6 space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-3">
-              <Trophy className="w-8 h-8 text-yellow-500" />
-              <h1 className="text-3xl font-bold text-gray-900">FF Dashboard</h1>
+              <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500" />
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">FF Dashboard</h1>
             </div>
-            <nav className="flex space-x-6">
+            <nav className="flex flex-wrap justify-center sm:justify-end space-x-3 sm:space-x-6">
               <button
                 onClick={() => setActiveTab('records')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'records' 
                     ? 'bg-blue-100 text-blue-700' 
                     : 'text-gray-600 hover:text-gray-900'
@@ -380,7 +380,7 @@ const FantasyFootballApp = () => {
               </button>
               <button
                 onClick={() => setActiveTab('admin')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'admin' 
                     ? 'bg-blue-100 text-blue-700' 
                     : 'text-gray-600 hover:text-gray-900'
@@ -390,7 +390,7 @@ const FantasyFootballApp = () => {
               </button>
               <button
                 onClick={() => setActiveTab('rules')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'rules' 
                     ? 'bg-blue-100 text-blue-700' 
                     : 'text-gray-600 hover:text-gray-900'
@@ -403,185 +403,293 @@ const FantasyFootballApp = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {activeTab === 'records' && (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {/* Champion and Chumpion Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Champion Card */}
-              <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-xl shadow-lg p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
+              <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-xl shadow-lg p-4 sm:p-6 text-white">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-2">
-                      <Crown className="w-6 h-6" />
-                      <span className="text-sm font-medium opacity-90">{mostRecentYear} CHAMPION</span>
+                      <Crown className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-medium opacity-90">{mostRecentYear} CHAMPION</span>
                     </div>
-                    <h2 className="text-2xl font-bold">
+                    <h2 className="text-lg sm:text-2xl font-bold mb-1 truncate">
                       {currentChampion ? allRecords[currentChampion.name_id]?.name : 'TBD'}
                     </h2>
-                    <p className="text-yellow-100">
+                    <p className="text-yellow-100 text-sm sm:text-base mb-2">
                       {currentChampion ? `${currentChampion.team_name} • ${currentChampion.wins}-${currentChampion.losses} Record` : 'Season in progress'}
                     </p>
-                    <p className="text-yellow-100 font-semibold">
+                    <p className="text-yellow-100 font-semibold text-sm sm:text-base mb-3">
                       {currentChampion ? `$${currentChampion.payout} Prize Money` : ''}
                     </p>
                     {/* Show runner-up and 3rd place at bottom of champion card */}
                     {currentYearSeasons.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-yellow-300 text-sm opacity-90">
+                      <div className="mt-3 pt-3 border-t border-yellow-300 text-xs sm:text-sm opacity-90">
                         {currentYearSeasons.find(s => s.playoff_finish === 2) && (
-                          <div>2nd: {allRecords[currentYearSeasons.find(s => s.playoff_finish === 2).name_id]?.name}</div>
+                          <div className="truncate">2nd: {allRecords[currentYearSeasons.find(s => s.playoff_finish === 2).name_id]?.name}</div>
                         )}
                         {currentYearSeasons.find(s => s.playoff_finish === 3) && (
-                          <div>3rd: {allRecords[currentYearSeasons.find(s => s.playoff_finish === 3).name_id]?.name}</div>
+                          <div className="truncate">3rd: {allRecords[currentYearSeasons.find(s => s.playoff_finish === 3).name_id]?.name}</div>
                         )}
                       </div>
                     )}
                   </div>
-                  <Trophy className="w-12 h-12 text-yellow-200" />
+                  <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-yellow-200 flex-shrink-0 ml-2" />
                 </div>
               </div>
 
               {/* Chumpion Card */}
-              <div className="bg-gradient-to-r from-red-400 to-red-600 rounded-xl shadow-lg p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
+              <div className="bg-gradient-to-r from-red-400 to-red-600 rounded-xl shadow-lg p-4 sm:p-6 text-white">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-2">
-                      <Target className="w-6 h-6" />
-                      <span className="text-sm font-medium opacity-90">{mostRecentYear} CHUMPION</span>
+                      <Target className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-medium opacity-90">{mostRecentYear} CHUMPION</span>
                     </div>
-                    <h2 className="text-2xl font-bold">
+                    <h2 className="text-lg sm:text-2xl font-bold mb-1 truncate">
                       {currentChumpion ? allRecords[currentChumpion.name_id]?.name : 'TBD'}
                     </h2>
-                    <p className="text-red-100">
+                    <p className="text-red-100 text-sm sm:text-base mb-2">
                       {currentChumpion ? `${currentChumpion.team_name} • ${currentChumpion.wins}-${currentChumpion.losses} Record` : 'Season in progress'}
                     </p>
-                    <p className="text-red-100 font-semibold">
+                    <p className="text-red-100 font-semibold text-sm sm:text-base">
                       {getCurrentYearChumpionDues() > 0 ? `Paid $${getCurrentYearChumpionDues()} Extra to ${currentChampion ? allRecords[currentChampion.name_id]?.name : 'Champion'}` : 'Pays extra to Champion'}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center text-2xl">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-500 rounded-full flex items-center justify-center text-xl sm:text-2xl flex-shrink-0 ml-2">
                     💩
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Medal Count Rankings - MOVED TO TOP - FULL WIDTH LAYOUT */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
+            {/* Medal Count Rankings - MOBILE OPTIMIZED FULL WIDTH LAYOUT */}
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                 <Award className="w-5 h-5 text-yellow-500" />
                 <span>Medal Count Rankings</span>
               </h3>
               
-              <div className="space-y-3">
+              <div className="space-y-3 sm:space-y-4">
                 {medalRankings.map((manager, index) => (
                   <div 
                     key={manager.name} 
-                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all duration-200 ${
+                    className={`p-3 sm:p-4 rounded-lg border-2 transition-all duration-200 ${
                       manager.active 
                         ? 'bg-gradient-to-r from-white to-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-md' 
                         : 'bg-gray-50 border-gray-300 opacity-60'
                     }`}
                   >
-                    {/* Left side - Rank and Name */}
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${
-                        index === 0 && manager.active
-                          ? 'bg-yellow-500 text-white shadow-lg'
-                          : index === 1 && manager.active
-                          ? 'bg-gray-400 text-white shadow-md'
-                          : index === 2 && manager.active
-                          ? 'bg-amber-600 text-white shadow-md'
-                          : manager.active
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-400 text-gray-600'
-                      }`}>
-                        {index + 1}
-                      </div>
-                      
-                      <div>
-                        <h4 className={`font-bold text-xl ${
-                          manager.active ? 'text-gray-900' : 'text-gray-500'
-                        }`}>
-                          {manager.name}
-                        </h4>
-                        {!manager.active && (
-                          <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded-full">
-                            INACTIVE
-                          </span>
-                        )}
-                        {manager.active && (
-                          <div className="text-sm text-gray-500">
-                            {(manager.winPct * 100).toFixed(1)}% win rate • {manager.seasons} seasons
+                    {/* Mobile Layout - Stacked */}
+                    <div className="sm:hidden">
+                      {/* Mobile Header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            index === 0 && manager.active
+                              ? 'bg-yellow-500 text-white shadow-lg'
+                              : index === 1 && manager.active
+                              ? 'bg-gray-400 text-white shadow-md'
+                              : index === 2 && manager.active
+                              ? 'bg-amber-600 text-white shadow-md'
+                              : manager.active
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-400 text-gray-600'
+                          }`}>
+                            {index + 1}
                           </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right side - Medal counts */}
-                    <div className="flex items-center space-x-6">
-                      {/* Championships */}
-                      <div className="text-center">
-                        <div className="flex items-center space-x-1 mb-1">
-                          <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">🏆</span>
+                          
+                          <div className="min-w-0 flex-1">
+                            <h4 className={`font-bold text-lg leading-tight truncate ${
+                              manager.active ? 'text-gray-900' : 'text-gray-500'
+                            }`}>
+                              {manager.name}
+                            </h4>
+                            {!manager.active && (
+                              <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded-full">
+                                INACTIVE
+                              </span>
+                            )}
                           </div>
-                          <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
-                            Championships
-                          </span>
                         </div>
-                        <span className={`font-bold text-2xl ${
-                          manager.championships > 0 && manager.active ? 'text-yellow-600' : 'text-gray-400'
-                        }`}>
-                          {manager.championships}
-                        </span>
-                      </div>
-
-                      {/* Second Place */}
-                      <div className="text-center">
-                        <div className="flex items-center space-x-1 mb-1">
-                          <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">🥈</span>
-                          </div>
-                          <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
-                            Runner-up
-                          </span>
-                        </div>
-                        <span className={`font-bold text-2xl ${
-                          manager.secondPlace > 0 && manager.active ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
-                          {manager.secondPlace}
-                        </span>
-                      </div>
-
-                      {/* Third Place */}
-                      <div className="text-center">
-                        <div className="flex items-center space-x-1 mb-1">
-                          <div className="w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">🥉</span>
-                          </div>
-                          <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
-                            Third place
-                          </span>
-                        </div>
-                        <span className={`font-bold text-2xl ${
-                          manager.thirdPlace > 0 && manager.active ? 'text-amber-600' : 'text-gray-400'
-                        }`}>
-                          {manager.thirdPlace}
-                        </span>
-                      </div>
-
-                      {/* Total Medals */}
-                      <div className="text-center">
-                        <div className="text-xs font-medium text-gray-600 mb-1">
-                          Total Medals
-                        </div>
-                        <div className={`px-4 py-2 rounded-full text-xl font-bold ${
+                        
+                        {/* Total Medals - Prominent on Mobile */}
+                        <div className={`px-3 py-2 rounded-full text-lg font-bold ${
                           manager.totalMedals > 0 && manager.active
                             ? 'bg-blue-100 text-blue-800'
                             : 'bg-gray-100 text-gray-500'
                         }`}>
                           {manager.totalMedals}
+                        </div>
+                      </div>
+
+                      {/* Mobile Medal Breakdown */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* Championships */}
+                        <div className="text-center">
+                          <div className="flex items-center justify-center space-x-1 mb-1">
+                            <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🏆</span>
+                            </div>
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            manager.championships > 0 && manager.active ? 'text-yellow-600' : 'text-gray-400'
+                          }`}>
+                            {manager.championships}
+                          </span>
+                          <div className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Championships
+                          </div>
+                        </div>
+
+                        {/* Second Place */}
+                        <div className="text-center">
+                          <div className="flex items-center justify-center space-x-1 mb-1">
+                            <div className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥈</span>
+                            </div>
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            manager.secondPlace > 0 && manager.active ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
+                            {manager.secondPlace}
+                          </span>
+                          <div className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Runner-up
+                          </div>
+                        </div>
+
+                        {/* Third Place */}
+                        <div className="text-center">
+                          <div className="flex items-center justify-center space-x-1 mb-1">
+                            <div className="w-4 h-4 bg-amber-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥉</span>
+                            </div>
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            manager.thirdPlace > 0 && manager.active ? 'text-amber-600' : 'text-gray-400'
+                          }`}>
+                            {manager.thirdPlace}
+                          </span>
+                          <div className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Third place
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mobile Stats */}
+                      {manager.active && (
+                        <div className="mt-2 text-center text-xs text-gray-500">
+                          {(manager.winPct * 100).toFixed(1)}% win rate • {manager.seasons} seasons
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Desktop Layout - Horizontal */}
+                    <div className="hidden sm:flex items-center justify-between">
+                      {/* Left side - Rank and Name */}
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${
+                          index === 0 && manager.active
+                            ? 'bg-yellow-500 text-white shadow-lg'
+                            : index === 1 && manager.active
+                            ? 'bg-gray-400 text-white shadow-md'
+                            : index === 2 && manager.active
+                            ? 'bg-amber-600 text-white shadow-md'
+                            : manager.active
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-400 text-gray-600'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        
+                        <div>
+                          <h4 className={`font-bold text-xl ${
+                            manager.active ? 'text-gray-900' : 'text-gray-500'
+                          }`}>
+                            {manager.name}
+                          </h4>
+                          {!manager.active && (
+                            <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded-full">
+                              INACTIVE
+                            </span>
+                          )}
+                          {manager.active && (
+                            <div className="text-sm text-gray-500">
+                              {(manager.winPct * 100).toFixed(1)}% win rate • {manager.seasons} seasons
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right side - Medal counts */}
+                      <div className="flex items-center space-x-6">
+                        {/* Championships */}
+                        <div className="text-center">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🏆</span>
+                            </div>
+                            <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                              Championships
+                            </span>
+                          </div>
+                          <span className={`font-bold text-2xl ${
+                            manager.championships > 0 && manager.active ? 'text-yellow-600' : 'text-gray-400'
+                          }`}>
+                            {manager.championships}
+                          </span>
+                        </div>
+
+                        {/* Second Place */}
+                        <div className="text-center">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥈</span>
+                            </div>
+                            <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                              Runner-up
+                            </span>
+                          </div>
+                          <span className={`font-bold text-2xl ${
+                            manager.secondPlace > 0 && manager.active ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
+                            {manager.secondPlace}
+                          </span>
+                        </div>
+
+                        {/* Third Place */}
+                        <div className="text-center">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <div className="w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥉</span>
+                            </div>
+                            <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                              Third place
+                            </span>
+                          </div>
+                          <span className={`font-bold text-2xl ${
+                            manager.thirdPlace > 0 && manager.active ? 'text-amber-600' : 'text-gray-400'
+                          }`}>
+                            {manager.thirdPlace}
+                          </span>
+                        </div>
+
+                        {/* Total Medals */}
+                        <div className="text-center">
+                          <div className="text-xs font-medium text-gray-600 mb-1">
+                            Total Medals
+                          </div>
+                          <div className={`px-4 py-2 rounded-full text-xl font-bold ${
+                            manager.totalMedals > 0 && manager.active
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {manager.totalMedals}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -591,15 +699,15 @@ const FantasyFootballApp = () => {
             </div>
 
             {/* Franchise Win/Loss and Points Scored Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
               {/* Franchise Win/Loss Records */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                   <BarChart3 className="w-5 h-5 text-green-500" />
                   <span>Franchise Win/Loss Records</span>
                 </h3>
                 
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {winPctRankings.map((manager, index) => (
                     <div 
                       key={manager.name} 
@@ -609,25 +717,25 @@ const FantasyFootballApp = () => {
                           : 'bg-gray-50 border-gray-300 opacity-60'
                       }`}
                     >
-                      <div className="flex items-center space-x-3">
-                        <span className={`font-bold text-lg ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <span className={`font-bold text-base sm:text-lg flex-shrink-0 ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
                           #{index + 1}
                         </span>
-                        <div>
-                          <p className={`font-semibold ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                        <div className="min-w-0 flex-1">
+                          <p className={`font-semibold text-sm sm:text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
                             {manager.name}
                             {!manager.active && <span className="text-xs text-gray-400 ml-2">(Inactive)</span>}
                           </p>
-                          <p className={`text-sm ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                          <p className={`text-xs sm:text-sm ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
                             {manager.seasons} seasons
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className={`font-bold ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`font-bold text-sm sm:text-base ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
                           {manager.totalWins}-{manager.totalLosses}
                         </p>
-                        <p className={`text-sm ${manager.active ? 'text-green-600' : 'text-gray-400'}`}>
+                        <p className={`text-xs sm:text-sm ${manager.active ? 'text-green-600' : 'text-gray-400'}`}>
                           {(manager.winPct * 100).toFixed(1)}%
                         </p>
                       </div>
@@ -637,13 +745,13 @@ const FantasyFootballApp = () => {
               </div>
 
               {/* Franchise Points Scored */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                   <TrendingUp className="w-5 h-5 text-blue-500" />
                   <span>Franchise Points Scored</span>
                 </h3>
                 
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {ppgRankings.map((manager, index) => (
                     <div 
                       key={manager.name} 
@@ -653,25 +761,25 @@ const FantasyFootballApp = () => {
                           : 'bg-gray-50 border-gray-300 opacity-60'
                       }`}
                     >
-                      <div className="flex items-center space-x-3">
-                        <span className={`font-bold text-lg ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <span className={`font-bold text-base sm:text-lg flex-shrink-0 ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
                           #{index + 1}
                         </span>
-                        <div>
-                          <p className={`font-semibold ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                        <div className="min-w-0 flex-1">
+                          <p className={`font-semibold text-sm sm:text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
                             {manager.name}
                             {!manager.active && <span className="text-xs text-gray-400 ml-2">(Inactive)</span>}
                           </p>
-                          <p className={`text-sm ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                          <p className={`text-xs sm:text-sm ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
                             {manager.gamesPlayed} games played
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className={`font-bold ${manager.active ? 'text-blue-600' : 'text-gray-500'}`}>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`font-bold text-sm sm:text-base ${manager.active ? 'text-blue-600' : 'text-gray-500'}`}>
                           {manager.pointsPerGame.toFixed(1)} PPG
                         </p>
-                        <p className={`text-sm ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                        <p className={`text-xs sm:text-sm ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
                           {manager.totalPointsFor.toLocaleString()} total
                         </p>
                       </div>
@@ -682,25 +790,25 @@ const FantasyFootballApp = () => {
             </div>
 
             {/* Chumpion Rankings */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                 <Target className="w-5 h-5 text-red-500" />
                 <span>Chumpion Count Rankings</span>
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {chumpionRankings.map((manager, index) => (
-                  <div key={manager.name} className={`p-4 rounded-lg border ${
+                  <div key={manager.name} className={`p-3 sm:p-4 rounded-lg border ${
                     manager.active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300 opacity-75'
                   }`}>
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-bold text-lg">#{index + 1}</span>
-                        <span className={`font-semibold ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <span className="font-bold text-base sm:text-lg flex-shrink-0">#{index + 1}</span>
+                        <span className={`font-semibold text-sm sm:text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
                           {manager.name}
                         </span>
                       </div>
-                      <span className={`text-xl font-bold ${
+                      <span className={`text-lg sm:text-xl font-bold flex-shrink-0 ${
                         manager.chumpionships > 0 ? 'text-red-600' : 'text-gray-400'
                       }`}>
                         {manager.chumpionships}
@@ -715,18 +823,18 @@ const FantasyFootballApp = () => {
             </div>
 
             {/* Individual Manager Lookup */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                 <Users className="w-5 h-5 text-purple-500" />
                 <span>Individual Manager Lookup</span>
               </h3>
               
-              <div className="mb-6">
+              <div className="mb-4 sm:mb-6">
                 <div className="relative">
                   <select
                     value={selectedManager}
                     onChange={(e) => setSelectedManager(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm sm:text-base"
                   >
                     <option value="">Select a manager to view detailed stats</option>
                     {Object.entries(allRecords).map(([nameId, record]) => (
@@ -740,57 +848,57 @@ const FantasyFootballApp = () => {
               </div>
 
               {selectedManager && allRecords[selectedManager] && (
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h4 className="text-2xl font-bold text-gray-900">
+                <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
+                    <h4 className="text-xl sm:text-2xl font-bold text-gray-900">
                       {allRecords[selectedManager].name}
                     </h4>
                     {!allRecords[selectedManager].active && (
-                      <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+                      <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-medium self-start sm:self-auto">
                         INACTIVE
                       </span>
                     )}
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="bg-white p-4 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600 mb-1">Franchise Record</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                    <div className="bg-white p-3 sm:p-4 rounded-lg">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Franchise Record</p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">
                         {allRecords[selectedManager].totalWins}-{allRecords[selectedManager].totalLosses}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs sm:text-sm text-gray-500">
                         {(allRecords[selectedManager].winPct * 100).toFixed(1)}% win rate
                       </p>
                     </div>
                     
-                    <div className="bg-white p-4 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600 mb-1">Championships</p>
-                      <p className="text-2xl font-bold text-yellow-600">
+                    <div className="bg-white p-3 sm:p-4 rounded-lg">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Championships</p>
+                      <p className="text-xl sm:text-2xl font-bold text-yellow-600">
                         {allRecords[selectedManager].championships}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs sm:text-sm text-gray-500">
                         {allRecords[selectedManager].totalMedals} total medals
                       </p>
                     </div>
                     
-                    <div className="bg-white p-4 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600 mb-1">Net Earnings</p>
-                      <p className={`text-2xl font-bold ${
+                    <div className="bg-white p-3 sm:p-4 rounded-lg">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Net Earnings</p>
+                      <p className={`text-xl sm:text-2xl font-bold ${
                         allRecords[selectedManager].netEarnings >= 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {allRecords[selectedManager].netEarnings >= 0 ? '+' : '-'}${Math.abs(allRecords[selectedManager].netEarnings)}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs sm:text-sm text-gray-500">
                         ${allRecords[selectedManager].totalPayout} won - ${allRecords[selectedManager].totalDues + allRecords[selectedManager].totalDuesChumpion} dues
                       </p>
                     </div>
                     
-                    <div className="bg-white p-4 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600 mb-1">Points Per Game</p>
-                      <p className="text-2xl font-bold text-blue-600">
+                    <div className="bg-white p-3 sm:p-4 rounded-lg">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Points Per Game</p>
+                      <p className="text-xl sm:text-2xl font-bold text-blue-600">
                         {allRecords[selectedManager].pointsPerGame.toFixed(1)}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs sm:text-sm text-gray-500">
                         {allRecords[selectedManager].gamesPlayed} games played
                       </p>
                     </div>
@@ -802,18 +910,18 @@ const FantasyFootballApp = () => {
         )}
 
         {activeTab === 'admin' && (
-          <div className="space-y-8">
-            {/* Existing Excel Upload Section */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
+          <div className="space-y-6 sm:space-y-8">
+            {/* Excel Upload Section */}
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                 <Upload className="w-5 h-5 text-blue-500" />
                 <span>Data Management</span>
               </h3>
               
               <div className="space-y-4">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6">
                   <div className="text-center">
-                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                    <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
                     <div className="mt-4">
                       <label htmlFor="file-upload" className="cursor-pointer">
                         <span className="mt-2 block text-sm font-medium text-gray-900">
@@ -827,7 +935,7 @@ const FantasyFootballApp = () => {
                           className="sr-only"
                           onChange={handleFileUpload}
                         />
-                        <span className="mt-1 block text-sm text-gray-500">
+                        <span className="mt-1 block text-xs sm:text-sm text-gray-500">
                           Excel files only
                         </span>
                       </label>
@@ -835,18 +943,18 @@ const FantasyFootballApp = () => {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <p className="text-sm font-medium text-gray-600">Total Managers</p>
-                    <p className="text-2xl font-bold text-blue-600">{managers.length}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600">Total Managers</p>
+                    <p className="text-xl sm:text-2xl font-bold text-blue-600">{managers.length}</p>
                   </div>
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <p className="text-sm font-medium text-gray-600">Season Records</p>
-                    <p className="text-2xl font-bold text-green-600">{teamSeasons.length}</p>
+                  <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600">Season Records</p>
+                    <p className="text-xl sm:text-2xl font-bold text-green-600">{teamSeasons.length}</p>
                   </div>
-                  <div className="bg-purple-50 p-4 rounded-lg">
-                    <p className="text-sm font-medium text-gray-600">Years Covered</p>
-                    <p className="text-2xl font-bold text-purple-600">
+                  <div className="bg-purple-50 p-3 sm:p-4 rounded-lg">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600">Years Covered</p>
+                    <p className="text-xl sm:text-2xl font-bold text-purple-600">
                       {teamSeasons.length > 0 ? new Set(teamSeasons.map(s => s.year)).size : 0}
                     </p>
                   </div>
@@ -854,22 +962,22 @@ const FantasyFootballApp = () => {
               </div>
             </div>
 
-            {/* New Manual Entry Form */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
+            {/* Manual Entry Form */}
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                 <Plus className="w-5 h-5 text-green-500" />
                 <span>Add Season Data</span>
               </h3>
               
-              <form onSubmit={handleFormSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <form onSubmit={handleFormSubmit} className="space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
                     <input
                       type="number"
                       value={formData.year}
                       onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                       required
                     />
                   </div>
@@ -879,7 +987,7 @@ const FantasyFootballApp = () => {
                     <select
                       value={formData.name_id}
                       onChange={(e) => setFormData({...formData, name_id: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                       required
                     >
                       <option value="">Select Manager</option>
@@ -891,13 +999,13 @@ const FantasyFootballApp = () => {
                     </select>
                   </div>
                   
-                  <div>
+                  <div className="sm:col-span-2 lg:col-span-1">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Team Name</label>
                     <input
                       type="text"
                       value={formData.team_name}
                       onChange={(e) => setFormData({...formData, team_name: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                     />
                   </div>
                   
@@ -907,7 +1015,7 @@ const FantasyFootballApp = () => {
                       type="number"
                       value={formData.wins}
                       onChange={(e) => setFormData({...formData, wins: parseInt(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                       required
                     />
                   </div>
@@ -918,7 +1026,7 @@ const FantasyFootballApp = () => {
                       type="number"
                       value={formData.losses}
                       onChange={(e) => setFormData({...formData, losses: parseInt(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                       required
                     />
                   </div>
@@ -930,7 +1038,7 @@ const FantasyFootballApp = () => {
                       step="0.01"
                       value={formData.points_for}
                       onChange={(e) => setFormData({...formData, points_for: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                     />
                   </div>
                   
@@ -941,7 +1049,7 @@ const FantasyFootballApp = () => {
                       step="0.01"
                       value={formData.points_against}
                       onChange={(e) => setFormData({...formData, points_against: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                     />
                   </div>
                   
@@ -950,7 +1058,7 @@ const FantasyFootballApp = () => {
                     <select
                       value={formData.regular_season_rank}
                       onChange={(e) => setFormData({...formData, regular_season_rank: e.target.value ? parseInt(e.target.value) : ''})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                     >
                       <option value="">Select Rank</option>
                       {[1,2,3,4,5,6,7,8,9,10,11,12].map(rank => (
@@ -964,7 +1072,7 @@ const FantasyFootballApp = () => {
                     <select
                       value={formData.playoff_finish}
                       onChange={(e) => setFormData({...formData, playoff_finish: e.target.value ? parseInt(e.target.value) : ''})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                     >
                       <option value="">No Playoffs</option>
                       <option value="1">1st (Champion)</option>
@@ -983,7 +1091,7 @@ const FantasyFootballApp = () => {
                       step="0.01"
                       value={formData.dues}
                       onChange={(e) => setFormData({...formData, dues: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                     />
                   </div>
                   
@@ -994,18 +1102,18 @@ const FantasyFootballApp = () => {
                       step="0.01"
                       value={formData.payout}
                       onChange={(e) => setFormData({...formData, payout: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                     />
                   </div>
                   
-                  <div>
+                  <div className="sm:col-span-2 lg:col-span-1">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Chumpion Extra ($)</label>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.dues_chumpion}
                       onChange={(e) => setFormData({...formData, dues_chumpion: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                       placeholder="Extra amount paid by chumpion"
                     />
                   </div>
@@ -1015,7 +1123,7 @@ const FantasyFootballApp = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 sm:px-6 rounded-lg transition-colors disabled:opacity-50 text-sm sm:text-base"
                   >
                     {loading ? 'Adding...' : 'Add Season Data'}
                   </button>
@@ -1024,8 +1132,8 @@ const FantasyFootballApp = () => {
             </div>
 
             {/* Rules Editor Section */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                 <FileText className="w-5 h-5 text-purple-500" />
                 <span>Edit League Rules</span>
               </h3>
@@ -1034,13 +1142,13 @@ const FantasyFootballApp = () => {
                 <textarea
                   value={rulesContent}
                   onChange={(e) => setRulesContent(e.target.value)}
-                  className="w-full h-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  className="w-full h-64 sm:h-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs sm:text-sm"
                   placeholder="Enter league rules in Markdown format..."
                 />
                 <div className="flex justify-end">
                   <button
                     onClick={saveRules}
-                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 sm:px-6 rounded-lg transition-colors text-sm sm:text-base"
                   >
                     Save Rules
                   </button>
@@ -1051,25 +1159,25 @@ const FantasyFootballApp = () => {
         )}
 
         {activeTab === 'rules' && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <div className="flex items-center space-x-3 mb-8">
-              <BookOpen className="w-8 h-8 text-blue-500" />
-              <h2 className="text-3xl font-bold text-gray-900">League Rules</h2>
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8">
+            <div className="flex items-center space-x-3 mb-6 sm:mb-8">
+              <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">League Rules</h2>
             </div>
-            <div className="prose prose-lg max-w-none">
+            <div className="prose prose-sm sm:prose-lg max-w-none">
               {rulesContent.split('\n').map((line, index) => {
                 if (line.startsWith('# ')) {
-                  return <h1 key={index} className="text-3xl font-bold text-gray-900 mt-8 mb-4">{line.slice(2)}</h1>;
+                  return <h1 key={index} className="text-2xl sm:text-3xl font-bold text-gray-900 mt-6 sm:mt-8 mb-3 sm:mb-4">{line.slice(2)}</h1>;
                 } else if (line.startsWith('## ')) {
-                  return <h2 key={index} className="text-2xl font-bold text-gray-800 mt-6 mb-3">{line.slice(3)}</h2>;
+                  return <h2 key={index} className="text-xl sm:text-2xl font-bold text-gray-800 mt-4 sm:mt-6 mb-2 sm:mb-3">{line.slice(3)}</h2>;
                 } else if (line.startsWith('### ')) {
-                  return <h3 key={index} className="text-xl font-bold text-gray-700 mt-4 mb-2">{line.slice(4)}</h3>;
+                  return <h3 key={index} className="text-lg sm:text-xl font-bold text-gray-700 mt-3 sm:mt-4 mb-2">{line.slice(4)}</h3>;
                 } else if (line.startsWith('- ')) {
-                  return <li key={index} className="ml-4 text-gray-700 mb-1">{line.slice(2)}</li>;
+                  return <li key={index} className="ml-4 text-gray-700 mb-1 text-sm sm:text-base">{line.slice(2)}</li>;
                 } else if (line.includes('**') && line.includes('**')) {
                   const parts = line.split('**');
                   return (
-                    <p key={index} className="text-gray-700 mb-2">
+                    <p key={index} className="text-gray-700 mb-2 text-sm sm:text-base">
                       {parts.map((part, i) => 
                         i % 2 === 1 ? <strong key={i}>{part}</strong> : part
                       )}
@@ -1078,7 +1186,7 @@ const FantasyFootballApp = () => {
                 } else if (line.trim() === '' || line.trim() === '---') {
                   return <br key={index} />;
                 } else {
-                  return <p key={index} className="text-gray-700 mb-2">{line}</p>;
+                  return <p key={index} className="text-gray-700 mb-2 text-sm sm:text-base">{line}</p>;
                 }
               })}
             </div>
