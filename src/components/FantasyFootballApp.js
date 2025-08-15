@@ -16,8 +16,7 @@ import {
   Edit3,
   Save,
   X,
-  Trash2,
-  Check
+  Trash2
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -32,10 +31,6 @@ const FantasyFootballApp = () => {
   const [rulesContent, setRulesContent] = useState('');
   const [editingRow, setEditingRow] = useState(null);
   const [editedData, setEditedData] = useState({});
-  
-  // Manager editing state
-  const [editingManagerRow, setEditingManagerRow] = useState(null);
-  const [editedManagerData, setEditedManagerData] = useState({});
 
   useEffect(() => {
     fetchData();
@@ -126,7 +121,6 @@ const FantasyFootballApp = () => {
     }
   };
 
-  // Season editing functions
   const startEdit = (season) => {
     setEditingRow(season.id);
     setEditedData({ ...season });
@@ -207,98 +201,6 @@ const FantasyFootballApp = () => {
       
       if (response.ok) {
         await fetchData();
-        // Find the newly added season and start editing it
-        const seasons = await fetch(`${API_BASE_URL}/team-seasons`).then(r => r.json());
-        const latestSeason = seasons.teamSeasons[seasons.teamSeasons.length - 1];
-        setEditingRow(latestSeason.id);
-        setEditedData({ ...latestSeason });
-      } else {
-        const error = await response.json();
-        alert('Error: ' + error.error);
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
-  // Manager editing functions
-  const startManagerEdit = (manager) => {
-    setEditingManagerRow(manager.id);
-    setEditedManagerData({ ...manager });
-  };
-
-  const cancelManagerEdit = () => {
-    setEditingManagerRow(null);
-    setEditedManagerData({});
-  };
-
-  const saveManagerEdit = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/managers/${editingManagerRow}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editedManagerData),
-      });
-      
-      if (response.ok) {
-        await fetchData();
-        setEditingManagerRow(null);
-        setEditedManagerData({});
-      } else {
-        const error = await response.json();
-        alert('Error: ' + error.error);
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
-  const deleteManager = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this manager? This action cannot be undone.')) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/managers/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        await fetchData();
-      } else {
-        const error = await response.json();
-        alert('Error: ' + error.error);
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
-  const addNewManager = async () => {
-    const newManager = {
-      name_id: '',
-      full_name: '',
-      sleeper_username: '',
-      active: 1
-    };
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/managers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newManager),
-      });
-      
-      if (response.ok) {
-        await fetchData();
-        // Find the newly added manager and start editing it
-        const managersResponse = await fetch(`${API_BASE_URL}/managers`);
-        const managersData = await managersResponse.json();
-        const latestManager = managersData.managers[managersData.managers.length - 1];
-        setEditingManagerRow(latestManager.id);
-        setEditedManagerData({ ...latestManager });
       } else {
         const error = await response.json();
         alert('Error: ' + error.error);
@@ -606,7 +508,7 @@ const FantasyFootballApp = () => {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Admin Panel
+                Admin
               </button>
               <button
                 onClick={() => setActiveTab('rules')}
@@ -616,91 +518,303 @@ const FantasyFootballApp = () => {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                League Rules
+                Rules
               </button>
             </nav>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {activeTab === 'records' && (
           <div className="space-y-6 sm:space-y-8">
-            {/* Current Season Champions */}
-            {(currentChampion || currentChumpion) && (
-              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
-                  {mostRecentYear} Season
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                  {currentChampion && (
-                    <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg p-4 sm:p-6 text-white">
-                      <div className="flex items-center space-x-3">
-                        <Crown className="w-6 h-6 sm:w-8 sm:h-8" />
-                        <div>
-                          <h3 className="text-lg sm:text-xl font-bold">Champion</h3>
-                          <p className="text-lg sm:text-2xl font-bold">{currentChampion.manager_name || currentChampion.name_id}</p>
-                        </div>
-                      </div>
+            {/* Champion and Chumpion Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              {/* Champion Card */}
+              <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-xl shadow-lg p-4 sm:p-6 text-white">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Crown className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-medium opacity-90">{mostRecentYear} CHAMPION</span>
                     </div>
-                  )}
-                  {currentChumpion && (
-                    <div className="bg-gradient-to-r from-red-400 to-red-600 rounded-lg p-4 sm:p-6 text-white">
-                      <div className="flex items-center space-x-3">
-                        <Target className="w-6 h-6 sm:w-8 sm:h-8" />
-                        <div>
-                          <h3 className="text-lg sm:text-xl font-bold">Chumpion</h3>
-                          <p className="text-lg sm:text-2xl font-bold">{currentChumpion.manager_name || currentChumpion.name_id}</p>
-                          {getCurrentYearChumpionDues() > 0 && (
-                            <p className="text-sm">Owes ${getCurrentYearChumpionDues()}</p>
-                          )}
-                        </div>
+                    <h2 className="text-lg sm:text-2xl font-bold mb-1 truncate">
+                      {currentChampion ? allRecords[currentChampion.name_id]?.name : 'TBD'}
+                    </h2>
+                    <p className="text-yellow-100 text-sm sm:text-base mb-2">
+                      {currentChampion ? `${currentChampion.team_name} • ${currentChampion.wins}-${currentChampion.losses} Record` : 'Season in progress'}
+                    </p>
+                    <p className="text-yellow-100 font-semibold text-sm sm:text-base mb-3">
+                      {currentChampion ? `$${currentChampion.payout} Prize Money` : ''}
+                    </p>
+                    {/* Show runner-up and 3rd place at bottom of champion card */}
+                    {currentYearSeasons.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-yellow-300 text-xs sm:text-sm opacity-90">
+                        {currentYearSeasons.find(s => s.playoff_finish === 2) && (
+                          <div className="truncate">2nd: {allRecords[currentYearSeasons.find(s => s.playoff_finish === 2).name_id]?.name}</div>
+                        )}
+                        {currentYearSeasons.find(s => s.playoff_finish === 3) && (
+                          <div className="truncate">3rd: {allRecords[currentYearSeasons.find(s => s.playoff_finish === 3).name_id]?.name}</div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-yellow-200 flex-shrink-0 ml-2" />
                 </div>
               </div>
-            )}
 
-            {/* Medal Count Rankings */}
+              {/* Chumpion Card */}
+              <div className="bg-gradient-to-r from-red-400 to-red-600 rounded-xl shadow-lg p-4 sm:p-6 text-white">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Target className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-medium opacity-90">{mostRecentYear} CHUMPION</span>
+                    </div>
+                    <h2 className="text-lg sm:text-2xl font-bold mb-1 truncate">
+                      {currentChumpion ? allRecords[currentChumpion.name_id]?.name : 'TBD'}
+                    </h2>
+                    <p className="text-red-100 text-sm sm:text-base mb-2">
+                      {currentChumpion ? `${currentChumpion.team_name} • ${currentChumpion.wins}-${currentChumpion.losses} Record` : 'Season in progress'}
+                    </p>
+                    <p className="text-red-100 font-semibold text-sm sm:text-base">
+                      {getCurrentYearChumpionDues() > 0 ? `Paid $${getCurrentYearChumpionDues()} Extra to ${currentChampion ? allRecords[currentChampion.name_id]?.name : 'Champion'}` : 'Pays extra to Champion'}
+                    </p>
+                  </div>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-500 rounded-full flex items-center justify-center text-xl sm:text-2xl flex-shrink-0 ml-2">
+                    💩
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Medal Count Rankings - MOBILE OPTIMIZED FULL WIDTH LAYOUT */}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                 <Award className="w-5 h-5 text-yellow-500" />
                 <span>Medal Count Rankings</span>
               </h3>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <div className="space-y-3 sm:space-y-4">
                 {medalRankings.map((manager, index) => (
-                  <div key={manager.name} className={`p-3 sm:p-4 rounded-lg border ${
-                    manager.active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300 opacity-75'
-                  }`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2 min-w-0 flex-1">
-                        <span className="font-bold text-base sm:text-lg flex-shrink-0">#{index + 1}</span>
-                        <span className={`font-semibold text-sm sm:text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                          {manager.name}
-                        </span>
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs sm:text-sm font-bold ${
-                        manager.totalMedals > 0 
-                          ? manager.active 
+                  <div 
+                    key={manager.name} 
+                    className={`p-3 sm:p-4 rounded-lg border-2 transition-all duration-200 ${
+                      manager.active 
+                        ? 'bg-gradient-to-r from-white to-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-md' 
+                        : 'bg-gray-50 border-gray-300 opacity-60'
+                    }`}
+                  >
+                    {/* Mobile Layout - Stacked */}
+                    <div className="sm:hidden">
+                      {/* Mobile Header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            index === 0 && manager.active
+                              ? 'bg-yellow-500 text-white shadow-lg'
+                              : index === 1 && manager.active
+                              ? 'bg-gray-400 text-white shadow-md'
+                              : index === 2 && manager.active
+                              ? 'bg-amber-600 text-white shadow-md'
+                              : manager.active
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-400 text-gray-600'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          
+                          <div className="min-w-0 flex-1">
+                            <h4 className={`font-bold text-lg leading-tight truncate ${
+                              manager.active ? 'text-gray-900' : 'text-gray-500'
+                            }`}>
+                              {manager.name}
+                            </h4>
+                            {!manager.active && (
+                              <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded-full">
+                                INACTIVE
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Total Medals - Prominent on Mobile */}
+                        <div className={`px-3 py-2 rounded-full text-lg font-bold ${
+                          manager.totalMedals > 0 && manager.active
                             ? 'bg-blue-100 text-blue-800'
                             : 'bg-gray-100 text-gray-500'
-                          : manager.active
-                            ? 'bg-gray-100 text-gray-500'
-                            : 'bg-gray-100 text-gray-400'
-                      }`}>
-                        {manager.totalMedals}
+                        }`}>
+                          {manager.totalMedals}
+                        </div>
+                      </div>
+
+                      {/* Mobile Medal Breakdown */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* Championships */}
+                        <div className="text-center">
+                          <div className="flex items-center justify-center space-x-1 mb-1">
+                            <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🏆</span>
+                            </div>
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            manager.championships > 0 && manager.active ? 'text-yellow-600' : 'text-gray-400'
+                          }`}>
+                            {manager.championships}
+                          </span>
+                          <div className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Championships
+                          </div>
+                        </div>
+
+                        {/* Second Place */}
+                        <div className="text-center">
+                          <div className="flex items-center justify-center space-x-1 mb-1">
+                            <div className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥈</span>
+                            </div>
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            manager.secondPlace > 0 && manager.active ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
+                            {manager.secondPlace}
+                          </span>
+                          <div className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Runner-up
+                          </div>
+                        </div>
+
+                        {/* Third Place */}
+                        <div className="text-center">
+                          <div className="flex items-center justify-center space-x-1 mb-1">
+                            <div className="w-4 h-4 bg-amber-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥉</span>
+                            </div>
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            manager.thirdPlace > 0 && manager.active ? 'text-amber-600' : 'text-gray-400'
+                          }`}>
+                            {manager.thirdPlace}
+                          </span>
+                          <div className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Third place
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mobile Stats */}
+                      {manager.active && (
+                        <div className="mt-2 text-center text-xs text-gray-500">
+                          {(manager.winPct * 100).toFixed(1)}% win rate • {manager.seasons} seasons
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Desktop Layout - Horizontal */}
+                    <div className="hidden sm:flex items-center justify-between">
+                      {/* Left side - Rank and Name */}
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${
+                          index === 0 && manager.active
+                            ? 'bg-yellow-500 text-white shadow-lg'
+                            : index === 1 && manager.active
+                            ? 'bg-gray-400 text-white shadow-md'
+                            : index === 2 && manager.active
+                            ? 'bg-amber-600 text-white shadow-md'
+                            : manager.active
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-400 text-gray-600'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        
+                        <div>
+                          <h4 className={`font-bold text-xl ${
+                            manager.active ? 'text-gray-900' : 'text-gray-500'
+                          }`}>
+                            {manager.name}
+                          </h4>
+                          {!manager.active && (
+                            <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded-full">
+                              INACTIVE
+                            </span>
+                          )}
+                          {manager.active && (
+                            <div className="text-sm text-gray-500">
+                              {(manager.winPct * 100).toFixed(1)}% win rate • {manager.seasons} seasons
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right side - Medal counts */}
+                      <div className="flex items-center space-x-6">
+                        {/* Championships */}
+                        <div className="text-center">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🏆</span>
+                            </div>
+                            <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                              Championships
+                            </span>
+                          </div>
+                          <span className={`font-bold text-2xl ${
+                            manager.championships > 0 && manager.active ? 'text-yellow-600' : 'text-gray-400'
+                          }`}>
+                            {manager.championships}
+                          </span>
+                        </div>
+
+                        {/* Second Place */}
+                        <div className="text-center">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥈</span>
+                            </div>
+                            <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                              Runner-up
+                            </span>
+                          </div>
+                          <span className={`font-bold text-2xl ${
+                            manager.secondPlace > 0 && manager.active ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
+                            {manager.secondPlace}
+                          </span>
+                        </div>
+
+                        {/* Third Place */}
+                        <div className="text-center">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <div className="w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥉</span>
+                            </div>
+                            <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                              Third place
+                            </span>
+                          </div>
+                          <span className={`font-bold text-2xl ${
+                            manager.thirdPlace > 0 && manager.active ? 'text-amber-600' : 'text-gray-400'
+                          }`}>
+                            {manager.thirdPlace}
+                          </span>
+                        </div>
+
+                        {/* Total Medals */}
+                        <div className="text-center">
+                          <div className="text-xs font-medium text-gray-600 mb-1">
+                            Total Medals
+                          </div>
+                          <div className={`px-4 py-2 rounded-full text-xl font-bold ${
+                            manager.totalMedals > 0 && manager.active
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {manager.totalMedals}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span className={`${manager.active ? 'text-yellow-600' : 'text-gray-400'}`}>🥇 {manager.championships}</span>
-                      <span className={`${manager.active ? 'text-gray-500' : 'text-gray-400'}`}>🥈 {manager.secondPlace}</span>
-                      <span className={`${manager.active ? 'text-orange-600' : 'text-gray-400'}`}>🥉 {manager.thirdPlace}</span>
-                    </div>
-                    {!manager.active && (
-                      <span className="text-xs text-gray-400 block mt-1">(Inactive)</span>
-                    )}
                   </div>
                 ))}
               </div>
@@ -970,152 +1084,6 @@ const FantasyFootballApp = () => {
               </div>
             </div>
 
-            {/* Manager Data Section */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center space-x-2">
-                  <Users className="w-5 h-5 text-purple-500" />
-                  <span>Manager Data</span>
-                </h3>
-                <button
-                  onClick={addNewManager}
-                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2 text-sm sm:text-base"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add New Manager</span>
-                </button>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="text-left p-2 font-medium text-gray-700">Manager ID</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Full Name</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Sleeper Username</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Status</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {managers.sort((a, b) => b.active - a.active || a.full_name.localeCompare(b.full_name)).map((manager) => (
-                      <tr key={manager.id} className={`border-b hover:bg-gray-50 ${!manager.active ? 'bg-gray-50 opacity-75' : ''}`}>
-                        {editingManagerRow === manager.id ? (
-                          <>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={editedManagerData.name_id}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, name_id: e.target.value})}
-                                className="w-32 px-2 py-1 border rounded text-xs"
-                                placeholder="e.g., johnsmith"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={editedManagerData.full_name}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, full_name: e.target.value})}
-                                className="w-40 px-2 py-1 border rounded text-xs"
-                                placeholder="Full Name"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={editedManagerData.sleeper_username || ''}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, sleeper_username: e.target.value})}
-                                className="w-32 px-2 py-1 border rounded text-xs"
-                                placeholder="Sleeper username"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <select
-                                value={editedManagerData.active}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, active: parseInt(e.target.value)})}
-                                className="w-24 px-2 py-1 border rounded text-xs"
-                              >
-                                <option value={1}>Active</option>
-                                <option value={0}>Inactive</option>
-                              </select>
-                            </td>
-                            <td className="p-2">
-                              <div className="flex space-x-1">
-                                <button
-                                  onClick={saveManagerEdit}
-                                  className="text-green-600 hover:text-green-800"
-                                  title="Save"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={cancelManagerEdit}
-                                  className="text-gray-600 hover:text-gray-800"
-                                  title="Cancel"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="p-2">
-                              <span className={`font-mono text-xs ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                                {manager.name_id}
-                              </span>
-                            </td>
-                            <td className="p-2">
-                              <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                                {manager.full_name}
-                              </span>
-                            </td>
-                            <td className="p-2">
-                              <span className={`font-mono text-xs ${manager.active ? 'text-gray-700' : 'text-gray-400'}`}>
-                                {manager.sleeper_username || '-'}
-                              </span>
-                            </td>
-                            <td className="p-2">
-                              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                                manager.active 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {manager.active ? 'Active' : 'Inactive'}
-                              </span>
-                            </td>
-                            <td className="p-2">
-                              <div className="flex space-x-1">
-                                <button
-                                  onClick={() => startManagerEdit(manager)}
-                                  className="text-blue-600 hover:text-blue-800"
-                                  title="Edit"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => deleteManager(manager.id)}
-                                  className="text-red-600 hover:text-red-800"
-                                  title="Delete (only if no seasons)"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              
-              <div className="mt-4 text-sm text-gray-500">
-                <p><strong>Note:</strong> Managers with existing season records cannot be deleted, only set to inactive.</p>
-                <p><strong>Tip:</strong> Use the "Inactive" status to hide managers from rankings while preserving their historical data.</p>
-              </div>
-            </div>
-
             {/* Editable Data Table */}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
@@ -1268,7 +1236,7 @@ const FantasyFootballApp = () => {
                                   onClick={saveEdit}
                                   className="text-green-600 hover:text-green-800"
                                 >
-                                  <Check className="w-4 h-4" />
+                                  <Save className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={cancelEdit}
@@ -1282,8 +1250,8 @@ const FantasyFootballApp = () => {
                         ) : (
                           <>
                             <td className="p-2">{season.year}</td>
-                            <td className="p-2">{season.manager_name || season.name_id}</td>
-                            <td className="p-2">{season.team_name || '-'}</td>
+                            <td className="p-2">{managers.find(m => m.name_id === season.name_id)?.full_name.split(' ')[0] || season.name_id}</td>
+                            <td className="p-2 max-w-20 truncate">{season.team_name}</td>
                             <td className="p-2">{season.wins}-{season.losses}</td>
                             <td className="p-2">{season.points_for}</td>
                             <td className="p-2">{season.points_against}</td>
