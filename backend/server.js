@@ -114,7 +114,7 @@ app.post('/api/managers', (req, res) => {
   });
 });
 
-// Add a new team season (updated to include dues_chumpion)
+// Add a new team season (updated to include dues_chumpion and FIXED dues handling)
 app.post('/api/team-seasons', (req, res) => {
   const {
     year, name_id, team_name, wins, losses, points_for, points_against,
@@ -132,9 +132,10 @@ app.post('/api/team-seasons', (req, res) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   
+  // FIXED: Don't default dues to 250, use actual value
   const values = [
     year, name_id, team_name || '', wins, losses, points_for || 0, points_against || 0,
-    regular_season_rank || null, playoff_finish || null, dues || 250, payout || 0, 
+    regular_season_rank || null, playoff_finish || null, dues, payout || 0, 
     dues_chumpion || 0, high_game || null
   ];
   
@@ -150,7 +151,7 @@ app.post('/api/team-seasons', (req, res) => {
   });
 });
 
-// Update a team season (updated to include dues_chumpion)
+// Update a team season (updated to include dues_chumpion and FIXED dues handling)
 app.put('/api/team-seasons/:id', (req, res) => {
   const id = req.params.id;
   const {
@@ -166,6 +167,7 @@ app.put('/api/team-seasons/:id', (req, res) => {
     WHERE id = ?
   `;
   
+  // FIXED: Don't default dues to 250, use actual value
   const values = [
     year, name_id, team_name, wins, losses, points_for, points_against,
     regular_season_rank, playoff_finish, dues, payout, dues_chumpion || 0, high_game, id
@@ -193,7 +195,7 @@ app.delete('/api/team-seasons/:id', (req, res) => {
   });
 });
 
-// Upload Excel file and import data (updated to include dues_chumpion)
+// Upload Excel file and import data (updated to include dues_chumpion and FIXED dues handling)
 app.post('/api/upload-excel', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
@@ -212,7 +214,7 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
       }
     });
 
-    // Insert new data with dues_chumpion support
+    // Insert new data with dues_chumpion support and FIXED dues handling
     const insertQuery = `
       INSERT INTO team_seasons (
         year, name_id, team_name, wins, losses, points_for, points_against,
@@ -222,6 +224,7 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
 
     let insertedCount = 0;
     jsonData.forEach((row) => {
+      // FIXED: Don't default dues to 250, use actual value from Excel
       const values = [
         row.year,
         row.name_id,
@@ -232,7 +235,7 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
         row.points_against || 0,
         row.regular_season_rank || null,
         row.playoff_finish || null,
-        row.dues || 250,
+        row.dues, // Use actual value from Excel, don't default to 250
         row.payout || 0,
         row.dues_chumpion || 0, // New column support
         row.high_game || null
@@ -305,7 +308,12 @@ app.get('/api/rules', (req, res) => {
 ## Waiver Rules
 - **FAAB** (Free Agent Acquisition Budget) system.
 - **$100 budget** per season.
-- Waivers process **Wednesday mornings**.`;
+- Waivers process **Wednesday mornings**.
+
+## Chumpion Rules
+- Last place in regular season standings is the **Chumpion**.
+- Chumpion pays extra dues to the Champion.
+- Amount varies by season (typically $50).`;
 
   res.json({ rules: rulesContent });
 });
