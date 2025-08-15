@@ -23,7 +23,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 db.serialize(() => {
-  console.log('🚀 Initializing database schema (safe mode - no data overwriting)...');
+  console.log('🚀 Initializing database schema (PURE SCHEMA ONLY - ZERO DATA INSERTION)...');
 
   // Create managers table
   console.log('📊 Creating managers table...');
@@ -109,8 +109,6 @@ db.serialize(() => {
     }
   });
 
-  // IMPORTANT: NO DATA UPDATES - Only schema changes above this point
-
   // Create indexes for better performance
   console.log('📈 Creating database indexes...');
   
@@ -151,76 +149,8 @@ db.serialize(() => {
     });
   });
 
-  // Check if we should insert default rules (ONLY if rules table is completely empty)
-  console.log('📝 Checking if default rules are needed...');
-  db.get('SELECT COUNT(*) as count FROM league_rules', (err, row) => {
-    if (err) {
-      console.error('❌ Error checking rules:', err.message);
-    } else if (row.count === 0) {
-      console.log('📝 Rules table is empty - inserting default league rules...');
-      
-      const defaultRules = `# League Rules
-
-## Keeper Rules
-- Each manager may keep **up to 2 players** from year to year.
-- A player **cannot be kept more than two consecutive years**, regardless of which manager keeps the player.
-
-## Draft Rules
-- **Base draft salary:** **$200** per team.
-- **Nomination order:** reverse of the previous season's final **regular season** standings.
-
-## 2025 League Dues & Payouts
-- **2025 League Dues:** **$250** per team.
-
-### 2025 Payouts
-- **$1,250** to **1st place**
-- **$650** to **2nd place**
-- **$300** for **best regular season record**
-- **$300** for **most regular season points**
-
-## Playoffs
-- **6 teams** qualify.
-- Weeks **15, 16, 17**.
-- **Seeds 1 & 2** receive **byes in Week 15**.
-
-## Trade Rules
-- Trade deadline is **Week 10**.
-- All trades must be **unanimous approval** from all non-trading managers.
-
-## Scoring
-- Standard PPR scoring with **1 point per reception**.
-- **6 points** for passing TDs.
-- **-2 points** for interceptions and fumbles.
-
-## Lineup Requirements
-- **1 QB, 2 RB, 3 WR, 1 TE, 1 K, 1 DEF**
-- **6 bench spots**
-- **1 IR spot**
-
-## Waiver Rules
-- **FAAB** (Free Agent Acquisition Budget) system.
-- **$100 budget** per season.
-- Waivers process **Wednesday mornings**.
-
-## Chumpion Rules
-- Last place in regular season standings is the **Chumpion**.
-- Chumpion pays extra dues to the Champion.
-- Amount varies by season (typically $50).`;
-
-      db.run(`
-        INSERT INTO league_rules (rules_content, version, active) 
-        VALUES (?, 1, 1)
-      `, [defaultRules], (err) => {
-        if (err) {
-          console.error('❌ Error inserting default rules:', err.message);
-        } else {
-          console.log('✅ Default league rules inserted (table was empty)');
-        }
-      });
-    } else {
-      console.log('ℹ️  Rules already exist - preserving existing rules (no overwrite)');
-    }
-  });
+  // COMPLETELY REMOVED: No data insertion of any kind
+  console.log('📝 Skipping all data insertion - use Admin panel to manage data and rules');
 
   // Database schema verification
   console.log('🔍 Verifying database schema...');
@@ -251,6 +181,15 @@ db.serialize(() => {
     }
   });
 
+  // Check rules table structure
+  db.all("PRAGMA table_info(league_rules)", (err, columns) => {
+    if (err) {
+      console.error('❌ Error checking league_rules table:', err.message);
+    } else {
+      console.log('✅ League_rules table columns:', columns.map(col => col.name).join(', '));
+    }
+  });
+
   // Check database file size and record counts
   fs.stat(dbPath, (err, stats) => {
     if (err) {
@@ -260,21 +199,21 @@ db.serialize(() => {
     }
   });
 
-  // Show record counts
+  // Show record counts (no data modification, just reporting)
   db.get('SELECT COUNT(*) as count FROM managers', (err, row) => {
-    if (!err) {
+    if (!err && row) {
       console.log(`📊 Managers in database: ${row.count}`);
     }
   });
 
   db.get('SELECT COUNT(*) as count FROM team_seasons', (err, row) => {
-    if (!err) {
+    if (!err && row) {
       console.log(`📊 Season records in database: ${row.count}`);
     }
   });
 
   db.get('SELECT COUNT(*) as count FROM league_rules', (err, row) => {
-    if (!err) {
+    if (!err && row) {
       console.log(`📊 Rules entries in database: ${row.count}`);
     }
   });
@@ -284,8 +223,8 @@ db.serialize(() => {
   console.log('   ✅ Tables created/verified: managers, team_seasons, league_rules');
   console.log('   ✅ Indexes created for optimal performance');
   console.log('   ✅ dues_chumpion column added/verified');
-  console.log('   ✅ SAFE MODE: No existing data was modified');
-  console.log('   ✅ Rules preserved (only default if table was empty)');
+  console.log('   ✅ PURE SCHEMA MODE: Absolutely no data was inserted or modified');
+  console.log('   ✅ All rules and data preserved exactly as entered');
   console.log('   📍 Database location:', dbPath);
   console.log('\n🚀 Database ready for use!');
   console.log('   Use the Admin panel to modify data and rules');

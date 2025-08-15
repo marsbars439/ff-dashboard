@@ -326,59 +326,59 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
   }
 });
 
-// Get rules
+// Get rules - FIXED to read from database instead of hardcoded
 app.get('/api/rules', (req, res) => {
-  // For now, return the hardcoded rules
-  // Later you can store this in the database
-  const rulesContent = `# League Rules
+  const query = 'SELECT rules_content FROM league_rules WHERE active = 1 ORDER BY created_at DESC LIMIT 1';
+  
+  db.get(query, [], (err, row) => {
+    if (err) {
+      console.error('Error fetching rules:', err.message);
+      res.status(500).json({ error: 'Failed to fetch rules' });
+      return;
+    }
+    
+    if (row && row.rules_content) {
+      res.json({ rules: row.rules_content });
+    } else {
+      // If no rules in database, return empty string (no hardcoded fallback)
+      res.json({ rules: '' });
+    }
+  });
+});
 
-## Keeper Rules
-- Each manager may keep **up to 2 players** from year to year.
-- A player **cannot be kept more than two consecutive years**, regardless of which manager keeps the player.
+// Update rules - FIXED to actually save to database
+app.put('/api/rules', (req, res) => {
+  const { rules } = req.body;
+  
+  if (!rules) {
+    return res.status(400).json({ error: 'Rules content is required' });
+  }
 
-## Draft Rules
-- **Base draft salary:** **$200** per team.
-- **Nomination order:** reverse of the previous season's final **regular season** standings.
-
-## 2025 League Dues & Payouts
-- **2025 League Dues:** **$250** per team.
-
-### 2025 Payouts
-- **$1,250** to **1st place**
-- **$650** to **2nd place**
-- **$300** for **best regular season record**
-- **$300** for **most regular season points**
-
-## Playoffs
-- **6 teams** qualify.
-- Weeks **15, 16, 17**.
-- **Seeds 1 & 2** receive **byes in Week 15**.
-
-## Trade Rules
-- Trade deadline is **Week 10**.
-- All trades must be **unanimous approval** from all non-trading managers.
-
-## Scoring
-- Standard PPR scoring with **1 point per reception**.
-- **6 points** for passing TDs.
-- **-2 points** for interceptions and fumbles.
-
-## Lineup Requirements
-- **1 QB, 2 RB, 3 WR, 1 TE, 1 K, 1 DEF**
-- **6 bench spots**
-- **1 IR spot**
-
-## Waiver Rules
-- **FAAB** (Free Agent Acquisition Budget) system.
-- **$100 budget** per season.
-- Waivers process **Wednesday mornings**.
-
-## Chumpion Rules
-- Last place in regular season standings is the **Chumpion**.
-- Chumpion pays extra dues to the Champion.
-- Amount varies by season (typically $50).`;
-
-  res.json({ rules: rulesContent });
+  // First, deactivate all existing rules
+  db.run('UPDATE league_rules SET active = 0', (err) => {
+    if (err) {
+      console.error('Error deactivating old rules:', err.message);
+      res.status(500).json({ error: 'Failed to update rules' });
+      return;
+    }
+    
+    // Insert new rules as active
+    const insertQuery = `
+      INSERT INTO league_rules (rules_content, version, active, created_at, updated_at) 
+      VALUES (?, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `;
+    
+    db.run(insertQuery, [rules], function(err) {
+      if (err) {
+        console.error('Error inserting new rules:', err.message);
+        res.status(500).json({ error: 'Failed to save rules' });
+        return;
+      }
+      
+      console.log('✅ Rules updated successfully in database');
+      res.json({ message: 'Rules updated successfully' });
+    });
+  });
 });
 
 // Update rules
