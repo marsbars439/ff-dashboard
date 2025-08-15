@@ -12,7 +12,11 @@ import {
   ChevronDown,
   BookOpen,
   Users,
-  Zap
+  Zap,
+  Edit3,
+  Save,
+  X,
+  Trash2
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -25,23 +29,8 @@ const FantasyFootballApp = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rulesContent, setRulesContent] = useState('');
-
-  // Form data for admin section
-  const [formData, setFormData] = useState({
-    year: new Date().getFullYear(),
-    name_id: '',
-    team_name: '',
-    wins: 0,
-    losses: 0,
-    points_for: 0,
-    points_against: 0,
-    regular_season_rank: '',
-    playoff_finish: '',
-    dues: 250,
-    payout: 0,
-    dues_chumpion: 0,
-    high_game: 0
-  });
+  const [editingRow, setEditingRow] = useState(null);
+  const [editedData, setEditedData] = useState({});
 
   useEffect(() => {
     fetchData();
@@ -132,46 +121,168 @@ const FantasyFootballApp = () => {
     }
   };
 
-  const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
+  const startEdit = (season) => {
+    setEditingRow(season.id);
+    setEditedData({ ...season });
+  };
+
+  const cancelEdit = () => {
+    setEditingRow(null);
+    setEditedData({});
+  };
+
+  const saveEdit = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/team-seasons`, {
-        method: 'POST',
+      const response = await fetch(`${API_BASE_URL}/team-seasons/${editingRow}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(editedData),
       });
       
       if (response.ok) {
-        alert('Season data added successfully!');
-        setFormData({
-          year: new Date().getFullYear(),
-          name_id: '',
-          team_name: '',
-          wins: 0,
-          losses: 0,
-          points_for: 0,
-          points_against: 0,
-          regular_season_rank: '',
-          playoff_finish: '',
-          dues: 250,
-          payout: 0,
-          dues_chumpion: 0,
-          high_game: 0
-        });
-        fetchData(); // Refresh the data
+        await fetchData();
+        setEditingRow(null);
+        setEditedData({});
       } else {
         const error = await response.json();
         alert('Error: ' + error.error);
       }
     } catch (error) {
       alert('Error: ' + error.message);
-    } finally {
-      setLoading(false);
     }
+  };
+
+  const deleteRow = async (id) => {
+    if (!confirm('Are you sure you want to delete this season record?')) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/team-seasons/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        await fetchData();
+      } else {
+        const error = await response.json();
+        alert('Error: ' + error.error);
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  };
+
+  const addNewRow = async () => {
+    const newSeason = {
+      year: new Date().getFullYear(),
+      name_id: '',
+      team_name: '',
+      wins: 0,
+      losses: 0,
+      points_for: 0,
+      points_against: 0,
+      regular_season_rank: null,
+      playoff_finish: null,
+      dues: 250,
+      payout: 0,
+      dues_chumpion: 0,
+      high_game: null
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/team-seasons`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newSeason),
+      });
+      
+      if (response.ok) {
+        await fetchData();
+      } else {
+        const error = await response.json();
+        alert('Error: ' + error.error);
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  };
+
+  // Improved markdown rendering function
+  const renderMarkdown = (text) => {
+    const lines = text.split('\n');
+    const elements = [];
+    let currentList = [];
+    let listType = null;
+
+    const processLine = (line, index) => {
+      // Handle lists
+      if (line.startsWith('- ')) {
+        if (listType !== 'ul') {
+          if (currentList.length > 0) {
+            elements.push(createElement(listType, currentList, `list-${elements.length}`));
+            currentList = [];
+          }
+          listType = 'ul';
+        }
+        currentList.push(processInlineFormatting(line.slice(2)));
+        return;
+      }
+
+      // Flush any pending list
+      if (currentList.length > 0) {
+        elements.push(createElement(listType, currentList, `list-${elements.length}`));
+        currentList = [];
+        listType = null;
+      }
+
+      // Handle headers
+      if (line.startsWith('# ')) {
+        elements.push(<h1 key={index} className="text-2xl sm:text-3xl font-bold text-gray-900 mt-6 sm:mt-8 mb-3 sm:mb-4">{processInlineFormatting(line.slice(2))}</h1>);
+      } else if (line.startsWith('## ')) {
+        elements.push(<h2 key={index} className="text-xl sm:text-2xl font-bold text-gray-800 mt-4 sm:mt-6 mb-2 sm:mb-3">{processInlineFormatting(line.slice(3))}</h2>);
+      } else if (line.startsWith('### ')) {
+        elements.push(<h3 key={index} className="text-lg sm:text-xl font-bold text-gray-700 mt-3 sm:mt-4 mb-2">{processInlineFormatting(line.slice(4))}</h3>);
+      } else if (line.trim() === '' || line.trim() === '---') {
+        elements.push(<br key={index} />);
+      } else if (line.trim() !== '') {
+        elements.push(<p key={index} className="text-gray-700 mb-2 text-sm sm:text-base">{processInlineFormatting(line)}</p>);
+      }
+    };
+
+    const processInlineFormatting = (text) => {
+      const parts = text.split(/(\*\*.*?\*\*)/);
+      return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <strong key={i}>{part.slice(2, -2)}</strong>;
+        }
+        return part;
+      });
+    };
+
+    const createElement = (type, items, key) => {
+      if (type === 'ul') {
+        return (
+          <ul key={key} className="list-disc list-inside ml-4 mb-4 space-y-1">
+            {items.map((item, i) => (
+              <li key={i} className="text-gray-700 text-sm sm:text-base">{item}</li>
+            ))}
+          </ul>
+        );
+      }
+      return null;
+    };
+
+    lines.forEach(processLine);
+
+    // Flush any remaining list
+    if (currentList.length > 0) {
+      elements.push(createElement(listType, currentList, `list-${elements.length}`));
+    }
+
+    return elements;
   };
 
   const calculateAllRecords = () => {
@@ -340,13 +451,24 @@ const FantasyFootballApp = () => {
       )
     : null;
 
-  const medalRankings = [...activeRecords, ...inactiveRecords].sort((a, b) => {
-    if (b.championships !== a.championships) return b.championships - a.championships;
-    if (b.secondPlace !== a.secondPlace) return b.secondPlace - a.secondPlace;
-    return b.thirdPlace - a.thirdPlace;
-  });
+  // FIXED SORTING: Active managers first, then inactive managers
+  const medalRankings = [
+    ...activeRecords.sort((a, b) => {
+      if (b.championships !== a.championships) return b.championships - a.championships;
+      if (b.secondPlace !== a.secondPlace) return b.secondPlace - a.secondPlace;
+      return b.thirdPlace - a.thirdPlace;
+    }),
+    ...inactiveRecords.sort((a, b) => {
+      if (b.championships !== a.championships) return b.championships - a.championships;
+      if (b.secondPlace !== a.secondPlace) return b.secondPlace - a.secondPlace;
+      return b.thirdPlace - a.thirdPlace;
+    })
+  ];
 
-  const chumpionRankings = [...activeRecords, ...inactiveRecords].sort((a, b) => b.chumpionships - a.chumpionships);
+  const chumpionRankings = [
+    ...activeRecords.sort((a, b) => b.chumpionships - a.chumpionships),
+    ...inactiveRecords.sort((a, b) => b.chumpionships - a.chumpionships)
+  ];
   
   const winPctRankings = [
     ...activeRecords.sort((a, b) => b.winPct - a.winPct),
@@ -962,173 +1084,205 @@ const FantasyFootballApp = () => {
               </div>
             </div>
 
-            {/* Manual Entry Form */}
+            {/* Editable Data Table */}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
-                <Plus className="w-5 h-5 text-green-500" />
-                <span>Add Season Data</span>
-              </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center space-x-2">
+                  <Edit3 className="w-5 h-5 text-green-500" />
+                  <span>Season Data</span>
+                </h3>
+                <button
+                  onClick={addNewRow}
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2 text-sm sm:text-base"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add New Season</span>
+                </button>
+              </div>
               
-              <form onSubmit={handleFormSubmit} className="space-y-4 sm:space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                    <input
-                      type="number"
-                      value={formData.year}
-                      onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Manager</label>
-                    <select
-                      value={formData.name_id}
-                      onChange={(e) => setFormData({...formData, name_id: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                      required
-                    >
-                      <option value="">Select Manager</option>
-                      {managers.map(manager => (
-                        <option key={manager.name_id} value={manager.name_id}>
-                          {manager.full_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="sm:col-span-2 lg:col-span-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Team Name</label>
-                    <input
-                      type="text"
-                      value={formData.team_name}
-                      onChange={(e) => setFormData({...formData, team_name: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Wins</label>
-                    <input
-                      type="number"
-                      value={formData.wins}
-                      onChange={(e) => setFormData({...formData, wins: parseInt(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Losses</label>
-                    <input
-                      type="number"
-                      value={formData.losses}
-                      onChange={(e) => setFormData({...formData, losses: parseInt(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Points For</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.points_for}
-                      onChange={(e) => setFormData({...formData, points_for: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Points Against</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.points_against}
-                      onChange={(e) => setFormData({...formData, points_against: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Regular Season Rank</label>
-                    <select
-                      value={formData.regular_season_rank}
-                      onChange={(e) => setFormData({...formData, regular_season_rank: e.target.value ? parseInt(e.target.value) : ''})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                    >
-                      <option value="">Select Rank</option>
-                      {[1,2,3,4,5,6,7,8,9,10,11,12].map(rank => (
-                        <option key={rank} value={rank}>{rank}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Playoff Finish</label>
-                    <select
-                      value={formData.playoff_finish}
-                      onChange={(e) => setFormData({...formData, playoff_finish: e.target.value ? parseInt(e.target.value) : ''})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                    >
-                      <option value="">No Playoffs</option>
-                      <option value="1">1st (Champion)</option>
-                      <option value="2">2nd (Runner-up)</option>
-                      <option value="3">3rd</option>
-                      <option value="4">4th</option>
-                      <option value="5">5th</option>
-                      <option value="6">6th</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Dues Paid ($)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.dues}
-                      onChange={(e) => setFormData({...formData, dues: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Payout Won ($)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.payout}
-                      onChange={(e) => setFormData({...formData, payout: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                    />
-                  </div>
-                  
-                  <div className="sm:col-span-2 lg:col-span-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Chumpion Extra ($)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.dues_chumpion}
-                      onChange={(e) => setFormData({...formData, dues_chumpion: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                      placeholder="Extra amount paid by chumpion"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 sm:px-6 rounded-lg transition-colors disabled:opacity-50 text-sm sm:text-base"
-                  >
-                    {loading ? 'Adding...' : 'Add Season Data'}
-                  </button>
-                </div>
-              </form>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-gray-50">
+                      <th className="text-left p-2 font-medium text-gray-700">Year</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Manager</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Team</th>
+                      <th className="text-left p-2 font-medium text-gray-700">W-L</th>
+                      <th className="text-left p-2 font-medium text-gray-700">PF</th>
+                      <th className="text-left p-2 font-medium text-gray-700">PA</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Rank</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Playoff</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Dues</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Payout</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Chumpion</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teamSeasons.sort((a, b) => b.year - a.year || (a.regular_season_rank || 99) - (b.regular_season_rank || 99)).map((season) => (
+                      <tr key={season.id} className="border-b hover:bg-gray-50">
+                        {editingRow === season.id ? (
+                          <>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                value={editedData.year}
+                                onChange={(e) => setEditedData({...editedData, year: parseInt(e.target.value)})}
+                                className="w-16 px-1 py-1 border rounded text-xs"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <select
+                                value={editedData.name_id}
+                                onChange={(e) => setEditedData({...editedData, name_id: e.target.value})}
+                                className="w-24 px-1 py-1 border rounded text-xs"
+                              >
+                                {managers.map(manager => (
+                                  <option key={manager.name_id} value={manager.name_id}>
+                                    {manager.full_name.split(' ')[0]}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={editedData.team_name}
+                                onChange={(e) => setEditedData({...editedData, team_name: e.target.value})}
+                                className="w-20 px-1 py-1 border rounded text-xs"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <div className="flex space-x-1">
+                                <input
+                                  type="number"
+                                  value={editedData.wins}
+                                  onChange={(e) => setEditedData({...editedData, wins: parseInt(e.target.value)})}
+                                  className="w-8 px-1 py-1 border rounded text-xs"
+                                />
+                                <span className="text-xs self-center">-</span>
+                                <input
+                                  type="number"
+                                  value={editedData.losses}
+                                  onChange={(e) => setEditedData({...editedData, losses: parseInt(e.target.value)})}
+                                  className="w-8 px-1 py-1 border rounded text-xs"
+                                />
+                              </div>
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editedData.points_for}
+                                onChange={(e) => setEditedData({...editedData, points_for: parseFloat(e.target.value)})}
+                                className="w-16 px-1 py-1 border rounded text-xs"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editedData.points_against}
+                                onChange={(e) => setEditedData({...editedData, points_against: parseFloat(e.target.value)})}
+                                className="w-16 px-1 py-1 border rounded text-xs"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                value={editedData.regular_season_rank || ''}
+                                onChange={(e) => setEditedData({...editedData, regular_season_rank: e.target.value ? parseInt(e.target.value) : null})}
+                                className="w-12 px-1 py-1 border rounded text-xs"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                value={editedData.playoff_finish || ''}
+                                onChange={(e) => setEditedData({...editedData, playoff_finish: e.target.value ? parseInt(e.target.value) : null})}
+                                className="w-12 px-1 py-1 border rounded text-xs"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editedData.dues}
+                                onChange={(e) => setEditedData({...editedData, dues: parseFloat(e.target.value)})}
+                                className="w-16 px-1 py-1 border rounded text-xs"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editedData.payout}
+                                onChange={(e) => setEditedData({...editedData, payout: parseFloat(e.target.value)})}
+                                className="w-16 px-1 py-1 border rounded text-xs"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editedData.dues_chumpion || ''}
+                                onChange={(e) => setEditedData({...editedData, dues_chumpion: e.target.value ? parseFloat(e.target.value) : 0})}
+                                className="w-16 px-1 py-1 border rounded text-xs"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <div className="flex space-x-1">
+                                <button
+                                  onClick={saveEdit}
+                                  className="text-green-600 hover:text-green-800"
+                                >
+                                  <Save className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={cancelEdit}
+                                  className="text-gray-600 hover:text-gray-800"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="p-2">{season.year}</td>
+                            <td className="p-2">{managers.find(m => m.name_id === season.name_id)?.full_name.split(' ')[0] || season.name_id}</td>
+                            <td className="p-2 max-w-20 truncate">{season.team_name}</td>
+                            <td className="p-2">{season.wins}-{season.losses}</td>
+                            <td className="p-2">{season.points_for}</td>
+                            <td className="p-2">{season.points_against}</td>
+                            <td className="p-2">{season.regular_season_rank || '-'}</td>
+                            <td className="p-2">{season.playoff_finish || '-'}</td>
+                            <td className="p-2">${season.dues}</td>
+                            <td className="p-2">${season.payout}</td>
+                            <td className="p-2">${season.dues_chumpion || 0}</td>
+                            <td className="p-2">
+                              <div className="flex space-x-1">
+                                <button
+                                  onClick={() => startEdit(season)}
+                                  className="text-blue-600 hover:text-blue-800"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => deleteRow(season.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Rules Editor Section */}
@@ -1165,30 +1319,7 @@ const FantasyFootballApp = () => {
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">League Rules</h2>
             </div>
             <div className="prose prose-sm sm:prose-lg max-w-none">
-              {rulesContent.split('\n').map((line, index) => {
-                if (line.startsWith('# ')) {
-                  return <h1 key={index} className="text-2xl sm:text-3xl font-bold text-gray-900 mt-6 sm:mt-8 mb-3 sm:mb-4">{line.slice(2)}</h1>;
-                } else if (line.startsWith('## ')) {
-                  return <h2 key={index} className="text-xl sm:text-2xl font-bold text-gray-800 mt-4 sm:mt-6 mb-2 sm:mb-3">{line.slice(3)}</h2>;
-                } else if (line.startsWith('### ')) {
-                  return <h3 key={index} className="text-lg sm:text-xl font-bold text-gray-700 mt-3 sm:mt-4 mb-2">{line.slice(4)}</h3>;
-                } else if (line.startsWith('- ')) {
-                  return <li key={index} className="ml-4 text-gray-700 mb-1 text-sm sm:text-base">{line.slice(2)}</li>;
-                } else if (line.includes('**') && line.includes('**')) {
-                  const parts = line.split('**');
-                  return (
-                    <p key={index} className="text-gray-700 mb-2 text-sm sm:text-base">
-                      {parts.map((part, i) => 
-                        i % 2 === 1 ? <strong key={i}>{part}</strong> : part
-                      )}
-                    </p>
-                  );
-                } else if (line.trim() === '' || line.trim() === '---') {
-                  return <br key={index} />;
-                } else {
-                  return <p key={index} className="text-gray-700 mb-2 text-sm sm:text-base">{line}</p>;
-                }
-              })}
+              {renderMarkdown(rulesContent)}
             </div>
           </div>
         )}
