@@ -23,7 +23,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 db.serialize(() => {
-  console.log('🚀 Initializing database schema (safe mode - no data overwriting)...');
+  console.log('🚀 Initializing database schema...');
 
   // Create managers table
   console.log('📊 Creating managers table...');
@@ -109,7 +109,9 @@ db.serialize(() => {
     }
   });
 
-  // IMPORTANT: NO DATA UPDATES - Only schema changes above this point
+  // REMOVED: No longer automatically updating dues to $250
+  // This was causing the bug where all existing dues were overwritten
+  console.log('ℹ️  Preserving existing dues values (no automatic updates)');
 
   // Create indexes for better performance
   console.log('📈 Creating database indexes...');
@@ -151,13 +153,13 @@ db.serialize(() => {
     });
   });
 
-  // Check if we should insert default rules (ONLY if rules table is completely empty)
-  console.log('📝 Checking if default rules are needed...');
-  db.get('SELECT COUNT(*) as count FROM league_rules', (err, row) => {
+  // Insert default rules if rules table is empty
+  console.log('📝 Checking for default rules...');
+  db.get('SELECT COUNT(*) as count FROM league_rules WHERE active = 1', (err, row) => {
     if (err) {
       console.error('❌ Error checking rules:', err.message);
     } else if (row.count === 0) {
-      console.log('📝 Rules table is empty - inserting default league rules...');
+      console.log('📝 Inserting default league rules...');
       
       const defaultRules = `# League Rules
 
@@ -214,11 +216,11 @@ db.serialize(() => {
         if (err) {
           console.error('❌ Error inserting default rules:', err.message);
         } else {
-          console.log('✅ Default league rules inserted (table was empty)');
+          console.log('✅ Default league rules inserted');
         }
       });
     } else {
-      console.log('ℹ️  Rules already exist - preserving existing rules (no overwrite)');
+      console.log('ℹ️  League rules already exist');
     }
   });
 
@@ -251,7 +253,7 @@ db.serialize(() => {
     }
   });
 
-  // Check database file size and record counts
+  // Check database file size
   fs.stat(dbPath, (err, stats) => {
     if (err) {
       console.error('❌ Error checking database file:', err.message);
@@ -260,35 +262,16 @@ db.serialize(() => {
     }
   });
 
-  // Show record counts
-  db.get('SELECT COUNT(*) as count FROM managers', (err, row) => {
-    if (!err) {
-      console.log(`📊 Managers in database: ${row.count}`);
-    }
-  });
-
-  db.get('SELECT COUNT(*) as count FROM team_seasons', (err, row) => {
-    if (!err) {
-      console.log(`📊 Season records in database: ${row.count}`);
-    }
-  });
-
-  db.get('SELECT COUNT(*) as count FROM league_rules', (err, row) => {
-    if (!err) {
-      console.log(`📊 Rules entries in database: ${row.count}`);
-    }
-  });
-
   console.log('\n🎉 Database initialization completed successfully!');
   console.log('📋 Summary:');
-  console.log('   ✅ Tables created/verified: managers, team_seasons, league_rules');
+  console.log('   ✅ Tables created: managers, team_seasons, league_rules');
   console.log('   ✅ Indexes created for optimal performance');
   console.log('   ✅ dues_chumpion column added/verified');
-  console.log('   ✅ SAFE MODE: No existing data was modified');
-  console.log('   ✅ Rules preserved (only default if table was empty)');
+  console.log('   ✅ Default league rules inserted');
+  console.log('   ✅ FIXED: No longer overwriting existing dues values');
   console.log('   📍 Database location:', dbPath);
-  console.log('\n🚀 Database ready for use!');
-  console.log('   Use the Admin panel to modify data and rules');
+  console.log('\n🚀 Ready for data import or seeding!');
+  console.log('   Run: npm run seed-db (to populate with sample data)');
   console.log('   Or upload Excel file through the admin interface');
 });
 
