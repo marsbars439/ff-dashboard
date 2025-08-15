@@ -114,74 +114,6 @@ app.post('/api/managers', (req, res) => {
   });
 });
 
-// Update a manager
-app.put('/api/managers/:id', (req, res) => {
-  const id = req.params.id;
-  const { name_id, full_name, sleeper_username, active } = req.body;
-  
-  if (!name_id || !full_name) {
-    return res.status(400).json({ error: 'name_id and full_name are required' });
-  }
-
-  const query = `
-    UPDATE managers 
-    SET name_id = ?, full_name = ?, sleeper_username = ?, active = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `;
-  
-  db.run(query, [name_id, full_name, sleeper_username || '', active, id], function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    
-    if (this.changes === 0) {
-      res.status(404).json({ error: 'Manager not found' });
-      return;
-    }
-    
-    res.json({ 
-      message: 'Manager updated successfully',
-      changes: this.changes 
-    });
-  });
-});
-
-// Delete a manager
-app.delete('/api/managers/:id', (req, res) => {
-  const id = req.params.id;
-  
-  // First check if manager has any team seasons
-  db.get('SELECT COUNT(*) as count FROM team_seasons WHERE name_id = (SELECT name_id FROM managers WHERE id = ?)', [id], (err, row) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    
-    if (row.count > 0) {
-      res.status(400).json({ 
-        error: 'Cannot delete manager with existing season records. Set to inactive instead.' 
-      });
-      return;
-    }
-    
-    // If no seasons, safe to delete
-    db.run('DELETE FROM managers WHERE id = ?', [id], function(err) {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
-      
-      if (this.changes === 0) {
-        res.status(404).json({ error: 'Manager not found' });
-        return;
-      }
-      
-      res.json({ message: 'Manager deleted successfully' });
-    });
-  });
-});
-
 // Add a new team season (updated to include dues_chumpion and FIXED dues handling)
 app.post('/api/team-seasons', (req, res) => {
   const {
@@ -290,54 +222,51 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const stmt = db.prepare(insertQuery);
-    
-    jsonData.forEach(row => {
-      // Map Excel columns to database fields - adjust these to match your Excel structure
+    let insertedCount = 0;
+    jsonData.forEach((row) => {
+      // FIXED: Don't default dues to 250, use actual value from Excel
       const values = [
-        row.Year || row.year,
-        row.NameID || row.name_id,
-        row.TeamName || row.team_name || '',
-        row.Wins || row.wins || 0,
-        row.Losses || row.losses || 0,
-        row.PointsFor || row.points_for || 0,
-        row.PointsAgainst || row.points_against || 0,
-        row.RegularSeasonRank || row.regular_season_rank || null,
-        row.PlayoffFinish || row.playoff_finish || null,
-        row.Dues || row.dues, // FIXED: Use actual dues from Excel, don't default to 250
-        row.Payout || row.payout || 0,
-        row.DuesChumpion || row.dues_chumpion || 0, // Support chumpion dues
-        row.HighGame || row.high_game || null
+        row.year,
+        row.name_id,
+        row.team_name || '',
+        row.wins,
+        row.losses,
+        row.points_for || 0,
+        row.points_against || 0,
+        row.regular_season_rank || null,
+        row.playoff_finish || null,
+        row.dues, // Use actual value from Excel, don't default to 250
+        row.payout || 0,
+        row.dues_chumpion || 0, // New column support
+        row.high_game || null
       ];
-      
-      stmt.run(values, (err) => {
+
+      db.run(insertQuery, values, function(err) {
         if (err) {
-          console.error('Error inserting row:', err, values);
+          console.error('Error inserting row:', err, row);
+        } else {
+          insertedCount++;
         }
       });
     });
 
-    stmt.finalize();
-    
-    res.json({ message: 'Data imported successfully', rowsProcessed: jsonData.length });
-  } catch (error) {
-    console.error('Excel processing error:', error);
-    res.status(500).json({ error: 'Error processing Excel file: ' + error.message });
-  } finally {
     // Clean up uploaded file
-    if (req.file) {
-      const fs = require('fs');
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Error deleting uploaded file:', err);
-      });
-    }
+    require('fs').unlinkSync(req.file.path);
+
+    res.json({ 
+      message: 'Data imported successfully', 
+      rowsProcessed: jsonData.length 
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to process Excel file: ' + error.message });
   }
 });
 
-// Get league rules
+// Get rules
 app.get('/api/rules', (req, res) => {
-  // For now, return hardcoded rules
-  // Later you can store these in the database
+  // For now, return the hardcoded rules
+  // Later you can store this in the database
   const rulesContent = `# League Rules
 
 ## Keeper Rules
