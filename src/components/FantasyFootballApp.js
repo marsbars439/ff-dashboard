@@ -39,6 +39,8 @@ const FantasyFootballApp = () => {
   useEffect(() => {
     fetchData();
     fetchRules();
+    // Set document title
+    document.title = 'The League Dashboard';
   }, []);
 
   const fetchData = async () => {
@@ -300,32 +302,40 @@ const FantasyFootballApp = () => {
     }
   };
 
-  // Improved markdown rendering function
+  // Improved markdown rendering function with proper indented list handling
   const renderMarkdown = (text) => {
     const lines = text.split('\n');
     const elements = [];
     let currentList = [];
     let listType = null;
+    let listLevel = 0;
 
     const processLine = (line, index) => {
-      // Handle lists
-      if (line.startsWith('- ')) {
-        if (listType !== 'ul') {
+      // Handle indented lists (check for spaces before dash)
+      const listMatch = line.match(/^(\s*)- (.+)$/);
+      if (listMatch) {
+        const indent = listMatch[1].length;
+        const content = listMatch[2];
+        const level = Math.floor(indent / 2); // 2 spaces per level
+        
+        if (listType !== 'ul' || level !== listLevel) {
           if (currentList.length > 0) {
-            elements.push(createElement(listType, currentList, `list-${elements.length}`));
+            elements.push(createElement(listType, currentList, listLevel, `list-${elements.length}`));
             currentList = [];
           }
           listType = 'ul';
+          listLevel = level;
         }
-        currentList.push(processInlineFormatting(line.slice(2)));
+        currentList.push({ content: processInlineFormatting(content), level });
         return;
       }
 
       // Flush any pending list
       if (currentList.length > 0) {
-        elements.push(createElement(listType, currentList, `list-${elements.length}`));
+        elements.push(createElement(listType, currentList, listLevel, `list-${elements.length}`));
         currentList = [];
         listType = null;
+        listLevel = 0;
       }
 
       // Handle headers
@@ -352,12 +362,13 @@ const FantasyFootballApp = () => {
       });
     };
 
-    const createElement = (type, items, key) => {
+    const createElement = (type, items, level, key) => {
       if (type === 'ul') {
+        const marginClass = level > 0 ? `ml-${Math.min(level * 4, 12)}` : 'ml-4';
         return (
-          <ul key={key} className="list-disc list-inside ml-4 mb-4 space-y-1">
+          <ul key={key} className={`list-disc list-inside ${marginClass} mb-4 space-y-1`}>
             {items.map((item, i) => (
-              <li key={i} className="text-gray-700 text-sm sm:text-base">{item}</li>
+              <li key={i} className="text-gray-700 text-sm sm:text-base">{item.content}</li>
             ))}
           </ul>
         );
@@ -369,7 +380,7 @@ const FantasyFootballApp = () => {
 
     // Flush any remaining list
     if (currentList.length > 0) {
-      elements.push(createElement(listType, currentList, `list-${elements.length}`));
+      elements.push(createElement(listType, currentList, listLevel, `list-${elements.length}`));
     }
 
     return elements;
@@ -505,7 +516,7 @@ const FantasyFootballApp = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-24 w-24 sm:h-32 sm:w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-sm sm:text-base">Loading FF Dashboard...</p>
+          <p className="mt-4 text-gray-600 text-sm sm:text-base">Loading The League Dashboard...</p>
         </div>
       </div>
     );
@@ -576,9 +587,9 @@ const FantasyFootballApp = () => {
           <div className="flex flex-col sm:flex-row justify-between items-center py-4 sm:py-6 space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-3">
               <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500" />
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">FF Dashboard</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">The League Dashboard</h1>
             </div>
-            <nav className="flex flex-wrap justify-center sm:justify-end space-x-3 sm:space-x-6">
+            <nav className="flex flex-wrap justify-center sm:justify-end items-center space-x-3 sm:space-x-6">
               <button
                 onClick={() => setActiveTab('records')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
@@ -590,16 +601,6 @@ const FantasyFootballApp = () => {
                 Hall of Records
               </button>
               <button
-                onClick={() => setActiveTab('admin')}
-                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'admin' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Admin
-              </button>
-              <button
                 onClick={() => setActiveTab('rules')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'rules' 
@@ -608,6 +609,16 @@ const FantasyFootballApp = () => {
                 }`}
               >
                 Rules
+              </button>
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
+                  activeTab === 'admin' 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Admin
               </button>
             </nav>
           </div>
@@ -1113,7 +1124,6 @@ const FantasyFootballApp = () => {
                   <Edit3 className="w-5 h-5 text-green-500" />
                   <span>Season Data</span>
                 </h3>
-                <p className="text-sm text-gray-600">Only Dues, Payout, and Chumpion fields are editable</p>
               </div>
               
               <div className="overflow-x-auto">
