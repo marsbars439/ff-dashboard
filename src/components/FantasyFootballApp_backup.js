@@ -31,10 +31,6 @@ const FantasyFootballApp = () => {
   const [rulesContent, setRulesContent] = useState('');
   const [editingRow, setEditingRow] = useState(null);
   const [editedData, setEditedData] = useState({});
-  
-  // NEW: Manager editing state variables
-  const [editingManager, setEditingManager] = useState(null);
-  const [editedManagerData, setEditedManagerData] = useState({});
 
   useEffect(() => {
     fetchData();
@@ -205,92 +201,6 @@ const FantasyFootballApp = () => {
       
       if (response.ok) {
         await fetchData();
-      } else {
-        const error = await response.json();
-        alert('Error: ' + error.error);
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
-  // NEW: Manager editing functions
-  const startManagerEdit = (manager) => {
-    setEditingManager(manager.id);
-    setEditedManagerData({ ...manager });
-  };
-
-  const cancelManagerEdit = () => {
-    setEditingManager(null);
-    setEditedManagerData({});
-  };
-
-  const saveManagerEdit = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/managers/${editingManager}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editedManagerData),
-      });
-      
-      if (response.ok) {
-        await fetchData();
-        setEditingManager(null);
-        setEditedManagerData({});
-      } else {
-        const error = await response.json();
-        alert('Error: ' + error.error);
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
-  const deleteManager = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this manager? This action cannot be undone.')) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/managers/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        await fetchData();
-      } else {
-        const error = await response.json();
-        alert('Error: ' + error.error);
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
-  const addNewManager = async () => {
-    const newManager = {
-      name_id: '',
-      full_name: '',
-      sleeper_username: '',
-      active: 1
-    };
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/managers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newManager),
-      });
-      
-      if (response.ok) {
-        await fetchData();
-        // Auto-edit the new manager
-        const managersResponse = await fetch(`${API_BASE_URL}/managers`);
-        const managersData = await managersResponse.json();
-        const lastManager = managersData.managers[managersData.managers.length - 1];
-        startManagerEdit(lastManager);
       } else {
         const error = await response.json();
         alert('Error: ' + error.error);
@@ -708,63 +618,103 @@ const FantasyFootballApp = () => {
                               : index === 2 && manager.active
                               ? 'bg-amber-600 text-white shadow-md'
                               : manager.active
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-gray-200 text-gray-600'
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-400 text-gray-600'
                           }`}>
-                            #{index + 1}
+                            {index + 1}
                           </div>
+                          
                           <div className="min-w-0 flex-1">
-                            <h4 className={`font-bold text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                            <h4 className={`font-bold text-lg leading-tight truncate ${
+                              manager.active ? 'text-gray-900' : 'text-gray-500'
+                            }`}>
                               {manager.name}
                             </h4>
-                            <p className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
-                              {manager.gamesPlayed} games played
-                            </p>
+                            {!manager.active && (
+                              <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded-full">
+                                INACTIVE
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className={`font-bold text-sm ${manager.active ? 'text-blue-600' : 'text-gray-500'}`}>
-                            {manager.pointsPerGame.toFixed(1)} PPG
-                          </p>
-                          <p className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
-                            {manager.totalPointsFor.toLocaleString()} total
-                          </p>
+                        
+                        {/* Total Medals - Prominent on Mobile */}
+                        <div className={`px-3 py-2 rounded-full text-lg font-bold ${
+                          manager.totalMedals > 0 && manager.active
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {manager.totalMedals}
                         </div>
                       </div>
-                      
-                      {/* Mobile Medals */}
-                      <div className="grid grid-cols-4 gap-2 mb-2">
+
+                      {/* Mobile Medal Breakdown */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* Championships */}
                         <div className="text-center">
-                          <div className="text-yellow-500 font-bold text-lg">{manager.championships}</div>
-                          <div className="text-xs text-gray-500">🥇</div>
+                          <div className="flex items-center justify-center space-x-1 mb-1">
+                            <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🏆</span>
+                            </div>
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            manager.championships > 0 && manager.active ? 'text-yellow-600' : 'text-gray-400'
+                          }`}>
+                            {manager.championships}
+                          </span>
+                          <div className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Championships
+                          </div>
                         </div>
+
+                        {/* Second Place */}
                         <div className="text-center">
-                          <div className="text-gray-500 font-bold text-lg">{manager.secondPlace}</div>
-                          <div className="text-xs text-gray-500">🥈</div>
+                          <div className="flex items-center justify-center space-x-1 mb-1">
+                            <div className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥈</span>
+                            </div>
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            manager.secondPlace > 0 && manager.active ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
+                            {manager.secondPlace}
+                          </span>
+                          <div className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Runner-up
+                          </div>
                         </div>
+
+                        {/* Third Place */}
                         <div className="text-center">
-                          <div className="text-amber-600 font-bold text-lg">{manager.thirdPlace}</div>
-                          <div className="text-xs text-gray-500">🥉</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-red-500 font-bold text-lg">{manager.chumpionships}</div>
-                          <div className="text-xs text-gray-500">💩</div>
+                          <div className="flex items-center justify-center space-x-1 mb-1">
+                            <div className="w-4 h-4 bg-amber-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥉</span>
+                            </div>
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            manager.thirdPlace > 0 && manager.active ? 'text-amber-600' : 'text-gray-400'
+                          }`}>
+                            {manager.thirdPlace}
+                          </span>
+                          <div className={`text-xs ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Third place
+                          </div>
                         </div>
                       </div>
-                      
-                      {/* Mobile Additional Stats */}
-                      <div className="flex justify-between text-xs text-gray-600 pt-2 border-t border-gray-200">
-                        <span>{manager.totalWins}-{manager.totalLosses} ({(manager.winPct * 100).toFixed(1)}%)</span>
-                        <span className={manager.netEarnings >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          {manager.netEarnings >= 0 ? '+' : '-'}${Math.abs(manager.netEarnings)}
-                        </span>
-                      </div>
+
+                      {/* Mobile Stats */}
+                      {manager.active && (
+                        <div className="mt-2 text-center text-xs text-gray-500">
+                          {(manager.winPct * 100).toFixed(1)}% win rate • {manager.seasons} seasons
+                        </div>
+                      )}
                     </div>
 
-                    {/* Desktop Layout - Single Row */}
-                    <div className="hidden sm:flex sm:items-center sm:justify-between">
-                      <div className="flex items-center space-x-4 min-w-0 flex-1">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                    {/* Desktop Layout - Horizontal */}
+                    <div className="hidden sm:flex items-center justify-between">
+                      {/* Left side - Rank and Name */}
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${
                           index === 0 && manager.active
                             ? 'bg-yellow-500 text-white shadow-lg'
                             : index === 1 && manager.active
@@ -772,50 +722,96 @@ const FantasyFootballApp = () => {
                             : index === 2 && manager.active
                             ? 'bg-amber-600 text-white shadow-md'
                             : manager.active
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-200 text-gray-600'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-400 text-gray-600'
                         }`}>
-                          #{index + 1}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className={`font-bold text-lg truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                            {manager.name}
-                          </h4>
-                          <p className={`text-sm ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
-                            {manager.totalWins}-{manager.totalLosses} ({(manager.winPct * 100).toFixed(1)}%) • {manager.gamesPlayed} games
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-6 flex-shrink-0">
-                        <div className="flex items-center space-x-4">
-                          <div className="text-center">
-                            <div className="text-yellow-500 font-bold text-xl">{manager.championships}</div>
-                            <div className="text-xs text-gray-500">🥇</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-gray-500 font-bold text-xl">{manager.secondPlace}</div>
-                            <div className="text-xs text-gray-500">🥈</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-amber-600 font-bold text-xl">{manager.thirdPlace}</div>
-                            <div className="text-xs text-gray-500">🥉</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-red-500 font-bold text-xl">{manager.chumpionships}</div>
-                            <div className="text-xs text-gray-500">💩</div>
-                          </div>
+                          {index + 1}
                         </div>
                         
-                        <div className="text-right">
-                          <p className={`font-bold text-base ${manager.active ? 'text-blue-600' : 'text-gray-500'}`}>
-                            {manager.pointsPerGame.toFixed(1)} PPG
-                          </p>
-                          <p className={`text-sm ${
-                            manager.netEarnings >= 0 ? 'text-green-600' : 'text-red-600'
+                        <div>
+                          <h4 className={`font-bold text-xl ${
+                            manager.active ? 'text-gray-900' : 'text-gray-500'
                           }`}>
-                            {manager.netEarnings >= 0 ? '+' : '-'}${Math.abs(manager.netEarnings)}
-                          </p>
+                            {manager.name}
+                          </h4>
+                          {!manager.active && (
+                            <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded-full">
+                              INACTIVE
+                            </span>
+                          )}
+                          {manager.active && (
+                            <div className="text-sm text-gray-500">
+                              {(manager.winPct * 100).toFixed(1)}% win rate • {manager.seasons} seasons
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right side - Medal counts */}
+                      <div className="flex items-center space-x-6">
+                        {/* Championships */}
+                        <div className="text-center">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🏆</span>
+                            </div>
+                            <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                              Championships
+                            </span>
+                          </div>
+                          <span className={`font-bold text-2xl ${
+                            manager.championships > 0 && manager.active ? 'text-yellow-600' : 'text-gray-400'
+                          }`}>
+                            {manager.championships}
+                          </span>
+                        </div>
+
+                        {/* Second Place */}
+                        <div className="text-center">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥈</span>
+                            </div>
+                            <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                              Runner-up
+                            </span>
+                          </div>
+                          <span className={`font-bold text-2xl ${
+                            manager.secondPlace > 0 && manager.active ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
+                            {manager.secondPlace}
+                          </span>
+                        </div>
+
+                        {/* Third Place */}
+                        <div className="text-center">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <div className="w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">🥉</span>
+                            </div>
+                            <span className={`text-xs font-medium ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                              Third place
+                            </span>
+                          </div>
+                          <span className={`font-bold text-2xl ${
+                            manager.thirdPlace > 0 && manager.active ? 'text-amber-600' : 'text-gray-400'
+                          }`}>
+                            {manager.thirdPlace}
+                          </span>
+                        </div>
+
+                        {/* Total Medals */}
+                        <div className="text-center">
+                          <div className="text-xs font-medium text-gray-600 mb-1">
+                            Total Medals
+                          </div>
+                          <div className={`px-4 py-2 rounded-full text-xl font-bold ${
+                            manager.totalMedals > 0 && manager.active
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {manager.totalMedals}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -824,75 +820,94 @@ const FantasyFootballApp = () => {
               </div>
             </div>
 
-            {/* Win Percentage Rankings */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
-                <BarChart3 className="w-5 h-5 text-blue-500" />
-                <span>Win Percentage Rankings</span>
-              </h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {winPctRankings.map((manager, index) => (
-                  <div key={manager.name} className={`p-3 sm:p-4 rounded-lg border ${
-                    manager.active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300 opacity-75'
-                  }`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2 min-w-0 flex-1">
-                        <span className="font-bold text-base sm:text-lg flex-shrink-0">#{index + 1}</span>
-                        <span className={`font-semibold text-sm sm:text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                          {manager.name}
+            {/* Franchise Win/Loss and Points Scored Cards */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+              {/* Franchise Win/Loss Records */}
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
+                  <BarChart3 className="w-5 h-5 text-green-500" />
+                  <span>Franchise Win/Loss Records</span>
+                </h3>
+                
+                <div className="space-y-2 sm:space-y-3">
+                  {winPctRankings.map((manager, index) => (
+                    <div 
+                      key={manager.name} 
+                      className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                        manager.active 
+                          ? 'bg-white border-gray-200 hover:bg-gray-50' 
+                          : 'bg-gray-50 border-gray-300 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <span className={`font-bold text-base sm:text-lg flex-shrink-0 ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          #{index + 1}
                         </span>
+                        <div className="min-w-0 flex-1">
+                          <p className={`font-semibold text-sm sm:text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                            {manager.name}
+                            {!manager.active && <span className="text-xs text-gray-400 ml-2">(Inactive)</span>}
+                          </p>
+                          <p className={`text-xs sm:text-sm ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            {manager.seasons} seasons
+                          </p>
+                        </div>
                       </div>
-                      <span className={`text-lg sm:text-xl font-bold flex-shrink-0 ${manager.active ? 'text-blue-600' : 'text-gray-500'}`}>
-                        {(manager.winPct * 100).toFixed(1)}%
-                      </span>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`font-bold text-sm sm:text-base ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {manager.totalWins}-{manager.totalLosses}
+                        </p>
+                        <p className={`text-xs sm:text-sm ${manager.active ? 'text-green-600' : 'text-gray-400'}`}>
+                          {(manager.winPct * 100).toFixed(1)}%
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-xs sm:text-sm text-gray-600">
-                      <span className={manager.active ? 'text-gray-600' : 'text-gray-400'}>
-                        {manager.totalWins}-{manager.totalLosses}
-                      </span>
-                      <span className={manager.active ? 'text-gray-600' : 'text-gray-400'}>
-                        {manager.gamesPlayed} games played
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Points Per Game Rankings */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
-                <TrendingUp className="w-5 h-5 text-green-500" />
-                <span>Points Per Game Rankings</span>
-              </h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {ppgRankings.map((manager, index) => (
-                  <div key={manager.name} className={`p-3 sm:p-4 rounded-lg border ${
-                    manager.active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300 opacity-75'
-                  }`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2 min-w-0 flex-1">
-                        <span className="font-bold text-base sm:text-lg flex-shrink-0">#{index + 1}</span>
-                        <span className={`font-semibold text-sm sm:text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                          {manager.name}
+              {/* Franchise Points Scored */}
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
+                  <TrendingUp className="w-5 h-5 text-blue-500" />
+                  <span>Franchise Points Scored</span>
+                </h3>
+                
+                <div className="space-y-2 sm:space-y-3">
+                  {ppgRankings.map((manager, index) => (
+                    <div 
+                      key={manager.name} 
+                      className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                        manager.active 
+                          ? 'bg-white border-gray-200 hover:bg-gray-50' 
+                          : 'bg-gray-50 border-gray-300 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <span className={`font-bold text-base sm:text-lg flex-shrink-0 ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          #{index + 1}
                         </span>
+                        <div className="min-w-0 flex-1">
+                          <p className={`font-semibold text-sm sm:text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                            {manager.name}
+                            {!manager.active && <span className="text-xs text-gray-400 ml-2">(Inactive)</span>}
+                          </p>
+                          <p className={`text-xs sm:text-sm ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                            {manager.gamesPlayed} games played
+                          </p>
+                        </div>
                       </div>
-                      <span className={`text-lg sm:text-xl font-bold flex-shrink-0 ${manager.active ? 'text-green-600' : 'text-gray-500'}`}>
-                        {manager.pointsPerGame.toFixed(1)}
-                      </span>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`font-bold text-sm sm:text-base ${manager.active ? 'text-blue-600' : 'text-gray-500'}`}>
+                          {manager.pointsPerGame.toFixed(1)} PPG
+                        </p>
+                        <p className={`text-xs sm:text-sm ${manager.active ? 'text-gray-600' : 'text-gray-400'}`}>
+                          {manager.totalPointsFor.toLocaleString()} total
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span className={manager.active ? 'text-gray-600' : 'text-gray-400'}>
-                        {manager.totalPointsFor.toLocaleString()} total
-                      </span>
-                      <span className={manager.active ? 'text-gray-600' : 'text-gray-400'}>
-                        {manager.gamesPlayed} games played
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -916,19 +931,14 @@ const FantasyFootballApp = () => {
                         </span>
                       </div>
                       <span className={`text-lg sm:text-xl font-bold flex-shrink-0 ${
-                        manager.chumpionships > 0 ? 'text-red-600' : manager.active ? 'text-gray-400' : 'text-gray-500'
+                        manager.chumpionships > 0 ? 'text-red-600' : 'text-gray-400'
                       }`}>
                         {manager.chumpionships}
                       </span>
                     </div>
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span className={manager.active ? 'text-gray-600' : 'text-gray-400'}>
-                        {manager.totalMedals} total medals
-                      </span>
-                      <span className={manager.active ? 'text-gray-600' : 'text-gray-400'}>
-                        {manager.seasons} seasons
-                      </span>
-                    </div>
+                    {!manager.active && (
+                      <span className="text-xs text-gray-400">(Inactive)</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -937,7 +947,7 @@ const FantasyFootballApp = () => {
             {/* Individual Manager Lookup */}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
-                <Zap className="w-5 h-5 text-purple-500" />
+                <Users className="w-5 h-5 text-purple-500" />
                 <span>Individual Manager Lookup</span>
               </h3>
               
@@ -946,12 +956,12 @@ const FantasyFootballApp = () => {
                   <select
                     value={selectedManager}
                     onChange={(e) => setSelectedManager(e.target.value)}
-                    className="w-full appearance-none bg-white border border-gray-300 rounded-lg px-4 py-3 pr-10 text-gray-700 leading-tight focus:outline-none focus:border-blue-500 text-sm sm:text-base"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm sm:text-base"
                   >
                     <option value="">Select a manager to view detailed stats</option>
-                    {Object.entries(allRecords).map(([nameId, manager]) => (
+                    {Object.entries(allRecords).map(([nameId, record]) => (
                       <option key={nameId} value={nameId}>
-                        {manager.name} {!manager.active ? '(Inactive)' : ''}
+                        {record.name} {!record.active ? '(Inactive)' : ''}
                       </option>
                     ))}
                   </select>
@@ -1074,147 +1084,7 @@ const FantasyFootballApp = () => {
               </div>
             </div>
 
-            {/* NEW: Manager Data Table */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center space-x-2">
-                  <Users className="w-5 h-5 text-blue-500" />
-                  <span>Manager Data</span>
-                </h3>
-                <button
-                  onClick={addNewManager}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2 text-sm sm:text-base"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add New Manager</span>
-                </button>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="text-left p-2 font-medium text-gray-700">Name ID</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Full Name</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Sleeper Username</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Active</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {managers.sort((a, b) => {
-                      if (a.active !== b.active) return b.active - a.active; // Active first
-                      return a.full_name.localeCompare(b.full_name); // Then alphabetical
-                    }).map((manager) => (
-                      <tr key={manager.id} className="border-b hover:bg-gray-50">
-                        {editingManager === manager.id ? (
-                          <>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={editedManagerData.name_id}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, name_id: e.target.value})}
-                                className="w-20 px-1 py-1 border rounded text-xs"
-                                placeholder="Name ID"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={editedManagerData.full_name}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, full_name: e.target.value})}
-                                className="w-32 px-1 py-1 border rounded text-xs"
-                                placeholder="Full Name"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={editedManagerData.sleeper_username || ''}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, sleeper_username: e.target.value})}
-                                className="w-24 px-1 py-1 border rounded text-xs"
-                                placeholder="Username"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <select
-                                value={editedManagerData.active}
-                                onChange={(e) => setEditedManagerData({...editedManagerData, active: parseInt(e.target.value)})}
-                                className="w-16 px-1 py-1 border rounded text-xs"
-                              >
-                                <option value={1}>Yes</option>
-                                <option value={0}>No</option>
-                              </select>
-                            </td>
-                            <td className="p-2">
-                              <div className="flex space-x-1">
-                                <button
-                                  onClick={saveManagerEdit}
-                                  className="bg-green-500 hover:bg-green-600 text-white p-1 rounded transition-colors"
-                                  title="Save"
-                                >
-                                  <Save className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={cancelManagerEdit}
-                                  className="bg-gray-500 hover:bg-gray-600 text-white p-1 rounded transition-colors"
-                                  title="Cancel"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="p-2">
-                              <span className="font-mono text-xs">{manager.name_id}</span>
-                            </td>
-                            <td className="p-2">
-                              <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                                {manager.full_name}
-                              </span>
-                            </td>
-                            <td className="p-2">
-                              <span className="text-gray-600">{manager.sleeper_username || '-'}</span>
-                            </td>
-                            <td className="p-2">
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                manager.active 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {manager.active ? 'Active' : 'Inactive'}
-                              </span>
-                            </td>
-                            <td className="p-2">
-                              <div className="flex space-x-1">
-                                <button
-                                  onClick={() => startManagerEdit(manager)}
-                                  className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded transition-colors"
-                                  title="Edit"
-                                >
-                                  <Edit3 className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={() => deleteManager(manager.id)}
-                                  className="bg-red-500 hover:bg-red-600 text-white p-1 rounded transition-colors"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Season Data Table */}
+            {/* Editable Data Table */}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center space-x-2">
@@ -1302,7 +1172,7 @@ const FantasyFootballApp = () => {
                             <td className="p-2">
                               <input
                                 type="number"
-                                step="0.1"
+                                step="0.01"
                                 value={editedData.points_for}
                                 onChange={(e) => setEditedData({...editedData, points_for: parseFloat(e.target.value)})}
                                 className="w-16 px-1 py-1 border rounded text-xs"
@@ -1311,7 +1181,7 @@ const FantasyFootballApp = () => {
                             <td className="p-2">
                               <input
                                 type="number"
-                                step="0.1"
+                                step="0.01"
                                 value={editedData.points_against}
                                 onChange={(e) => setEditedData({...editedData, points_against: parseFloat(e.target.value)})}
                                 className="w-16 px-1 py-1 border rounded text-xs"
@@ -1364,17 +1234,15 @@ const FantasyFootballApp = () => {
                               <div className="flex space-x-1">
                                 <button
                                   onClick={saveEdit}
-                                  className="bg-green-500 hover:bg-green-600 text-white p-1 rounded transition-colors"
-                                  title="Save"
+                                  className="text-green-600 hover:text-green-800"
                                 >
-                                  <Save className="w-3 h-3" />
+                                  <Save className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={cancelEdit}
-                                  className="bg-gray-500 hover:bg-gray-600 text-white p-1 rounded transition-colors"
-                                  title="Cancel"
+                                  className="text-gray-600 hover:text-gray-800"
                                 >
-                                  <X className="w-3 h-3" />
+                                  <X className="w-4 h-4" />
                                 </button>
                               </div>
                             </td>
@@ -1383,7 +1251,7 @@ const FantasyFootballApp = () => {
                           <>
                             <td className="p-2">{season.year}</td>
                             <td className="p-2">{managers.find(m => m.name_id === season.name_id)?.full_name.split(' ')[0] || season.name_id}</td>
-                            <td className="p-2">{season.team_name}</td>
+                            <td className="p-2 max-w-20 truncate">{season.team_name}</td>
                             <td className="p-2">{season.wins}-{season.losses}</td>
                             <td className="p-2">{season.points_for}</td>
                             <td className="p-2">{season.points_against}</td>

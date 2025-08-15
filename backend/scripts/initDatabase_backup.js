@@ -109,9 +109,17 @@ db.serialize(() => {
     }
   });
 
-  // REMOVED: No longer automatically updating dues to $250
-  // This was causing the bug where all existing dues were overwritten
-  console.log('ℹ️  Preserving existing dues values (no automatic updates)');
+  // Update default dues value for existing records
+  console.log('🔧 Updating default dues values...');
+  db.run(`
+    UPDATE team_seasons SET dues = 250 WHERE dues = 200 OR dues IS NULL;
+  `, (err) => {
+    if (err) {
+      console.error('❌ Error updating dues values:', err.message);
+    } else {
+      console.log('✅ Updated default dues values to $250');
+    }
+  });
 
   // Create indexes for better performance
   console.log('📈 Creating database indexes...');
@@ -268,7 +276,6 @@ db.serialize(() => {
   console.log('   ✅ Indexes created for optimal performance');
   console.log('   ✅ dues_chumpion column added/verified');
   console.log('   ✅ Default league rules inserted');
-  console.log('   ✅ FIXED: No longer overwriting existing dues values');
   console.log('   📍 Database location:', dbPath);
   console.log('\n🚀 Ready for data import or seeding!');
   console.log('   Run: npm run seed-db (to populate with sample data)');

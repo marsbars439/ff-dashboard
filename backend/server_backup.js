@@ -114,69 +114,6 @@ app.post('/api/managers', (req, res) => {
   });
 });
 
-// Add these new endpoints to your existing server.js file after the existing manager endpoints
-
-// Update a manager
-app.put('/api/managers/:id', (req, res) => {
-  const id = req.params.id;
-  const { name_id, full_name, sleeper_username, active } = req.body;
-
-  if (!name_id || !full_name) {
-    return res.status(400).json({ error: 'name_id and full_name are required' });
-  }
-
-  const query = `
-    UPDATE managers SET
-      name_id = ?, full_name = ?, sleeper_username = ?, active = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `;
-  
-  const values = [name_id, full_name, sleeper_username || '', active !== undefined ? active : 1, id];
-  
-  db.run(query, values, function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    if (this.changes === 0) {
-      res.status(404).json({ error: 'Manager not found' });
-      return;
-    }
-    res.json({ message: 'Manager updated successfully' });
-  });
-});
-
-// Delete a manager
-app.delete('/api/managers/:id', (req, res) => {
-  const id = req.params.id;
-  
-  // First check if manager has any associated team seasons
-  db.get('SELECT COUNT(*) as count FROM team_seasons ts JOIN managers m ON ts.name_id = m.name_id WHERE m.id = ?', [id], (err, row) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    
-    if (row.count > 0) {
-      res.status(400).json({ error: 'Cannot delete manager with existing season records. Set to inactive instead.' });
-      return;
-    }
-    
-    // Safe to delete - no associated records
-    db.run('DELETE FROM managers WHERE id = ?', [id], function(err) {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
-      if (this.changes === 0) {
-        res.status(404).json({ error: 'Manager not found' });
-        return;
-      }
-      res.json({ message: 'Manager deleted successfully' });
-    });
-  });
-});
-
 // Add a new team season (updated to include dues_chumpion and FIXED dues handling)
 app.post('/api/team-seasons', (req, res) => {
   const {
