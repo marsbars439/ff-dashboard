@@ -155,7 +155,7 @@ const FantasyFootballApp = () => {
   };
 
   const deleteRow = async (id) => {
-    if (!confirm('Are you sure you want to delete this season record?')) return;
+    if (!window.confirm('Are you sure you want to delete this season record?')) return;
     
     try {
       const response = await fetch(`${API_BASE_URL}/team-seasons/${id}`, {
