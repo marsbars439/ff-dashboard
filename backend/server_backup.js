@@ -114,6 +114,8 @@ app.post('/api/managers', (req, res) => {
   });
 });
 
+// Add these new endpoints to your existing server.js file after the existing manager endpoints
+
 // Update a manager
 app.put('/api/managers/:id', (req, res) => {
   const id = req.params.id;
@@ -326,22 +328,19 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
 
 // Get rules - FIXED to read from database instead of hardcoded
 app.get('/api/rules', (req, res) => {
-  console.log('📖 Fetching rules from database...');
-  
   const query = 'SELECT rules_content FROM league_rules WHERE active = 1 ORDER BY created_at DESC LIMIT 1';
   
   db.get(query, [], (err, row) => {
     if (err) {
-      console.error('❌ Error fetching rules from database:', err.message);
+      console.error('Error fetching rules:', err.message);
       res.status(500).json({ error: 'Failed to fetch rules' });
       return;
     }
     
     if (row && row.rules_content) {
-      console.log('✅ Rules loaded from database successfully');
       res.json({ rules: row.rules_content });
     } else {
-      console.log('ℹ️  No rules found in database, returning empty string');
+      // If no rules in database, return empty string (no hardcoded fallback)
       res.json({ rules: '' });
     }
   });
@@ -351,21 +350,17 @@ app.get('/api/rules', (req, res) => {
 app.put('/api/rules', (req, res) => {
   const { rules } = req.body;
   
-  console.log('📝 Updating rules in database...');
-  
   if (!rules) {
     return res.status(400).json({ error: 'Rules content is required' });
   }
 
   // First, deactivate all existing rules
-  db.run('UPDATE league_rules SET active = 0 WHERE active = 1', (err) => {
+  db.run('UPDATE league_rules SET active = 0', (err) => {
     if (err) {
-      console.error('❌ Error deactivating old rules:', err.message);
+      console.error('Error deactivating old rules:', err.message);
       res.status(500).json({ error: 'Failed to update rules' });
       return;
     }
-    
-    console.log('✅ Deactivated previous rules');
     
     // Insert new rules as active
     const insertQuery = `
@@ -375,15 +370,28 @@ app.put('/api/rules', (req, res) => {
     
     db.run(insertQuery, [rules], function(err) {
       if (err) {
-        console.error('❌ Error inserting new rules:', err.message);
+        console.error('Error inserting new rules:', err.message);
         res.status(500).json({ error: 'Failed to save rules' });
         return;
       }
       
-      console.log('✅ Rules updated successfully in database (ID:', this.lastID, ')');
+      console.log('✅ Rules updated successfully in database');
       res.json({ message: 'Rules updated successfully' });
     });
   });
+});
+
+// Update rules
+app.put('/api/rules', (req, res) => {
+  const { rules } = req.body;
+  
+  if (!rules) {
+    return res.status(400).json({ error: 'Rules content is required' });
+  }
+
+  // For now, just return success
+  // Later you can implement storing in database or file system
+  res.json({ message: 'Rules updated successfully' });
 });
 
 // Get statistics/aggregated data
@@ -438,7 +446,7 @@ app.get('/api/health', (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`The League Dashboard API running on port ${PORT}`);
+  console.log(`FF Dashboard API running on port ${PORT}`);
 });
 
 // Handle graceful shutdown
