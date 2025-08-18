@@ -106,6 +106,41 @@ app.get('/api/seasons/:year/matchups', (req, res) => {
   });
 });
 
+// Get playoff matchups for a specific season
+app.get('/api/seasons/:year/playoffs', (req, res) => {
+  const year = req.params.year;
+  const query = 'SELECT league_id FROM league_settings WHERE year = ?';
+  db.get(query, [year], async (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    if (!row || !row.league_id) {
+      res.status(404).json({ error: 'League ID not found for year' });
+      return;
+    }
+    try {
+      const managers = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+           FROM managers m
+           LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?`,
+          [year],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+          }
+        );
+      });
+
+      const bracket = await sleeperService.getPlayoffMatchups(row.league_id, managers);
+      res.json({ bracket });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+});
+
 // Get team seasons by manager
 app.get('/api/managers/:nameId/seasons', (req, res) => {
   const nameId = req.params.nameId;
