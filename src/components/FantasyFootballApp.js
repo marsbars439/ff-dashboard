@@ -468,7 +468,10 @@ const FantasyFootballApp = () => {
           record.chumpionYears.push(season.year); // Track the year
         }
         
-        if (season.regular_season_rank <= 6) record.playoffAppearances += 1;
+        // Only count seasons with a valid regular season rank
+        if (season.regular_season_rank && season.regular_season_rank <= 6) {
+          record.playoffAppearances += 1;
+        }
         
         const winPct = season.wins / (season.wins + season.losses);
         if (!record.bestRecord || winPct > record.bestRecord.pct) {
