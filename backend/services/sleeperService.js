@@ -157,9 +157,9 @@ class SleeperService {
   /**
    * Calculate highest scoring week for each team
    */
-  async calculateHighGames(leagueId, settings) {
-    const highGames = {};
-    const regularSeasonWeeks = settings.playoff_week_start - 1;
+    async calculateHighGames(leagueId, settings) {
+      const highGames = {};
+      const regularSeasonWeeks = settings.playoff_week_start - 1;
 
     console.log(`📈 Calculating high games for ${regularSeasonWeeks} regular season weeks...`);
 
@@ -191,14 +191,69 @@ class SleeperService {
     } catch (error) {
       console.warn('⚠️ Could not calculate high games:', error.message);
       return {};
+      }
     }
-  }
 
-  /**
-   * Process and combine all fetched data
-   */
-  processLeagueData(year, leagueInfo, rosters, users, managers, playoffResults, highGames) {
-    // Create a map of roster_id to username
+    /**
+     * Fetch all regular season matchups with team names and scores
+     */
+    async getSeasonMatchups(leagueId) {
+      try {
+        // Get league info to determine number of regular season weeks
+        const leagueInfo = await this.getLeagueInfo(leagueId);
+        const rosters = await this.getRosters(leagueId);
+        const users = await this.getUsers(leagueId);
+
+        const regularSeasonWeeks = leagueInfo.settings.playoff_week_start - 1;
+
+        // Map roster_id to team name for easy lookup
+        const rosterIdToTeam = {};
+        rosters.forEach(r => {
+          const user = users.find(u => u.user_id === r.owner_id) || {};
+          const teamName = r.metadata?.team_name || user.metadata?.team_name || user.display_name || `Team ${r.roster_id}`;
+          rosterIdToTeam[r.roster_id] = teamName;
+        });
+
+        // Fetch matchups week by week
+        const weeks = await Promise.all(
+          Array.from({ length: regularSeasonWeeks }, (_, i) => i + 1).map(async week => {
+            const weekMatchups = await this.client.get(`/league/${leagueId}/matchups/${week}`).then(res => res.data);
+
+            const matchupsMap = {};
+            weekMatchups.forEach(m => {
+              if (!matchupsMap[m.matchup_id]) {
+                matchupsMap[m.matchup_id] = { home: null, away: null };
+              }
+
+              const team = {
+                roster_id: m.roster_id,
+                team_name: rosterIdToTeam[m.roster_id] || '',
+                points: m.points || 0
+              };
+
+              if (!matchupsMap[m.matchup_id].home) {
+                matchupsMap[m.matchup_id].home = team;
+              } else {
+                matchupsMap[m.matchup_id].away = team;
+              }
+            });
+
+            return { week, matchups: Object.values(matchupsMap) };
+          })
+        );
+
+        return weeks;
+      } catch (error) {
+        console.error('❌ Error fetching season matchups:', error.message);
+        throw error;
+      }
+    }
+
+    /**
+     * Process and combine all fetched data
+     */
+    processLeagueData(year, leagueInfo, rosters, users, managers, playoffResults, highGames) {
+      // Create a map of roster_id to username
     // Map roster_id to Sleeper user_id (owner_id)
     const rosterToUserId = {};
     rosters.forEach(roster => {

@@ -71,6 +71,28 @@ app.get('/api/team-seasons/:year', (req, res) => {
   });
 });
 
+// Get weekly matchups for a specific season
+app.get('/api/seasons/:year/matchups', (req, res) => {
+  const year = req.params.year;
+  const query = 'SELECT league_id FROM league_settings WHERE year = ?';
+  db.get(query, [year], async (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    if (!row || !row.league_id) {
+      res.status(404).json({ error: 'League ID not found for year' });
+      return;
+    }
+    try {
+      const matchups = await sleeperService.getSeasonMatchups(row.league_id);
+      res.json({ matchups });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+});
+
 // Get team seasons by manager
 app.get('/api/managers/:nameId/seasons', (req, res) => {
   const nameId = req.params.nameId;
