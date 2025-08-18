@@ -129,10 +129,15 @@ class SleeperService {
       results[championId] = 1;  // 1st place
       results[runnerUpId] = 2;  // 2nd place
 
-      // Find 3rd place game if it exists
-      const thirdPlaceGame = bracket.find(game => 
-        game.r === championshipRound && 
-        game.p === championshipGame.p + 1
+      // Find 3rd place game if it exists. Sleeper's bracket format
+      // doesn't guarantee the third place matchup's `p` value will be
+      // exactly one greater than the championship's `p`. Instead,
+      // search for any other game in the final round that isn't the
+      // championship game.
+      const thirdPlaceGame = bracket.find(game =>
+        game.r === championshipRound &&
+        game.p !== championshipGame.p &&
+        game.t1 && game.t2
       );
 
       if (thirdPlaceGame && thirdPlaceGame.w) {
@@ -234,9 +239,11 @@ class SleeperService {
       const username = userIdToUsername[userId] || '';
       const nameId = userIdToNameId[userId] || null;
 
-      // Get team name from metadata
-      const teamName = leagueInfo.metadata?.team_names?.[rosterId] || 
-                      leagueInfo.metadata?.[`team_name_${rosterId}`] || 
+      // Get team name - Sleeper stores this on the roster metadata.
+      // Fall back to league metadata keys for older seasons if needed.
+      const teamName = roster.metadata?.team_name ||
+                      leagueInfo.metadata?.team_names?.[rosterId] ||
+                      leagueInfo.metadata?.[`team_name_${rosterId}`] ||
                       '';
 
       // Calculate points (combining integer and decimal parts)
