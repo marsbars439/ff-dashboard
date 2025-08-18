@@ -39,6 +39,7 @@ const FantasyFootballApp = () => {
 
   const [selectedSeasonYear, setSelectedSeasonYear] = useState(null);
   const [seasonMatchups, setSeasonMatchups] = useState([]);
+  const [playoffBracket, setPlayoffBracket] = useState([]);
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
 
   useEffect(() => {
@@ -58,6 +59,7 @@ const FantasyFootballApp = () => {
   useEffect(() => {
     if (selectedSeasonYear) {
       fetchSeasonMatchups(selectedSeasonYear);
+      fetchPlayoffBracket(selectedSeasonYear);
     }
   }, [selectedSeasonYear]);
 
@@ -110,6 +112,22 @@ const FantasyFootballApp = () => {
       }
     } catch (error) {
       console.error('Error fetching season matchups:', error);
+    }
+  };
+
+  const fetchPlayoffBracket = async (year) => {
+    if (seasonsWithoutMatchups.includes(year)) {
+      setPlayoffBracket([]);
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/seasons/${year}/playoff-bracket`);
+      if (response.ok) {
+        const data = await response.json();
+        setPlayoffBracket(data.bracket);
+      }
+    } catch (error) {
+      console.error('Error fetching playoff bracket:', error);
     }
   };
 
@@ -639,6 +657,18 @@ const FantasyFootballApp = () => {
   const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
   const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
   const thirdPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 3);
+  const fourthPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 4);
+
+  const minRound = playoffBracket.length > 0 ? Math.min(...playoffBracket.map(g => g.round)) : null;
+  const semifinals = minRound !== null ? playoffBracket.filter(g => g.round === minRound) : [];
+
+  const getSeedLabel = (managerName) => {
+    if (!managerName) return 'TBD';
+    const season = teamSeasons.find(
+      s => s.year === selectedSeasonYear && s.manager_name === managerName
+    );
+    return season ? `${season.regular_season_rank}. ${managerName}` : managerName;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -725,6 +755,37 @@ const FantasyFootballApp = () => {
                   <p className="font-semibold">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
                 </div>
               </div>
+              {semifinals.length === 2 && (
+                <div className="mb-4">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Playoff Bracket</h3>
+                  <div className="flex flex-col sm:flex-row justify-center sm:space-x-8 space-y-4 sm:space-y-0">
+                    <div className="flex flex-col space-y-4">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
+                        <p className="font-medium">{getSeedLabel(semifinals[0].t1.manager_name)}</p>
+                        <p className="text-xs text-gray-500">vs</p>
+                        <p className="font-medium">{getSeedLabel(semifinals[0].t2.manager_name)}</p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
+                        <p className="font-medium">{getSeedLabel(semifinals[1].t1.manager_name)}</p>
+                        <p className="text-xs text-gray-500">vs</p>
+                        <p className="font-medium">{getSeedLabel(semifinals[1].t2.manager_name)}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col space-y-4">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-center">
+                        <p className="font-semibold">{champion ? champion.manager_name : 'TBD'}</p>
+                        <p className="text-xs text-gray-500">Champion</p>
+                        <p className="font-medium">{runnerUp ? runnerUp.manager_name : 'TBD'}</p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
+                        <p className="font-medium">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
+                        <p className="text-xs text-gray-500">Third Place</p>
+                        <p className="font-medium">{fourthPlace ? fourthPlace.manager_name : 'TBD'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
                   <thead className="bg-gray-50">
