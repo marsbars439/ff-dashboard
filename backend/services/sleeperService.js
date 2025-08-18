@@ -194,16 +194,25 @@ class SleeperService {
    */
   processLeagueData(year, leagueInfo, rosters, users, managers, playoffResults, highGames) {
     // Create a map of roster_id to username
-    const rosterToUsername = {};
-    users.forEach(user => {
-      rosterToUsername[user.metadata?.roster_id || user.display_name] = user.username;
+    // Map roster_id to Sleeper user_id (owner_id)
+    const rosterToUserId = {};
+    rosters.forEach(roster => {
+      rosterToUserId[roster.roster_id] = roster.owner_id;
     });
 
-    // Create a map of sleeper_username to name_id for easy lookup
-    const usernameToNameId = {};
+    // Map user_id to username for reference
+    const userIdToUsername = {};
+    users.forEach(user => {
+      if (user.user_id) {
+        userIdToUsername[user.user_id] = user.username;
+      }
+    });
+
+    // Create a map of sleeper_user_id to name_id for easy lookup
+    const userIdToNameId = {};
     managers.forEach(manager => {
-      if (manager.sleeper_username) {
-        usernameToNameId[manager.sleeper_username] = manager.name_id;
+      if (manager.sleeper_user_id) {
+        userIdToNameId[manager.sleeper_user_id] = manager.name_id;
       }
     });
 
@@ -221,8 +230,9 @@ class SleeperService {
     // Process each roster
     const teamSeasons = rosters.map(roster => {
       const rosterId = roster.roster_id;
-      const username = rosterToUsername[rosterId] || roster.owner_id;
-      const nameId = usernameToNameId[username] || null;
+      const userId = rosterToUserId[rosterId];
+      const username = userIdToUsername[userId] || '';
+      const nameId = userIdToNameId[userId] || null;
 
       // Get team name from metadata
       const teamName = leagueInfo.metadata?.team_names?.[rosterId] || 
@@ -248,6 +258,7 @@ class SleeperService {
         year,
         name_id: nameId,
         sleeper_username: username,  // Keep for reference but won't save to DB
+        sleeper_user_id: userId,     // For matching to managers
         team_name: teamName,
         wins: roster.settings.wins || 0,
         losses: roster.settings.losses || 0,

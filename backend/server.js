@@ -196,7 +196,7 @@ app.post('/api/sleeper/sync/:year', async (req, res) => {
       // Skip if no name_id match found
       if (!teamData.name_id) {
         errorCount++;
-        errors.push(`No manager match for Sleeper user: ${teamData.sleeper_username}`);
+        errors.push(`No manager match for Sleeper user: ${teamData.sleeper_username || teamData.sleeper_user_id}`);
         continue;
       }
 
@@ -211,8 +211,9 @@ app.post('/api/sleeper/sync/:year', async (req, res) => {
         dues_chumpion: preserve_manual_fields && existing ? existing.dues_chumpion : (teamData.dues_chumpion || 0),
       };
 
-      // Delete sleeper_username as we don't save it to team_seasons
+      // Remove Sleeper identifiers as we don't save them to team_seasons
       delete dataToSave.sleeper_username;
+      delete dataToSave.sleeper_user_id;
 
       // Insert or update the record
       const query = `
@@ -402,18 +403,18 @@ app.post('/api/sleeper/preview/:year', async (req, res) => {
 
 // Add a new manager
 app.post('/api/managers', (req, res) => {
-  const { name_id, full_name, sleeper_username, active } = req.body;
+  const { name_id, full_name, sleeper_username, sleeper_user_id, active } = req.body;
   
   if (!name_id || !full_name) {
     return res.status(400).json({ error: 'name_id and full_name are required' });
   }
 
   const query = `
-    INSERT INTO managers (name_id, full_name, sleeper_username, active)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO managers (name_id, full_name, sleeper_username, sleeper_user_id, active)
+    VALUES (?, ?, ?, ?, ?)
   `;
-  
-  db.run(query, [name_id, full_name, sleeper_username || '', active || 1], function(err) {
+
+  db.run(query, [name_id, full_name, sleeper_username || '', sleeper_user_id || '', active || 1], function(err) {
     if (err) {
       res.status(500).json({ error: err.message });
       return;
@@ -428,7 +429,7 @@ app.post('/api/managers', (req, res) => {
 // Update a manager
 app.put('/api/managers/:id', (req, res) => {
   const id = req.params.id;
-  const { name_id, full_name, sleeper_username, active } = req.body;
+  const { name_id, full_name, sleeper_username, sleeper_user_id, active } = req.body;
 
   if (!name_id || !full_name) {
     return res.status(400).json({ error: 'name_id and full_name are required' });
@@ -436,11 +437,11 @@ app.put('/api/managers/:id', (req, res) => {
 
   const query = `
     UPDATE managers SET
-      name_id = ?, full_name = ?, sleeper_username = ?, active = ?, updated_at = CURRENT_TIMESTAMP
+      name_id = ?, full_name = ?, sleeper_username = ?, sleeper_user_id = ?, active = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `;
-  
-  const values = [name_id, full_name, sleeper_username || '', active !== undefined ? active : 1, id];
+
+  const values = [name_id, full_name, sleeper_username || '', sleeper_user_id || '', active !== undefined ? active : 1, id];
   
   db.run(query, values, function(err) {
     if (err) {
