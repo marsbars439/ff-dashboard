@@ -697,7 +697,7 @@ const FantasyFootballApp = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {activeTab === 'seasons' && (
-          <div className="space-y-6 sm:space-y-8">
+          <div className="space-y-4 sm:space-y-6">
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Season {selectedSeasonYear}</h2>
@@ -861,8 +861,12 @@ const FantasyFootballApp = () => {
                     <p className="text-red-100 text-sm sm:text-base mb-2">
                       {currentChumpion ? `${currentChumpion.team_name} • ${currentChumpion.wins}-${currentChumpion.losses} Record` : 'Season in progress'}
                     </p>
-                    <p className="text-red-100 font-semibold text-sm sm:text-base">
-                      {getCurrentYearChumpionDues() > 0 ? `Paid $${getCurrentYearChumpionDues()} Extra to ${currentChampion ? allRecords[currentChampion.name_id]?.name : 'Champion'}` : 'Pays extra to Champion'}
+                    <p className="text-red-100 font-semibold text-sm sm:text-base mb-3">
+                      {currentChumpion
+                        ? (getCurrentYearChumpionDues() > 0
+                            ? `Paid $${getCurrentYearChumpionDues()} Extra to ${currentChampion ? allRecords[currentChampion.name_id]?.name : 'Champion'}`
+                            : 'Pays extra to Champion')
+                        : ''}
                     </p>
                   </div>
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-500 rounded-full flex items-center justify-center text-xl sm:text-2xl flex-shrink-0 ml-2">
@@ -872,25 +876,83 @@ const FantasyFootballApp = () => {
               </div>
             </div>
 
-            {/* Medal Count Rankings - MOBILE OPTIMIZED FULL WIDTH LAYOUT */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
-                <Award className="w-5 h-5 text-yellow-500" />
-                <span>Medal Count Rankings</span>
-              </h3>
-              
-              <div className="space-y-3 sm:space-y-4">
-                {medalRankings.map((manager, index) => (
-                  <div 
-                    key={manager.name} 
-                    className="p-3 sm:p-4 rounded-lg border-2 bg-gradient-to-r from-white to-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200"
-                  >
-                    {/* Mobile Layout - Stacked */}
-                    <div className="sm:hidden">
-                      {/* Mobile Header */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+            {/* Medal and Chumpion Rankings */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              {/* Medal Count Rankings */}
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
+                  <Award className="w-5 h-5 text-yellow-500" />
+                  <span>Medal Count Rankings</span>
+                </h3>
+
+                <div className="space-y-2 sm:space-y-3">
+                  {medalRankings.map((manager, index) => (
+                    <div
+                      key={manager.name}
+                      className="p-3 sm:p-4 rounded-lg border-2 bg-gradient-to-r from-white to-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200"
+                    >
+                      {/* Mobile Layout - Stacked */}
+                      <div className="sm:hidden">
+                        {/* Mobile Header */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                              index === 0
+                                ? 'bg-yellow-500 text-white shadow-lg'
+                                : index === 1
+                                ? 'bg-gray-400 text-white shadow-md'
+                                : index === 2
+                                ? 'bg-amber-600 text-white shadow-md'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              #{index + 1}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-bold text-base truncate text-gray-900">
+                                {manager.name}
+                              </h4>
+                              <p className="text-xs text-gray-600">
+                                {manager.gamesPlayed} games played
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-bold text-sm text-blue-600">
+                              {manager.pointsPerGame.toFixed(1)} PPG
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              {manager.totalPointsFor.toLocaleString()} total
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Mobile Medals */}
+                        <div className="grid grid-cols-3 gap-2 mb-2">
+                          <div className="text-center">
+                            <div className="text-yellow-500 font-bold text-lg">{manager.championships}</div>
+                            <div className="text-xs text-gray-500">🥇</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-gray-500 font-bold text-lg">{manager.secondPlace}</div>
+                            <div className="text-xs text-gray-500">🥈</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-amber-600 font-bold text-lg">{manager.thirdPlace}</div>
+                            <div className="text-xs text-gray-500">🥉</div>
+                          </div>
+                        </div>
+
+                        {/* Mobile Additional Stats */}
+                        <div className="flex justify-between text-xs text-gray-600 pt-2 border-t border-gray-200">
+                          <span>{manager.totalWins}-{manager.totalLosses} ({(manager.winPct * 100).toFixed(1)}%)</span>
+                          <span>{manager.totalMedals} total medals</span>
+                        </div>
+                      </div>
+
+                      {/* Desktop Layout - Single Row */}
+                      <div className="hidden sm:flex sm:items-center sm:justify-between">
+                        <div className="flex items-center space-x-4 min-w-0 flex-1">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
                             index === 0
                               ? 'bg-yellow-500 text-white shadow-lg'
                               : index === 1
@@ -902,112 +964,93 @@ const FantasyFootballApp = () => {
                             #{index + 1}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <h4 className="font-bold text-base truncate text-gray-900">
+                            <h4 className="font-bold text-lg truncate text-gray-900">
                               {manager.name}
                             </h4>
-                            <p className="text-xs text-gray-600">
-                              {manager.gamesPlayed} games played
+                            <p className="text-sm text-gray-600">
+                              {manager.totalWins}-{manager.totalLosses} ({(manager.winPct * 100).toFixed(1)}%) • {manager.gamesPlayed} games
                             </p>
                           </div>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-sm text-blue-600">
-                            {manager.pointsPerGame.toFixed(1)} PPG
-                          </p>
-                          <p className="text-xs text-gray-600">
-                            {manager.totalPointsFor.toLocaleString()} total
-                          </p>
-                        </div>
-                      </div>
-                      
-                      {/* Mobile Medals */}
-                      <div className="grid grid-cols-3 gap-2 mb-2">
-                        <div className="text-center">
-                          <div className="text-yellow-500 font-bold text-lg">{manager.championships}</div>
-                          <div className="text-xs text-gray-500">🥇</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-gray-500 font-bold text-lg">{manager.secondPlace}</div>
-                          <div className="text-xs text-gray-500">🥈</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-amber-600 font-bold text-lg">{manager.thirdPlace}</div>
-                          <div className="text-xs text-gray-500">🥉</div>
-                        </div>
-                      </div>
-                      
-                      {/* Mobile Additional Stats */}
-                      <div className="flex justify-between text-xs text-gray-600 pt-2 border-t border-gray-200">
-                        <span>{manager.totalWins}-{manager.totalLosses} ({(manager.winPct * 100).toFixed(1)}%)</span>
-                        <span>{manager.totalMedals} total medals</span>
-                      </div>
-                    </div>
 
-                    {/* Desktop Layout - Single Row */}
-                    <div className="hidden sm:flex sm:items-center sm:justify-between">
-                      <div className="flex items-center space-x-4 min-w-0 flex-1">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
-                          index === 0
-                            ? 'bg-yellow-500 text-white shadow-lg'
-                            : index === 1
-                            ? 'bg-gray-400 text-white shadow-md'
-                            : index === 2
-                            ? 'bg-amber-600 text-white shadow-md'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          #{index + 1}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-lg truncate text-gray-900">
-                            {manager.name}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            {manager.totalWins}-{manager.totalLosses} ({(manager.winPct * 100).toFixed(1)}%) • {manager.gamesPlayed} games
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-6 flex-shrink-0">
-                        <div className="flex items-center space-x-4">
-                          <div className="text-center">
-                            <div className="text-yellow-500 font-bold text-xl">{manager.championships}</div>
-                            <div className="text-xs text-gray-500">🥇</div>
+                        <div className="flex items-center space-x-6 flex-shrink-0">
+                          <div className="flex items-center space-x-4">
+                            <div className="text-center">
+                              <div className="text-yellow-500 font-bold text-xl">{manager.championships}</div>
+                              <div className="text-xs text-gray-500">🥇</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-gray-500 font-bold text-xl">{manager.secondPlace}</div>
+                              <div className="text-xs text-gray-500">🥈</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-amber-600 font-bold text-xl">{manager.thirdPlace}</div>
+                              <div className="text-xs text-gray-500">🥉</div>
+                            </div>
                           </div>
-                          <div className="text-center">
-                            <div className="text-gray-500 font-bold text-xl">{manager.secondPlace}</div>
-                            <div className="text-xs text-gray-500">🥈</div>
+
+                          <div className="text-right">
+                            <p className="font-bold text-base text-blue-600">
+                              {manager.pointsPerGame.toFixed(1)} PPG
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {manager.totalMedals} total medals
+                            </p>
                           </div>
-                          <div className="text-center">
-                            <div className="text-amber-600 font-bold text-xl">{manager.thirdPlace}</div>
-                            <div className="text-xs text-gray-500">🥉</div>
-                          </div>
-                        </div>
-                        
-                        <div className="text-right">
-                          <p className="font-bold text-base text-blue-600">
-                            {manager.pointsPerGame.toFixed(1)} PPG
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {manager.totalMedals} total medals
-                          </p>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </div>
+
+              {/* Chumpion Rankings */}
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
+                  <Target className="w-5 h-5 text-red-500" />
+                  <span>Chumpion Count Rankings</span>
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+                  {chumpionRankings.map((manager, index) => (
+                    <div key={manager.name} className="p-3 sm:p-4 rounded-lg border bg-white border-gray-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
+                          <span className="font-bold text-base sm:text-lg flex-shrink-0">#{index + 1}</span>
+                          <span className="font-semibold text-sm sm:text-base truncate text-gray-900">
+                            {manager.name}
+                          </span>
+                        </div>
+                        <span className={`text-lg sm:text-xl font-bold flex-shrink-0 ${
+                          manager.chumpionships > 0 ? 'text-red-600' : 'text-gray-400'
+                        }`}>
+                          {manager.chumpionships}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-gray-600">
+                          {manager.seasons} seasons
+                        </span>
+                        <span className="text-gray-600">
+                          {manager.chumpionYears.length > 0 ? manager.chumpionYears.join(', ') : 'None'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Win Percentage Rankings and Points Per Game Rankings - Side by Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+            {/* Win Percentage and Points Per Game Rankings */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Win Percentage Rankings */}
               <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                   <BarChart3 className="w-5 h-5 text-blue-500" />
                   <span>Win Percentage Rankings</span>
                 </h3>
-                
-                <div className="space-y-3 sm:space-y-4">
+
+                <div className="space-y-2 sm:space-y-3">
                   {winPctRankings.map((manager, index) => (
                     <div key={manager.name} className={`p-3 sm:p-4 rounded-lg border ${
                       manager.active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300 opacity-75'
@@ -1042,8 +1085,8 @@ const FantasyFootballApp = () => {
                   <TrendingUp className="w-5 h-5 text-green-500" />
                   <span>Points Per Game Rankings</span>
                 </h3>
-                
-                <div className="space-y-3 sm:space-y-4">
+
+                <div className="space-y-2 sm:space-y-3">
                   {ppgRankings.map((manager, index) => (
                     <div key={manager.name} className={`p-3 sm:p-4 rounded-lg border ${
                       manager.active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300 opacity-75'
@@ -1070,42 +1113,6 @@ const FantasyFootballApp = () => {
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-
-            {/* Chumpion Rankings */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
-                <Target className="w-5 h-5 text-red-500" />
-                <span>Chumpion Count Rankings</span>
-              </h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {chumpionRankings.map((manager, index) => (
-                  <div key={manager.name} className="p-3 sm:p-4 rounded-lg border bg-white border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2 min-w-0 flex-1">
-                        <span className="font-bold text-base sm:text-lg flex-shrink-0">#{index + 1}</span>
-                        <span className="font-semibold text-sm sm:text-base truncate text-gray-900">
-                          {manager.name}
-                        </span>
-                      </div>
-                      <span className={`text-lg sm:text-xl font-bold flex-shrink-0 ${
-                        manager.chumpionships > 0 ? 'text-red-600' : 'text-gray-400'
-                      }`}>
-                        {manager.chumpionships}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span className="text-gray-600">
-                        {manager.seasons} seasons
-                      </span>
-                      <span className="text-gray-600">
-                        {manager.chumpionYears.length > 0 ? manager.chumpionYears.join(', ') : 'None'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
 
