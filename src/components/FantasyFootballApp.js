@@ -39,6 +39,8 @@ const FantasyFootballApp = () => {
 
   const [selectedSeasonYear, setSelectedSeasonYear] = useState(null);
   const [seasonMatchups, setSeasonMatchups] = useState([]);
+  const [seasonDropdownOpen, setSeasonDropdownOpen] = useState(false);
+  const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
 
   useEffect(() => {
     fetchData();
@@ -97,6 +99,10 @@ const FantasyFootballApp = () => {
   };
 
   const fetchSeasonMatchups = async (year) => {
+    if (seasonsWithoutMatchups.includes(year)) {
+      setSeasonMatchups([]);
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/seasons/${year}/matchups`);
       if (response.ok) {
@@ -619,6 +625,9 @@ const FantasyFootballApp = () => {
   ];
 
   const availableYears = [...new Set(teamSeasons.map(s => s.year))].sort((a, b) => b - a);
+  const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
+  const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
+  const thirdPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 3);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -640,29 +649,32 @@ const FantasyFootballApp = () => {
               >
                 Hall of Records
               </button>
-              <div className="relative group">
-                <button
-                  className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base flex items-center ${
-                    activeTab === 'seasons'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Seasons
-                  <ChevronDown className="w-4 h-4 ml-1" />
-                </button>
-                <div className="absolute left-0 mt-2 w-24 bg-white border rounded-md shadow-lg hidden group-hover:block z-10">
-                  {availableYears.map(year => (
-                    <button
-                      key={year}
-                      onClick={() => { setSelectedSeasonYear(year); setActiveTab('seasons'); }}
-                      className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                    >
-                      {year}
-                    </button>
-                  ))}
+                <div className="relative" onMouseLeave={() => setSeasonDropdownOpen(false)}>
+                  <button
+                    onClick={() => setSeasonDropdownOpen(!seasonDropdownOpen)}
+                    className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base flex items-center ${
+                      activeTab === 'seasons'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Seasons
+                    <ChevronDown className="w-4 h-4 ml-1" />
+                  </button>
+                  {seasonDropdownOpen && (
+                    <div className="absolute left-0 mt-1 w-24 bg-white border rounded-md shadow-lg z-10">
+                      {availableYears.map(year => (
+                        <button
+                          key={year}
+                          onClick={() => { setSelectedSeasonYear(year); setActiveTab('seasons'); setSeasonDropdownOpen(false); }}
+                          className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                        >
+                          {year}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
               <button
                 onClick={() => setActiveTab('rules')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
@@ -693,6 +705,20 @@ const FantasyFootballApp = () => {
           <div className="space-y-6 sm:space-y-8">
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Season {selectedSeasonYear}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 text-center">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-500">Champion</p>
+                  <p className="font-semibold">{champion ? champion.team_name : 'TBD'}</p>
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-500">Runner-Up</p>
+                  <p className="font-semibold">{runnerUp ? runnerUp.team_name : 'TBD'}</p>
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-500">Third Place</p>
+                  <p className="font-semibold">{thirdPlace ? thirdPlace.team_name : 'TBD'}</p>
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
                   <thead className="bg-gray-50">
@@ -708,42 +734,44 @@ const FantasyFootballApp = () => {
                     {teamSeasons
                       .filter(s => s.year === selectedSeasonYear)
                       .sort((a, b) => a.regular_season_rank - b.regular_season_rank)
-                      .map(season => (
-                        <tr key={season.name_id}>
-                          <td className="px-2 py-1">{season.regular_season_rank}</td>
-                          <td className="px-2 py-1">{season.team_name}</td>
-                          <td className="px-2 py-1">{season.wins}-{season.losses}</td>
-                          <td className="px-2 py-1">{season.points_for}</td>
-                          <td className="px-2 py-1">{season.points_against}</td>
-                        </tr>
-                      ))}
+                        .map(season => (
+                          <tr key={season.name_id} className={season.playoff_finish === 1 ? 'bg-yellow-50' : ''}>
+                            <td className="px-2 py-1">{season.regular_season_rank}</td>
+                            <td className="px-2 py-1">{season.team_name}</td>
+                            <td className="px-2 py-1">{season.wins}-{season.losses}</td>
+                            <td className="px-2 py-1">{season.points_for}</td>
+                            <td className="px-2 py-1">{season.points_against}</td>
+                          </tr>
+                        ))}
                   </tbody>
                 </table>
               </div>
             </div>
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
-              {seasonMatchups.map(week => (
-                <div key={week.week} className="mb-6">
-                  <h4 className="font-semibold mb-2">Week {week.week}</h4>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-xs sm:text-sm">
-                      <tbody className="divide-y divide-gray-200">
-                        {week.matchups.map((m, idx) => (
-                          <tr key={idx}>
-                            <td className="px-2 py-1">{m.home.team_name}</td>
-                            <td className="px-2 py-1 font-medium">{m.home.points}</td>
-                            <td className="px-2 py-1 text-center">vs</td>
-                            <td className="px-2 py-1">{m.away.team_name}</td>
-                            <td className="px-2 py-1 font-medium">{m.away.points}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+            {!seasonsWithoutMatchups.includes(selectedSeasonYear) && (
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
+                {seasonMatchups.map(week => (
+                  <div key={week.week} className="mb-6">
+                    <h4 className="font-semibold mb-2">Week {week.week}</h4>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs sm:text-sm">
+                        <tbody className="divide-y divide-gray-200">
+                          {week.matchups.map((m, idx) => (
+                            <tr key={idx}>
+                              <td className="px-2 py-1">{m.home.team_name}</td>
+                              <td className="px-2 py-1 font-medium">{m.home.points}</td>
+                              <td className="px-2 py-1 text-center">vs</td>
+                              <td className="px-2 py-1">{m.away.team_name}</td>
+                              <td className="px-2 py-1 font-medium">{m.away.points}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {activeTab === 'records' && (
