@@ -32,10 +32,13 @@ const FantasyFootballApp = () => {
   const [rulesContent, setRulesContent] = useState('');
   const [editingRow, setEditingRow] = useState(null);
   const [editedData, setEditedData] = useState({});
-  
+
   // NEW: Manager editing state variables
   const [editingManager, setEditingManager] = useState(null);
   const [editedManagerData, setEditedManagerData] = useState({});
+
+  const [selectedSeasonYear, setSelectedSeasonYear] = useState(null);
+  const [seasonMatchups, setSeasonMatchups] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -43,6 +46,19 @@ const FantasyFootballApp = () => {
     // Set document title
     document.title = 'The League Dashboard';
   }, []);
+
+  useEffect(() => {
+    if (teamSeasons.length > 0 && !selectedSeasonYear) {
+      const maxYear = Math.max(...teamSeasons.map(s => s.year));
+      setSelectedSeasonYear(maxYear);
+    }
+  }, [teamSeasons, selectedSeasonYear]);
+
+  useEffect(() => {
+    if (selectedSeasonYear) {
+      fetchSeasonMatchups(selectedSeasonYear);
+    }
+  }, [selectedSeasonYear]);
 
   const fetchData = async () => {
     try {
@@ -77,6 +93,18 @@ const FantasyFootballApp = () => {
       }
     } catch (error) {
       console.error('Error fetching rules:', error);
+    }
+  };
+
+  const fetchSeasonMatchups = async (year) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/seasons/${year}/matchups`);
+      if (response.ok) {
+        const data = await response.json();
+        setSeasonMatchups(data.matchups);
+      }
+    } catch (error) {
+      console.error('Error fetching season matchups:', error);
     }
   };
 
@@ -590,6 +618,8 @@ const FantasyFootballApp = () => {
     ...inactiveRecords.sort((a, b) => b.pointsPerGame - a.pointsPerGame)
   ];
 
+  const availableYears = [...new Set(teamSeasons.map(s => s.year))].sort((a, b) => b - a);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="bg-white shadow-lg">
@@ -603,18 +633,41 @@ const FantasyFootballApp = () => {
               <button
                 onClick={() => setActiveTab('records')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'records' 
-                    ? 'bg-blue-100 text-blue-700' 
+                  activeTab === 'records'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 Hall of Records
               </button>
+              <div className="relative group">
+                <button
+                  className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base flex items-center ${
+                    activeTab === 'seasons'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Seasons
+                  <ChevronDown className="w-4 h-4 ml-1" />
+                </button>
+                <div className="absolute left-0 mt-2 w-24 bg-white border rounded-md shadow-lg hidden group-hover:block z-10">
+                  {availableYears.map(year => (
+                    <button
+                      key={year}
+                      onClick={() => { setSelectedSeasonYear(year); setActiveTab('seasons'); }}
+                      className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button
                 onClick={() => setActiveTab('rules')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'rules' 
-                    ? 'bg-blue-100 text-blue-700' 
+                  activeTab === 'rules'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -623,8 +676,8 @@ const FantasyFootballApp = () => {
               <button
                 onClick={() => setActiveTab('admin')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'admin' 
-                    ? 'bg-blue-100 text-blue-700' 
+                  activeTab === 'admin'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -636,6 +689,63 @@ const FantasyFootballApp = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {activeTab === 'seasons' && (
+          <div className="space-y-6 sm:space-y-8">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Season {selectedSeasonYear}</h2>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-2 py-1 text-left font-medium text-gray-500">Rank</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-500">Team</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-500">Record</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-500">PF</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-500">PA</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {teamSeasons
+                      .filter(s => s.year === selectedSeasonYear)
+                      .sort((a, b) => a.regular_season_rank - b.regular_season_rank)
+                      .map(season => (
+                        <tr key={season.name_id}>
+                          <td className="px-2 py-1">{season.regular_season_rank}</td>
+                          <td className="px-2 py-1">{season.team_name}</td>
+                          <td className="px-2 py-1">{season.wins}-{season.losses}</td>
+                          <td className="px-2 py-1">{season.points_for}</td>
+                          <td className="px-2 py-1">{season.points_against}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
+              {seasonMatchups.map(week => (
+                <div key={week.week} className="mb-6">
+                  <h4 className="font-semibold mb-2">Week {week.week}</h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-xs sm:text-sm">
+                      <tbody className="divide-y divide-gray-200">
+                        {week.matchups.map((m, idx) => (
+                          <tr key={idx}>
+                            <td className="px-2 py-1">{m.home.team_name}</td>
+                            <td className="px-2 py-1 font-medium">{m.home.points}</td>
+                            <td className="px-2 py-1 text-center">vs</td>
+                            <td className="px-2 py-1">{m.away.team_name}</td>
+                            <td className="px-2 py-1 font-medium">{m.away.points}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {activeTab === 'records' && (
           <div className="space-y-6 sm:space-y-8">
             {/* Champion and Chumpion Cards */}
