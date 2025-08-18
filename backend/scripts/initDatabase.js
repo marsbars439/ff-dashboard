@@ -32,6 +32,7 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name_id TEXT UNIQUE NOT NULL,
       full_name TEXT NOT NULL,
+      sleeper_user_id TEXT,
       sleeper_username TEXT,
       active BOOLEAN DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -42,6 +43,20 @@ db.serialize(() => {
       console.error('❌ Error creating managers table:', err.message);
     } else {
       console.log('✅ Managers table created successfully');
+    }
+  });
+
+  // Add sleeper_user_id column if it doesn't exist (for existing databases)
+  console.log('🔧 Checking for sleeper_user_id column...');
+  db.run(`
+    ALTER TABLE managers ADD COLUMN sleeper_user_id TEXT;
+  `, (err) => {
+    if (err && err.message.includes('duplicate column name')) {
+      console.log('ℹ️  sleeper_user_id column already exists');
+    } else if (err) {
+      console.error('❌ Error adding sleeper_user_id column:', err.message);
+    } else {
+      console.log('✅ Added sleeper_user_id column');
     }
   });
 
@@ -150,6 +165,10 @@ db.serialize(() => {
     {
       name: 'idx_managers_name_id',
       sql: 'CREATE INDEX IF NOT EXISTS idx_managers_name_id ON managers(name_id)'
+    },
+    {
+      name: 'idx_managers_sleeper_user_id',
+      sql: 'CREATE INDEX IF NOT EXISTS idx_managers_sleeper_user_id ON managers(sleeper_user_id)'
     },
     {
       name: 'idx_managers_active',

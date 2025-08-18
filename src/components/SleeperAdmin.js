@@ -340,7 +340,7 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
                         </td>
                         <td className="px-3 py-2">{team.team_name || '-'}</td>
                         <td className="px-3 py-2">
-                          {team.name_id || team.sleeper_username}
+                          {team.name_id || team.sleeper_user_id}
                         </td>
                         <td className="px-3 py-2">{team.wins}-{team.losses}</td>
                         <td className="px-3 py-2">{team.points_for.toFixed(2)}</td>
@@ -355,7 +355,7 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
                 <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
                   <p className="text-sm text-yellow-800">
                     ⚠️ {previewData.summary.unmatched} Sleeper users don't match any managers in your database. 
-                    Make sure the sleeper_username field is set correctly in the Managers table.
+                    Make sure the sleeper_user_id field is set correctly in the Managers table.
                   </p>
                 </div>
               )}
