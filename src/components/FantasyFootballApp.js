@@ -708,15 +708,15 @@ const FantasyFootballApp = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 text-center">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">Champion</p>
-                  <p className="font-semibold">{champion ? champion.team_name : 'TBD'}</p>
+                  <p className="font-semibold">{champion ? champion.manager_name : 'TBD'}</p>
                 </div>
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">Runner-Up</p>
-                  <p className="font-semibold">{runnerUp ? runnerUp.team_name : 'TBD'}</p>
+                  <p className="font-semibold">{runnerUp ? runnerUp.manager_name : 'TBD'}</p>
                 </div>
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">Third Place</p>
-                  <p className="font-semibold">{thirdPlace ? thirdPlace.team_name : 'TBD'}</p>
+                  <p className="font-semibold">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
                 </div>
               </div>
               <div className="overflow-x-auto">
@@ -724,7 +724,7 @@ const FantasyFootballApp = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-2 py-1 text-left font-medium text-gray-500">Rank</th>
-                      <th className="px-2 py-1 text-left font-medium text-gray-500">Team</th>
+                      <th className="px-2 py-1 text-left font-medium text-gray-500">Manager</th>
                       <th className="px-2 py-1 text-left font-medium text-gray-500">Record</th>
                       <th className="px-2 py-1 text-left font-medium text-gray-500">PF</th>
                       <th className="px-2 py-1 text-left font-medium text-gray-500">PA</th>
@@ -737,7 +737,7 @@ const FantasyFootballApp = () => {
                         .map(season => (
                           <tr key={season.name_id} className={season.playoff_finish === 1 ? 'bg-yellow-50' : ''}>
                             <td className="px-2 py-1">{season.regular_season_rank}</td>
-                            <td className="px-2 py-1">{season.team_name}</td>
+                            <td className="px-2 py-1">{season.manager_name}</td>
                             <td className="px-2 py-1">{season.wins}-{season.losses}</td>
                             <td className="px-2 py-1">{season.points_for}</td>
                             <td className="px-2 py-1">{season.points_against}</td>
@@ -758,10 +758,10 @@ const FantasyFootballApp = () => {
                         <tbody className="divide-y divide-gray-200">
                           {week.matchups.map((m, idx) => (
                             <tr key={idx}>
-                              <td className="px-2 py-1">{m.home.team_name}</td>
+                              <td className="px-2 py-1">{m.home.manager_name}</td>
                               <td className="px-2 py-1 font-medium">{m.home.points}</td>
                               <td className="px-2 py-1 text-center">vs</td>
-                              <td className="px-2 py-1">{m.away.team_name}</td>
+                              <td className="px-2 py-1">{m.away.manager_name}</td>
                               <td className="px-2 py-1 font-medium">{m.away.points}</td>
                             </tr>
                           ))}

@@ -199,7 +199,7 @@ class SleeperService {
     /**
      * Fetch all regular season matchups with team names and scores
      */
-    async getSeasonMatchups(leagueId) {
+    async getSeasonMatchups(leagueId, managers = []) {
       try {
         // Get league info to determine number of regular season weeks
         const leagueInfo = await this.getLeagueInfo(leagueId);
@@ -208,12 +208,22 @@ class SleeperService {
 
         const regularSeasonWeeks = leagueInfo.settings.playoff_week_start - 1;
 
-        // Map roster_id to team name for easy lookup
+        // Map sleeper user_id to manager full name
+        const userIdToName = {};
+        managers.forEach(m => {
+          if (m.sleeper_user_id) {
+            userIdToName[m.sleeper_user_id] = m.full_name;
+          }
+        });
+
+        // Map roster_id to team and manager names for easy lookup
         const rosterIdToTeam = {};
+        const rosterIdToManager = {};
         rosters.forEach(r => {
           const user = users.find(u => u.user_id === r.owner_id) || {};
           const teamName = r.metadata?.team_name || user.metadata?.team_name || user.display_name || `Team ${r.roster_id}`;
           rosterIdToTeam[r.roster_id] = teamName;
+          rosterIdToManager[r.roster_id] = userIdToName[r.owner_id] || teamName;
         });
 
         // Fetch matchups week by week
@@ -230,6 +240,7 @@ class SleeperService {
               const team = {
                 roster_id: m.roster_id,
                 team_name: rosterIdToTeam[m.roster_id] || '',
+                manager_name: rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
                 points: m.points || 0
               };
 
