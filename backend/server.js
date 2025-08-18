@@ -188,8 +188,16 @@ app.post('/api/sleeper/sync/:year', async (req, res) => {
       });
     });
 
+    // Get seasonal Sleeper ID mappings
+    const seasonalIds = await new Promise((resolve, reject) => {
+      db.all('SELECT name_id, sleeper_user_id FROM manager_sleeper_ids WHERE season = ?', [year], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
     // Fetch data from Sleeper
-    const sleeperResult = await sleeperService.fetchLeagueData(league_id, year, managers);
+    const sleeperResult = await sleeperService.fetchLeagueData(league_id, year, managers, seasonalIds);
 
     if (!sleeperResult.success) {
       throw new Error(sleeperResult.error);
@@ -368,8 +376,16 @@ app.post('/api/sleeper/preview/:year', async (req, res) => {
       });
     });
 
+    // Get seasonal Sleeper ID mappings
+    const seasonalIds = await new Promise((resolve, reject) => {
+      db.all('SELECT name_id, sleeper_user_id FROM manager_sleeper_ids WHERE season = ?', [year], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
     // Fetch data from Sleeper
-    const sleeperResult = await sleeperService.fetchLeagueData(league_id, year, managers);
+    const sleeperResult = await sleeperService.fetchLeagueData(league_id, year, managers, seasonalIds);
 
     if (!sleeperResult.success) {
       throw new Error(sleeperResult.error);
@@ -506,6 +522,82 @@ app.delete('/api/managers/:id', (req, res) => {
       }
       res.json({ message: 'Manager deleted successfully' });
     });
+  });
+});
+
+// CRUD for manager_sleeper_ids table
+app.get('/api/manager-sleeper-ids', (req, res) => {
+  const query = `
+    SELECT msi.*, m.full_name
+    FROM manager_sleeper_ids msi
+    LEFT JOIN managers m ON msi.name_id = m.name_id
+    ORDER BY msi.season DESC, m.full_name
+  `;
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ mappings: rows });
+  });
+});
+
+app.post('/api/manager-sleeper-ids', (req, res) => {
+  const { name_id, sleeper_user_id, season } = req.body;
+  if (!name_id || !sleeper_user_id || !season) {
+    return res.status(400).json({ error: 'name_id, sleeper_user_id and season are required' });
+    }
+
+  const query = `
+    INSERT INTO manager_sleeper_ids (name_id, sleeper_user_id, season)
+    VALUES (?, ?, ?)
+  `;
+  db.run(query, [name_id, sleeper_user_id, season], function(err) {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ message: 'Mapping added successfully', id: this.lastID });
+  });
+});
+
+app.put('/api/manager-sleeper-ids/:id', (req, res) => {
+  const id = req.params.id;
+  const { name_id, sleeper_user_id, season } = req.body;
+  if (!name_id || !sleeper_user_id || !season) {
+    return res.status(400).json({ error: 'name_id, sleeper_user_id and season are required' });
+  }
+
+  const query = `
+    UPDATE manager_sleeper_ids
+    SET name_id = ?, sleeper_user_id = ?, season = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `;
+  db.run(query, [name_id, sleeper_user_id, season, id], function(err) {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    if (this.changes === 0) {
+      res.status(404).json({ error: 'Mapping not found' });
+      return;
+    }
+    res.json({ message: 'Mapping updated successfully' });
+  });
+});
+
+app.delete('/api/manager-sleeper-ids/:id', (req, res) => {
+  const id = req.params.id;
+  db.run('DELETE FROM manager_sleeper_ids WHERE id = ?', [id], function(err) {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    if (this.changes === 0) {
+      res.status(404).json({ error: 'Mapping not found' });
+      return;
+    }
+    res.json({ message: 'Mapping deleted successfully' });
   });
 });
 

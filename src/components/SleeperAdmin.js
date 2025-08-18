@@ -10,6 +10,11 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [message, setMessage] = useState(null);
+  const [managerMappings, setManagerMappings] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [newMapping, setNewMapping] = useState({ name_id: '', season: '', sleeper_user_id: '' });
+  const [editingMappingId, setEditingMappingId] = useState(null);
+  const [editingMapping, setEditingMapping] = useState({});
 
   // Generate years from 2015 to current year
   const years = Array.from(
@@ -20,6 +25,8 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
   useEffect(() => {
     fetchLeagueSettings();
     fetchSyncStatus();
+    fetchManagers();
+    fetchMappings();
   }, []);
 
   const fetchLeagueSettings = async () => {
@@ -43,6 +50,26 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
       setSyncStatus(data.status || []);
     } catch (error) {
       console.error('Error fetching sync status:', error);
+    }
+  };
+
+  const fetchManagers = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/managers`);
+      const data = await response.json();
+      setManagers(data.managers || []);
+    } catch (error) {
+      console.error('Error fetching managers:', error);
+    }
+  };
+
+  const fetchMappings = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/manager-sleeper-ids`);
+      const data = await response.json();
+      setManagerMappings(data.mappings || []);
+    } catch (error) {
+      console.error('Error fetching mappings:', error);
     }
   };
 
@@ -133,6 +160,57 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
     }
   };
 
+  const addMapping = async () => {
+    if (!newMapping.name_id || !newMapping.season || !newMapping.sleeper_user_id) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/manager-sleeper-ids`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMapping)
+      });
+      if (response.ok) {
+        setNewMapping({ name_id: '', season: '', sleeper_user_id: '' });
+        fetchMappings();
+      }
+    } catch (error) {
+      console.error('Error adding mapping:', error);
+    }
+  };
+
+  const startEditMapping = (mapping) => {
+    setEditingMappingId(mapping.id);
+    setEditingMapping({ ...mapping });
+  };
+
+  const saveEditMapping = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/manager-sleeper-ids/${editingMappingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingMapping)
+      });
+      if (response.ok) {
+        setEditingMappingId(null);
+        setEditingMapping({});
+        fetchMappings();
+      }
+    } catch (error) {
+      console.error('Error updating mapping:', error);
+    }
+  };
+
+  const deleteMapping = async (id) => {
+    if (!window.confirm('Delete this mapping?')) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/manager-sleeper-ids/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        fetchMappings();
+      }
+    } catch (error) {
+      console.error('Error deleting mapping:', error);
+    }
+  };
+
   const getSyncStatusIcon = (status) => {
     switch (status) {
       case 'completed':
@@ -149,6 +227,8 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
   const getStatusForYear = (year) => {
     return syncStatus.find(s => s.year === year);
   };
+
+  const managerNameMap = Object.fromEntries(managers.map(m => [m.name_id, m.full_name]));
 
   return (
     <div className="space-y-6">
@@ -274,10 +354,106 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
               </tbody>
             </table>
           </div>
+      </div>
+    </div>
+
+    {/* Manager Sleeper ID mappings */}
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="p-6">
+        <h4 className="text-lg font-semibold mb-4">Manager Sleeper IDs</h4>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <select
+            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            value={newMapping.name_id}
+            onChange={(e) => setNewMapping(prev => ({ ...prev, name_id: e.target.value }))}
+          >
+            <option value="">Select Manager</option>
+            {managers.map(m => (
+              <option key={m.name_id} value={m.name_id}>{m.full_name}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            placeholder="Season"
+            className="border-gray-300 rounded-md shadow-sm w-24 focus:border-blue-500 focus:ring-blue-500"
+            value={newMapping.season}
+            onChange={(e) => setNewMapping(prev => ({ ...prev, season: e.target.value }))}
+          />
+          <input
+            type="text"
+            placeholder="Sleeper User ID"
+            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            value={newMapping.sleeper_user_id}
+            onChange={(e) => setNewMapping(prev => ({ ...prev, sleeper_user_id: e.target.value }))}
+          />
+          <button
+            onClick={addMapping}
+            className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Add
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left">Manager</th>
+                <th className="px-3 py-2 text-left">Season</th>
+                <th className="px-3 py-2 text-left">Sleeper User ID</th>
+                <th className="px-3 py-2 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {managerMappings.map(m => (
+                <tr key={m.id}>
+                  <td className="px-3 py-2">{managerNameMap[m.name_id] || m.name_id}</td>
+                  <td className="px-3 py-2">
+                    {editingMappingId === m.id ? (
+                      <input
+                        type="number"
+                        className="border-gray-300 rounded-md shadow-sm w-24 focus:border-blue-500 focus:ring-blue-500"
+                        value={editingMapping.season}
+                        onChange={(e) => setEditingMapping(prev => ({ ...prev, season: e.target.value }))}
+                      />
+                    ) : (
+                      m.season
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {editingMappingId === m.id ? (
+                      <input
+                        type="text"
+                        className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        value={editingMapping.sleeper_user_id}
+                        onChange={(e) => setEditingMapping(prev => ({ ...prev, sleeper_user_id: e.target.value }))}
+                      />
+                    ) : (
+                      m.sleeper_user_id
+                    )}
+                  </td>
+                  <td className="px-3 py-2 space-x-2">
+                    {editingMappingId === m.id ? (
+                      <>
+                        <button onClick={saveEditMapping} className="text-blue-600 hover:underline">Save</button>
+                        <button onClick={() => setEditingMappingId(null)} className="text-gray-600 hover:underline">Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEditMapping(m)} className="text-blue-600 hover:underline">Edit</button>
+                        <button onClick={() => deleteMapping(m.id)} className="text-red-600 hover:underline">Delete</button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
+    </div>
 
-      {/* Preview Modal */}
+    {/* Preview Modal */}
       {showPreview && previewData && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">

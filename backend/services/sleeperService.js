@@ -15,9 +15,10 @@ class SleeperService {
    * @param {string} leagueId - Sleeper league ID
    * @param {number} year - Year for this league
    * @param {Array} managers - Array of manager records from database
+   * @param {Array} seasonalIds - Array of {name_id, sleeper_user_id} for the season
    * @returns {Object} Processed data ready for database insertion
    */
-  async fetchLeagueData(leagueId, year, managers) {
+  async fetchLeagueData(leagueId, year, managers, seasonalIds = []) {
     try {
       console.log(`📊 Fetching data for league ${leagueId} (Year: ${year})`);
 
@@ -44,7 +45,8 @@ class SleeperService {
         users,
         managers,
         playoffResults,
-        highGames
+        highGames,
+        seasonalIds
       );
 
       return {
@@ -252,7 +254,7 @@ class SleeperService {
     /**
      * Process and combine all fetched data
      */
-    processLeagueData(year, leagueInfo, rosters, users, managers, playoffResults, highGames) {
+    processLeagueData(year, leagueInfo, rosters, users, managers, playoffResults, highGames, seasonalIds = []) {
       // Create a map of roster_id to username
     // Map roster_id to Sleeper user_id (owner_id)
     const rosterToUserId = {};
@@ -279,6 +281,11 @@ class SleeperService {
     managers.forEach(manager => {
       if (manager.sleeper_user_id) {
         userIdToNameId[manager.sleeper_user_id] = manager.name_id;
+      }
+    });
+    seasonalIds.forEach(mapping => {
+      if (mapping.sleeper_user_id) {
+        userIdToNameId[mapping.sleeper_user_id] = mapping.name_id;
       }
     });
 

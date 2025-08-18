@@ -100,6 +100,11 @@ const managers = [
   }
 ];
 
+// Sample historical Sleeper IDs
+const managerSleeperIds = [
+  { name_id: 'byronkou', season: 2023, sleeper_user_id: '12345' }
+];
+
 // Function to seed managers
 function seedManagers() {
   return new Promise((resolve, reject) => {
@@ -117,6 +122,29 @@ function seedManagers() {
         reject(err);
       } else {
         console.log(`Seeded ${managers.length} managers`);
+        resolve();
+      }
+    });
+  });
+}
+
+// Seed historical Sleeper IDs
+function seedManagerSleeperIds() {
+  return new Promise((resolve, reject) => {
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO manager_sleeper_ids (name_id, sleeper_user_id, season)
+      VALUES (?, ?, ?)
+    `);
+
+    managerSleeperIds.forEach(row => {
+      stmt.run([row.name_id, row.sleeper_user_id, row.season]);
+    });
+
+    stmt.finalize(err => {
+      if (err) {
+        reject(err);
+      } else {
+        console.log(`Seeded ${managerSleeperIds.length} historical Sleeper IDs`);
         resolve();
       }
     });
@@ -186,8 +214,9 @@ function seedFromExcel() {
 async function seedDatabase() {
   try {
     console.log('Starting database seeding...');
-    
+
     await seedManagers();
+    await seedManagerSleeperIds();
     await seedFromExcel();
     
     console.log('Database seeding completed successfully!');
