@@ -18,6 +18,7 @@ import {
   X,
   Trash2
 } from 'lucide-react';
+import SleeperAdmin from './SleeperAdmin';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -1019,6 +1020,11 @@ const FantasyFootballApp = () => {
 
         {activeTab === 'admin' && (
           <div className="space-y-6 sm:space-y-8">
+            {/* Add the Sleeper Admin component */}
+            <SleeperAdmin 
+              API_BASE_URL={API_BASE_URL} 
+              onDataUpdate={fetchData}  // This will refresh your data after sync
+            />
             {/* Excel Upload Section */}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">

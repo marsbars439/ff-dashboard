@@ -23,7 +23,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 db.serialize(() => {
-  console.log('🚀 Initializing database schema (PURE SCHEMA ONLY - ZERO DATA INSERTION)...');
+  console.log('🚀 Initializing database schema (SCHEMA ONLY - NO RULES OR DATA INSERTION)...');
 
   // Create managers table
   console.log('📊 Creating managers table...');
@@ -149,9 +149,6 @@ db.serialize(() => {
     });
   });
 
-  // COMPLETELY REMOVED: No data insertion of any kind
-  console.log('📝 Skipping all data insertion - use Admin panel to manage data and rules');
-
   // Database schema verification
   console.log('🔍 Verifying database schema...');
   
@@ -190,7 +187,7 @@ db.serialize(() => {
     }
   });
 
-  // Check database file size and record counts
+  // Check database file size and record counts (READ ONLY)
   fs.stat(dbPath, (err, stats) => {
     if (err) {
       console.error('❌ Error checking database file:', err.message);
@@ -199,7 +196,7 @@ db.serialize(() => {
     }
   });
 
-  // Show record counts (no data modification, just reporting)
+  // Show record counts (READ ONLY - no data modification)
   db.get('SELECT COUNT(*) as count FROM managers', (err, row) => {
     if (!err && row) {
       console.log(`📊 Managers in database: ${row.count}`);
@@ -223,12 +220,12 @@ db.serialize(() => {
   console.log('   ✅ Tables created/verified: managers, team_seasons, league_rules');
   console.log('   ✅ Indexes created for optimal performance');
   console.log('   ✅ dues_chumpion column added/verified');
-  console.log('   ✅ PURE SCHEMA MODE: Absolutely no data was inserted or modified');
-  console.log('   ✅ All rules and data preserved exactly as entered');
+  console.log('   ✅ GUARANTEED: No rules insertion - rules table left completely untouched');
+  console.log('   ✅ GUARANTEED: No data updates - all existing data preserved');
   console.log('   📍 Database location:', dbPath);
   console.log('\n🚀 Database ready for use!');
-  console.log('   Use the Admin panel to modify data and rules');
-  console.log('   Or upload Excel file through the admin interface');
+  console.log('   📝 Rules can ONLY be modified through the Admin panel');
+  console.log('   📊 Data can ONLY be modified through the Admin panel or Excel upload');
 });
 
 // Handle errors and cleanup

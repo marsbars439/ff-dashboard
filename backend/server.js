@@ -4,6 +4,7 @@ const sqlite3 = require('sqlite3').verbose();
 const multer = require('multer');
 const XLSX = require('xlsx');
 const path = require('path');
+const sleeperService = require('./services/sleeperService');
 require('dotenv').config();
 
 const app = express();
@@ -87,6 +88,316 @@ app.get('/api/managers/:nameId/seasons', (req, res) => {
     }
     res.json({ teamSeasons: rows });
   });
+});
+
+// Get all league settings (league IDs for each year)
+app.get('/api/league-settings', (req, res) => {
+  const query = 'SELECT * FROM league_settings ORDER BY year DESC';
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ settings: rows });
+  });
+});
+
+// Update league ID for a specific year
+app.put('/api/league-settings/:year', (req, res) => {
+  const year = req.params.year;
+  const { league_id } = req.body;
+
+  const query = `
+    INSERT INTO league_settings (year, league_id, updated_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(year) 
+    DO UPDATE SET 
+      league_id = excluded.league_id,
+      updated_at = CURRENT_TIMESTAMP
+  `;
+
+  db.run(query, [year, league_id], function(err) {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ 
+      message: 'League ID updated successfully',
+      year,
+      league_id 
+    });
+  });
+});
+
+// Test Sleeper API connection
+app.get('/api/sleeper/test', async (req, res) => {
+  const result = await sleeperService.testConnection();
+  if (result.success) {
+    res.json({ 
+      message: 'Sleeper API connection successful',
+      nfl_state: result.data 
+    });
+  } else {
+    res.status(500).json({ error: result.error });
+  }
+});
+
+// Sync data from Sleeper for a specific year
+app.post('/api/sleeper/sync/:year', async (req, res) => {
+  const year = parseInt(req.params.year);
+  const { league_id, preserve_manual_fields = true } = req.body;
+
+  if (!league_id) {
+    return res.status(400).json({ error: 'League ID is required' });
+  }
+
+  try {
+    // Update sync status
+    db.run(
+      'UPDATE league_settings SET sync_status = ?, last_sync = CURRENT_TIMESTAMP WHERE year = ?',
+      ['syncing', year]
+    );
+
+    // Get all managers for username mapping
+    const managers = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM managers', [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    // Fetch data from Sleeper
+    const sleeperResult = await sleeperService.fetchLeagueData(league_id, year, managers);
+
+    if (!sleeperResult.success) {
+      throw new Error(sleeperResult.error);
+    }
+
+    // Get existing team_seasons data for this year (to preserve manual fields)
+    const existingData = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM team_seasons WHERE year = ?', [year], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    // Create a map of existing data by name_id for easy lookup
+    const existingMap = {};
+    existingData.forEach(row => {
+      existingMap[row.name_id] = row;
+    });
+
+    // Process and merge data
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    for (const teamData of sleeperResult.data) {
+      // Skip if no name_id match found
+      if (!teamData.name_id) {
+        errorCount++;
+        errors.push(`No manager match for Sleeper user: ${teamData.sleeper_username}`);
+        continue;
+      }
+
+      const existing = existingMap[teamData.name_id];
+
+      // Prepare data for insertion/update
+      const dataToSave = {
+        ...teamData,
+        // Preserve manual fields if requested and they exist
+        dues: preserve_manual_fields && existing ? existing.dues : (teamData.dues || 250),
+        payout: preserve_manual_fields && existing ? existing.payout : (teamData.payout || 0),
+        dues_chumpion: preserve_manual_fields && existing ? existing.dues_chumpion : (teamData.dues_chumpion || 0),
+      };
+
+      // Delete sleeper_username as we don't save it to team_seasons
+      delete dataToSave.sleeper_username;
+
+      // Insert or update the record
+      const query = `
+        INSERT INTO team_seasons (
+          year, name_id, team_name, wins, losses, points_for, points_against,
+          regular_season_rank, playoff_finish, dues, payout, dues_chumpion, high_game
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(year, name_id) 
+        DO UPDATE SET 
+          team_name = excluded.team_name,
+          wins = excluded.wins,
+          losses = excluded.losses,
+          points_for = excluded.points_for,
+          points_against = excluded.points_against,
+          regular_season_rank = excluded.regular_season_rank,
+          playoff_finish = excluded.playoff_finish,
+          high_game = excluded.high_game,
+          ${preserve_manual_fields ? '' : `
+            dues = excluded.dues,
+            payout = excluded.payout,
+            dues_chumpion = excluded.dues_chumpion,
+          `}
+          updated_at = CURRENT_TIMESTAMP
+      `;
+
+      const values = [
+        dataToSave.year,
+        dataToSave.name_id,
+        dataToSave.team_name,
+        dataToSave.wins,
+        dataToSave.losses,
+        dataToSave.points_for,
+        dataToSave.points_against,
+        dataToSave.regular_season_rank,
+        dataToSave.playoff_finish,
+        dataToSave.dues,
+        dataToSave.payout,
+        dataToSave.dues_chumpion,
+        dataToSave.high_game
+      ];
+
+      await new Promise((resolve, reject) => {
+        db.run(query, values, function(err) {
+          if (err) {
+            errorCount++;
+            errors.push(`Error saving ${dataToSave.name_id}: ${err.message}`);
+            reject(err);
+          } else {
+            successCount++;
+            resolve();
+          }
+        });
+      }).catch(() => {}); // Continue on error
+    }
+
+    // Update sync status
+    db.run(
+      'UPDATE league_settings SET sync_status = ?, last_sync = CURRENT_TIMESTAMP WHERE year = ?',
+      ['completed', year]
+    );
+
+    res.json({
+      message: 'Sync completed',
+      year,
+      league_id,
+      summary: {
+        total_teams: sleeperResult.data.length,
+        successful_updates: successCount,
+        errors: errorCount,
+        error_details: errors,
+        preserved_manual_fields: preserve_manual_fields
+      }
+    });
+
+  } catch (error) {
+    // Update sync status to failed
+    db.run(
+      'UPDATE league_settings SET sync_status = ? WHERE year = ?',
+      ['failed', year]
+    );
+
+    console.error('Sync error:', error);
+    res.status(500).json({ 
+      error: error.message,
+      year,
+      league_id 
+    });
+  }
+});
+
+// Get sync status for all years
+app.get('/api/sleeper/sync-status', async (req, res) => {
+  const query = `
+    SELECT 
+      ls.year,
+      ls.league_id,
+      ls.last_sync,
+      ls.sync_status,
+      COUNT(ts.id) as team_count
+    FROM league_settings ls
+    LEFT JOIN team_seasons ts ON ls.year = ts.year
+    GROUP BY ls.year
+    ORDER BY ls.year DESC
+  `;
+
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ status: rows });
+  });
+});
+
+// Preview what data would be synced (dry run)
+app.post('/api/sleeper/preview/:year', async (req, res) => {
+  const year = parseInt(req.params.year);
+  const { league_id } = req.body;
+
+  if (!league_id) {
+    return res.status(400).json({ error: 'League ID is required' });
+  }
+
+  try {
+    // Get all managers for username mapping
+    const managers = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM managers', [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    // Fetch data from Sleeper
+    const sleeperResult = await sleeperService.fetchLeagueData(league_id, year, managers);
+
+    if (!sleeperResult.success) {
+      throw new Error(sleeperResult.error);
+    }
+
+    // Get existing data for comparison
+    const existingData = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM team_seasons WHERE year = ?', [year], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    // Create comparison data
+    const preview = sleeperResult.data.map(team => {
+      const existing = existingData.find(e => e.name_id === team.name_id);
+      return {
+        ...team,
+        status: !team.name_id ? 'unmatched' : (existing ? 'update' : 'new'),
+        existing_data: existing ? {
+          wins: existing.wins,
+          losses: existing.losses,
+          points_for: existing.points_for,
+          dues: existing.dues,
+          payout: existing.payout,
+          dues_chumpion: existing.dues_chumpion
+        } : null
+      };
+    });
+
+    res.json({
+      year,
+      league_id,
+      preview,
+      summary: {
+        total_teams: preview.length,
+        matched: preview.filter(t => t.name_id).length,
+        unmatched: preview.filter(t => !t.name_id).length,
+        to_update: preview.filter(t => t.status === 'update').length,
+        to_create: preview.filter(t => t.status === 'new').length
+      }
+    });
+
+  } catch (error) {
+    console.error('Preview error:', error);
+    res.status(500).json({ 
+      error: error.message,
+      year,
+      league_id 
+    });
+  }
 });
 
 // Add a new manager

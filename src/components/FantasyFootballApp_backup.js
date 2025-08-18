@@ -302,40 +302,34 @@ const FantasyFootballApp = () => {
     }
   };
 
-  // Improved markdown rendering function with proper indented list handling
+  // Simple but effective markdown rendering with proper indentation
   const renderMarkdown = (text) => {
     const lines = text.split('\n');
     const elements = [];
     let currentList = [];
-    let listType = null;
-    let listLevel = 0;
+    let inList = false;
 
     const processLine = (line, index) => {
-      // Handle indented lists (check for spaces before dash)
+      // Handle lists (both regular and indented)
       const listMatch = line.match(/^(\s*)- (.+)$/);
       if (listMatch) {
-        const indent = listMatch[1].length;
+        const spaces = listMatch[1].length;
         const content = listMatch[2];
-        const level = Math.floor(indent / 2); // 2 spaces per level
+        const indentLevel = Math.floor(spaces / 2);
         
-        if (listType !== 'ul' || level !== listLevel) {
-          if (currentList.length > 0) {
-            elements.push(createElement(listType, currentList, listLevel, `list-${elements.length}`));
-            currentList = [];
-          }
-          listType = 'ul';
-          listLevel = level;
+        if (!inList) {
+          inList = true;
         }
-        currentList.push({ content: processInlineFormatting(content), level });
+        
+        currentList.push({ content: processInlineFormatting(content), indent: indentLevel });
         return;
       }
 
-      // Flush any pending list
-      if (currentList.length > 0) {
-        elements.push(createElement(listType, currentList, listLevel, `list-${elements.length}`));
+      // Flush any pending list when we hit non-list content
+      if (inList && currentList.length > 0) {
+        elements.push(createSimpleList(currentList, `list-${elements.length}`));
         currentList = [];
-        listType = null;
-        listLevel = 0;
+        inList = false;
       }
 
       // Handle headers
@@ -362,25 +356,36 @@ const FantasyFootballApp = () => {
       });
     };
 
-    const createElement = (type, items, level, key) => {
-      if (type === 'ul') {
-        const marginClass = level > 0 ? `ml-${Math.min(level * 4, 12)}` : 'ml-4';
-        return (
-          <ul key={key} className={`list-disc list-inside ${marginClass} mb-4 space-y-1`}>
-            {items.map((item, i) => (
-              <li key={i} className="text-gray-700 text-sm sm:text-base">{item.content}</li>
-            ))}
-          </ul>
-        );
-      }
-      return null;
+    const createSimpleList = (items, key) => {
+      return (
+        <ul key={key} className="mb-4 space-y-1">
+          {items.map((item, i) => {
+            // Use style for precise indentation control
+            const indentStyle = {
+              marginLeft: `${Math.max(1, 1 + item.indent * 1.5)}rem`,
+              listStyleType: 'disc',
+              display: 'list-item'
+            };
+            
+            return (
+              <li 
+                key={i} 
+                className="text-gray-700 text-sm sm:text-base"
+                style={indentStyle}
+              >
+                {item.content}
+              </li>
+            );
+          })}
+        </ul>
+      );
     };
 
     lines.forEach(processLine);
 
     // Flush any remaining list
-    if (currentList.length > 0) {
-      elements.push(createElement(listType, currentList, listLevel, `list-${elements.length}`));
+    if (inList && currentList.length > 0) {
+      elements.push(createSimpleList(currentList, `list-${elements.length}`));
     }
 
     return elements;

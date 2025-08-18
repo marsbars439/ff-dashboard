@@ -108,6 +108,24 @@ db.serialize(() => {
       console.log('✅ Added dues_chumpion column');
     }
   });
+  
+  // Create league settings table if it doesn't exist
+  console.log('📊 Creating league settings table...');  
+  db.run(`
+    CREATE TABLE IF NOT EXISTS league_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      year INTEGER UNIQUE NOT NULL,
+      league_id TEXT,
+      last_sync DATETIME,
+      sync_status TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `, (err) => {
+    if (err && !err.message.includes('already exists')) {
+      console.error('Error creating league_settings table:', err);
+    }
+  });
 
   // Create indexes for better performance
   console.log('📈 Creating database indexes...');
