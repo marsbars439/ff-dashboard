@@ -157,6 +157,58 @@ class SleeperService {
   }
 
   /**
+   * Fetch playoff bracket matchups with team and manager names
+   */
+  async getPlayoffBracket(leagueId, managers = []) {
+    try {
+      const [bracketData, rosters, users] = await Promise.all([
+        this.client.get(`/league/${leagueId}/winners_bracket`).then(res => res.data),
+        this.getRosters(leagueId),
+        this.getUsers(leagueId)
+      ]);
+
+      // Map sleeper user_id to manager full name
+      const userIdToName = {};
+      managers.forEach(m => {
+        if (m.sleeper_user_id) {
+          userIdToName[m.sleeper_user_id] = m.full_name;
+        }
+      });
+
+      // Map roster_id to team and manager names
+      const rosterIdToTeam = {};
+      const rosterIdToManager = {};
+      rosters.forEach(r => {
+        const user = users.find(u => u.user_id === r.owner_id) || {};
+        const teamName = r.metadata?.team_name || user.metadata?.team_name || user.display_name || `Team ${r.roster_id}`;
+        rosterIdToTeam[r.roster_id] = teamName;
+        rosterIdToManager[r.roster_id] = userIdToName[user.user_id] || teamName;
+      });
+
+      return bracketData
+        .filter(g => g.t1 && g.t2)
+        .map(g => ({
+          round: g.r,
+          matchup_id: g.p,
+          t1: {
+            roster_id: g.t1,
+            team_name: rosterIdToTeam[g.t1] || '',
+            manager_name: rosterIdToManager[g.t1] || ''
+          },
+          t2: {
+            roster_id: g.t2,
+            team_name: rosterIdToTeam[g.t2] || '',
+            manager_name: rosterIdToManager[g.t2] || ''
+          },
+          winner: g.w
+        }));
+    } catch (error) {
+      console.error('❌ Error fetching playoff bracket:', error.message);
+      return [];
+    }
+  }
+
+  /**
    * Calculate highest scoring week for each team
    */
     async calculateHighGames(leagueId, settings) {
