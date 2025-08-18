@@ -107,25 +107,26 @@ class SleeperService {
 
   /**
    * Parse playoff bracket to determine final standings
+   * Returns an object mapping roster_id to final playoff finish (1-6)
    */
   parsePlayoffBracket(bracket) {
     const results = {};
-    
+
     if (!bracket || !Array.isArray(bracket)) {
       return results;
     }
 
     // Find championship game (highest round)
     const championshipRound = Math.max(...bracket.map(game => game.r));
-    const championshipGame = bracket.find(game => 
+    const championshipGame = bracket.find(game =>
       game.r === championshipRound && game.t1 && game.t2
     );
 
     if (championshipGame) {
       // Champion is the winner
       const championId = championshipGame.w;
-      const runnerUpId = championshipGame.w === championshipGame.t1 
-        ? championshipGame.t2 
+      const runnerUpId = championshipGame.w === championshipGame.t1
+        ? championshipGame.t2
         : championshipGame.t1;
 
       results[championId] = 1;  // 1st place
@@ -144,11 +145,39 @@ class SleeperService {
 
       if (thirdPlaceGame && thirdPlaceGame.w) {
         results[thirdPlaceGame.w] = 3;  // 3rd place
-        const fourthPlace = thirdPlaceGame.w === thirdPlaceGame.t1 
-          ? thirdPlaceGame.t2 
+        const fourthPlace = thirdPlaceGame.w === thirdPlaceGame.t1
+          ? thirdPlaceGame.t2
           : thirdPlaceGame.t1;
         if (fourthPlace) {
           results[fourthPlace] = 4;  // 4th place
+        }
+      }
+
+      // Determine 5th and 6th place by looking at a matchup between
+      // the two teams that lost in the opening round. If Sleeper
+      // provides a 5th-place game, both losers from the first round
+      // should meet again later in the bracket.
+      const firstRound = Math.min(...bracket.map(game => game.r));
+      const firstRoundGames = bracket.filter(game =>
+        game.r === firstRound && game.t1 && game.t2
+      );
+
+      const firstRoundLosers = firstRoundGames
+        .map(game => game.w === game.t1 ? game.t2 : game.t1)
+        .filter(id => id != null);
+
+      const fifthPlaceGame = bracket.find(game =>
+        firstRoundLosers.includes(game.t1) &&
+        firstRoundLosers.includes(game.t2)
+      );
+
+      if (fifthPlaceGame && fifthPlaceGame.w) {
+        results[fifthPlaceGame.w] = 5;  // 5th place
+        const sixthPlace = fifthPlaceGame.w === fifthPlaceGame.t1
+          ? fifthPlaceGame.t2
+          : fifthPlaceGame.t1;
+        if (sixthPlace) {
+          results[sixthPlace] = 6;  // 6th place
         }
       }
     }
