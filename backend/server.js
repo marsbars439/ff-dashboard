@@ -85,7 +85,20 @@ app.get('/api/seasons/:year/matchups', (req, res) => {
       return;
     }
     try {
-      const matchups = await sleeperService.getSeasonMatchups(row.league_id);
+      const managers = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+           FROM managers m
+           LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?`,
+          [year],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+          }
+        );
+      });
+
+      const matchups = await sleeperService.getSeasonMatchups(row.league_id, managers);
       res.json({ matchups });
     } catch (error) {
       res.status(500).json({ error: error.message });
