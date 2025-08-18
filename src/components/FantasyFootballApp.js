@@ -639,6 +639,28 @@ const FantasyFootballApp = () => {
   const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
   const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
   const thirdPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 3);
+  const playoffTeams = teamSeasons
+    .filter(
+      s =>
+        s.year === selectedSeasonYear &&
+        s.regular_season_rank &&
+        s.regular_season_rank <= 4
+    )
+    .sort((a, b) => a.regular_season_rank - b.regular_season_rank);
+  const seed1 = playoffTeams[0];
+  const seed2 = playoffTeams[1];
+  const seed3 = playoffTeams[2];
+  const seed4 = playoffTeams[3];
+  const fourthPlace =
+    teamSeasons.find(
+      s => s.year === selectedSeasonYear && s.playoff_finish === 4
+    ) ||
+    playoffTeams.find(
+      s =>
+        ![champion?.name_id, runnerUp?.name_id, thirdPlace?.name_id].includes(
+          s.name_id
+        )
+    );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -725,6 +747,37 @@ const FantasyFootballApp = () => {
                   <p className="font-semibold">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
                 </div>
               </div>
+              {playoffTeams.length === 4 && (
+                <div className="mb-4">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Playoff Bracket</h3>
+                  <div className="flex flex-col sm:flex-row justify-center sm:space-x-8 space-y-4 sm:space-y-0">
+                    <div className="flex flex-col space-y-4">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
+                        <p className="font-medium">{seed1 ? `1. ${seed1.manager_name}` : 'TBD'}</p>
+                        <p className="text-xs text-gray-500">vs</p>
+                        <p className="font-medium">{seed4 ? `4. ${seed4.manager_name}` : 'TBD'}</p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
+                        <p className="font-medium">{seed2 ? `2. ${seed2.manager_name}` : 'TBD'}</p>
+                        <p className="text-xs text-gray-500">vs</p>
+                        <p className="font-medium">{seed3 ? `3. ${seed3.manager_name}` : 'TBD'}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col space-y-4">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-center">
+                        <p className="font-semibold">{champion ? champion.manager_name : 'TBD'}</p>
+                        <p className="text-xs text-gray-500">Champion</p>
+                        <p className="font-medium">{runnerUp ? runnerUp.manager_name : 'TBD'}</p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
+                        <p className="font-medium">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
+                        <p className="text-xs text-gray-500">Third Place</p>
+                        <p className="font-medium">{fourthPlace ? fourthPlace.manager_name : 'TBD'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
                   <thead className="bg-gray-50">
