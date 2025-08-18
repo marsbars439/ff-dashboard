@@ -72,6 +72,22 @@ The project automatically builds and publishes Docker images to GitHub Container
 
 To update league data, modify the `managersData` and `allTeamSeasons` arrays in `src/components/FantasyFootballApp.js`.
 
+### Managing Sleeper IDs
+
+Each manager can have different Sleeper accounts across seasons. Historical
+IDs are stored in the `manager_sleeper_ids` table with the season they apply
+to. New mappings can be added through the Admin UI or manually with SQL:
+
+```sql
+INSERT INTO manager_sleeper_ids (name_id, sleeper_user_id, season)
+VALUES ('byronkou', '12345', 2023);
+```
+
+When a manager changes Sleeper accounts, insert a new row for the relevant
+season rather than updating past records. Seed scripts in
+`backend/scripts/seedDatabase.js` include examples of how to populate these
+historical IDs.
+
 ## Contributing
 
 1. Fork the repository

@@ -60,6 +60,27 @@ db.serialize(() => {
     }
   });
 
+  // Create manager_sleeper_ids table for historical mappings
+  console.log('📊 Creating manager_sleeper_ids table...');
+  db.run(`
+    CREATE TABLE IF NOT EXISTS manager_sleeper_ids (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name_id TEXT NOT NULL,
+      sleeper_user_id TEXT NOT NULL,
+      season INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (name_id) REFERENCES managers (name_id),
+      UNIQUE(sleeper_user_id, season)
+    )
+  `, (err) => {
+    if (err) {
+      console.error('❌ Error creating manager_sleeper_ids table:', err.message);
+    } else {
+      console.log('✅ manager_sleeper_ids table created successfully');
+    }
+  });
+
   // Create team_seasons table with dues_chumpion column
   console.log('📊 Creating team_seasons table...');
   db.run(`
@@ -173,6 +194,10 @@ db.serialize(() => {
     {
       name: 'idx_managers_active',
       sql: 'CREATE INDEX IF NOT EXISTS idx_managers_active ON managers(active)'
+    },
+    {
+      name: 'idx_manager_sleeper_ids_user',
+      sql: 'CREATE INDEX IF NOT EXISTS idx_manager_sleeper_ids_user ON manager_sleeper_ids(sleeper_user_id)'
     }
   ];
 
@@ -215,6 +240,15 @@ db.serialize(() => {
     }
   });
 
+  // Check manager_sleeper_ids table structure
+  db.all("PRAGMA table_info(manager_sleeper_ids)", (err, columns) => {
+    if (err) {
+      console.error('❌ Error checking manager_sleeper_ids table:', err.message);
+    } else {
+      console.log('✅ manager_sleeper_ids table columns:', columns.map(col => col.name).join(', '));
+    }
+  });
+
   // Check rules table structure
   db.all("PRAGMA table_info(league_rules)", (err, columns) => {
     if (err) {
@@ -254,7 +288,7 @@ db.serialize(() => {
 
   console.log('\n🎉 Database initialization completed successfully!');
   console.log('📋 Summary:');
-  console.log('   ✅ Tables created/verified: managers, team_seasons, league_rules');
+  console.log('   ✅ Tables created/verified: managers, manager_sleeper_ids, team_seasons, league_rules');
   console.log('   ✅ Indexes created for optimal performance');
   console.log('   ✅ dues_chumpion column added/verified');
   console.log('   ✅ GUARANTEED: No rules insertion - rules table left completely untouched');
