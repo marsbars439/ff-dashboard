@@ -275,6 +275,7 @@ const FantasyFootballApp = () => {
       name_id: '',
       full_name: '',
       sleeper_username: '',
+      sleeper_user_id: '',
       active: 1
     };
 
@@ -1095,6 +1096,7 @@ const FantasyFootballApp = () => {
                       <th className="text-left p-2 font-medium text-gray-700">Name ID</th>
                       <th className="text-left p-2 font-medium text-gray-700">Full Name</th>
                       <th className="text-left p-2 font-medium text-gray-700">Sleeper Username</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Sleeper User ID</th>
                       <th className="text-left p-2 font-medium text-gray-700">Active</th>
                     </tr>
                   </thead>
@@ -1116,9 +1118,12 @@ const FantasyFootballApp = () => {
                           <span className="text-gray-600">{manager.sleeper_username || '-'}</span>
                         </td>
                         <td className="p-2">
+                          <span className="text-gray-600">{manager.sleeper_user_id || '-'}</span>
+                        </td>
+                        <td className="p-2">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            manager.active 
-                              ? 'bg-green-100 text-green-800' 
+                            manager.active
+                              ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
                           }`}>
                             {manager.active ? 'Active' : 'Inactive'}
