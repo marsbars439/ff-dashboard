@@ -228,7 +228,7 @@ class SleeperService {
     /**
      * Fetch all regular season matchups with team names and scores
      */
-    async getSeasonMatchups(leagueId, managers = []) {
+  async getSeasonMatchups(leagueId, managers = []) {
       try {
         // Get league info to determine number of regular season weeks
         const leagueInfo = await this.getLeagueInfo(leagueId);
@@ -287,6 +287,84 @@ class SleeperService {
         return weeks;
       } catch (error) {
         console.error('❌ Error fetching season matchups:', error.message);
+        throw error;
+      }
+    }
+
+    /**
+     * Fetch playoff matchups and scores for all rounds
+     */
+    async getPlayoffMatchups(leagueId, managers = []) {
+      try {
+        const leagueInfo = await this.getLeagueInfo(leagueId);
+        const rosters = await this.getRosters(leagueId);
+        const users = await this.getUsers(leagueId);
+
+        const playoffStart = leagueInfo.settings.playoff_week_start;
+
+        // Map Sleeper user_id to manager full name
+        const userIdToName = {};
+        managers.forEach(m => {
+          if (m.sleeper_user_id) {
+            userIdToName[m.sleeper_user_id] = m.full_name;
+          }
+        });
+
+        // Map roster_id to team and manager names
+        const rosterIdToTeam = {};
+        const rosterIdToManager = {};
+        rosters.forEach(r => {
+          const user = users.find(u => u.user_id === r.owner_id) || {};
+          const teamName = r.metadata?.team_name || user.metadata?.team_name || user.display_name || `Team ${r.roster_id}`;
+          rosterIdToTeam[r.roster_id] = teamName;
+          rosterIdToManager[r.roster_id] = userIdToName[r.owner_id] || teamName;
+        });
+
+        // Determine number of playoff rounds from winners bracket
+        let totalRounds = 3;
+        try {
+          const bracket = await this.client.get(`/league/${leagueId}/winners_bracket`).then(res => res.data);
+          if (Array.isArray(bracket) && bracket.length > 0) {
+            totalRounds = Math.max(...bracket.map(g => g.r || 0));
+          }
+        } catch (err) {
+          // Ignore bracket fetch errors and default to 3 rounds
+        }
+
+        const rounds = await Promise.all(
+          Array.from({ length: totalRounds }, (_, i) => playoffStart + i).map(async (week, idx) => {
+            const weekMatchups = await this.client
+              .get(`/league/${leagueId}/matchups/${week}`)
+              .then(res => res.data)
+              .catch(() => []);
+
+            const matchupsMap = {};
+            weekMatchups.forEach(m => {
+              if (!matchupsMap[m.matchup_id]) {
+                matchupsMap[m.matchup_id] = { home: null, away: null };
+              }
+
+              const team = {
+                roster_id: m.roster_id,
+                team_name: rosterIdToTeam[m.roster_id] || '',
+                manager_name: rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
+                points: m.points || 0
+              };
+
+              if (!matchupsMap[m.matchup_id].home) {
+                matchupsMap[m.matchup_id].home = team;
+              } else {
+                matchupsMap[m.matchup_id].away = team;
+              }
+            });
+
+            return { round: idx + 1, matchups: Object.values(matchupsMap) };
+          })
+        );
+
+        return rounds;
+      } catch (error) {
+        console.error('❌ Error fetching playoff matchups:', error.message);
         throw error;
       }
     }
