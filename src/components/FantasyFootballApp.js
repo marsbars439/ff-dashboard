@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Trophy, 
-  Crown, 
-  Target, 
-  Award, 
+import {
+  Trophy,
+  Crown,
+  Target,
+  Award,
   BarChart3,
   TrendingUp,
   Upload,
@@ -15,7 +15,8 @@ import {
   Edit3,
   Save,
   X,
-  Trash2
+  Trash2,
+  ChevronDown
 } from 'lucide-react';
 import SleeperAdmin from './SleeperAdmin';
 
@@ -546,12 +547,24 @@ const FantasyFootballApp = () => {
     // Find the chumpion for the current year (highest regular_season_rank)
     const currentYearSeasonsWithRank = currentYearSeasons.filter(s => s.regular_season_rank && s.regular_season_rank > 0);
     if (currentYearSeasonsWithRank.length === 0) return 0;
-    
-    const currentChumpionSeason = currentYearSeasonsWithRank.reduce((worst, current) => 
+
+    const currentChumpionSeason = currentYearSeasonsWithRank.reduce((worst, current) =>
       current.regular_season_rank > worst.regular_season_rank ? current : worst
     );
     return currentChumpionSeason?.dues_chumpion || 0;
   };
+
+  const weeklyScores = useMemo(() => {
+    return seasonMatchups.flatMap(week =>
+      week.matchups.flatMap(m => [
+        { manager: m.home.manager_name, points: m.home.points, week: week.week },
+        { manager: m.away.manager_name, points: m.away.points, week: week.week }
+      ])
+    );
+  }, [seasonMatchups]);
+
+  const topWeeklyScores = [...weeklyScores].sort((a, b) => b.points - a.points).slice(0, 5);
+  const bottomWeeklyScores = [...weeklyScores].sort((a, b) => a.points - b.points).slice(0, 5);
 
   if (loading) {
     return (
@@ -626,18 +639,6 @@ const FantasyFootballApp = () => {
   const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
   const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
   const thirdPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 3);
-
-  const weeklyScores = useMemo(() => {
-    return seasonMatchups.flatMap(week =>
-      week.matchups.flatMap(m => [
-        { manager: m.home.manager_name, points: m.home.points, week: week.week },
-        { manager: m.away.manager_name, points: m.away.points, week: week.week }
-      ])
-    );
-  }, [seasonMatchups]);
-
-  const topWeeklyScores = [...weeklyScores].sort((a, b) => b.points - a.points).slice(0, 5);
-  const bottomWeeklyScores = [...weeklyScores].sort((a, b) => a.points - b.points).slice(0, 5);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
