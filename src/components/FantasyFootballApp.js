@@ -471,8 +471,9 @@ const FantasyFootballApp = () => {
     Object.keys(seasonsByYear).forEach(year => {
       const seasonsInYear = seasonsByYear[year];
       const validRanks = seasonsInYear.filter(s => s.regular_season_rank && s.regular_season_rank > 0);
-      if (validRanks.length > 0) {
-        const chumpion = validRanks.reduce((worst, current) => 
+      // Only determine a chumpion if all teams have a valid rank
+      if (validRanks.length === seasonsInYear.length && validRanks.length > 0) {
+        const chumpion = validRanks.reduce((worst, current) =>
           current.regular_season_rank > worst.regular_season_rank ? current : worst
         );
         chumpionsByYear[year] = chumpion.name_id;
@@ -536,8 +537,8 @@ const FantasyFootballApp = () => {
       record.netEarnings = record.totalPayout - record.totalDues - record.totalDuesChumpion;
       record.totalMedals = record.championships + record.secondPlace + record.thirdPlace;
       
-      // Sort chumpion years in descending order (most recent first)
-      record.chumpionYears.sort((a, b) => b - a);
+      // Sort chumpion years in ascending order
+      record.chumpionYears.sort((a, b) => a - b);
     });
 
     return records;
@@ -545,8 +546,11 @@ const FantasyFootballApp = () => {
 
   const getCurrentYearChumpionDues = () => {
     // Find the chumpion for the current year (highest regular_season_rank)
-    const currentYearSeasonsWithRank = currentYearSeasons.filter(s => s.regular_season_rank && s.regular_season_rank > 0);
-    if (currentYearSeasonsWithRank.length === 0) return 0;
+    const currentYearSeasonsWithRank = currentYearSeasons.filter(
+      s => s.regular_season_rank && s.regular_season_rank > 0
+    );
+    // Only return dues if the season is complete (all teams have a rank)
+    if (currentYearSeasonsWithRank.length !== currentYearSeasons.length) return 0;
 
     const currentChumpionSeason = currentYearSeasonsWithRank.reduce((worst, current) =>
       current.regular_season_rank > worst.regular_season_rank ? current : worst
@@ -605,12 +609,15 @@ const FantasyFootballApp = () => {
   const currentChampion = currentYearSeasons.find(s => s.playoff_finish === 1);
   
   // Find current chumpion (highest regular_season_rank number)
-  const currentYearSeasonsWithRank = currentYearSeasons.filter(s => s.regular_season_rank && s.regular_season_rank > 0);
-  const currentChumpion = currentYearSeasonsWithRank.length > 0 
-    ? currentYearSeasonsWithRank.reduce((worst, current) => 
-        current.regular_season_rank > worst.regular_season_rank ? current : worst
-      )
-    : null;
+  const currentYearSeasonsWithRank = currentYearSeasons.filter(
+    s => s.regular_season_rank && s.regular_season_rank > 0
+  );
+  const currentChumpion =
+    currentYearSeasonsWithRank.length === currentYearSeasons.length && currentYearSeasonsWithRank.length > 0
+      ? currentYearSeasonsWithRank.reduce((worst, current) =>
+          current.regular_season_rank > worst.regular_season_rank ? current : worst
+        )
+      : null;
 
   // Medal Rankings: Sort by medals only, don't separate active/inactive
   const medalRankings = Object.values(allRecords).sort((a, b) => {
@@ -619,11 +626,13 @@ const FantasyFootballApp = () => {
     return b.thirdPlace - a.thirdPlace;
   });
 
-  // Chumpion Rankings: Sort by chumpionships, then by seasons (fewer seasons = worse ranking)
-  const chumpionRankings = Object.values(allRecords).sort((a, b) => {
-    if (b.chumpionships !== a.chumpionships) return b.chumpionships - a.chumpionships;
-    return a.seasons - b.seasons; // Fewer seasons = worse ranking when tied
-  });
+  // Chumpion Rankings: only include managers with chumpionships and sort by count, then by seasons (fewer seasons = worse ranking)
+  const chumpionRankings = Object.values(allRecords)
+    .filter(r => r.chumpionships > 0)
+    .sort((a, b) => {
+      if (b.chumpionships !== a.chumpionships) return b.chumpionships - a.chumpionships;
+      return a.seasons - b.seasons; // Fewer seasons = worse ranking when tied
+    });
   
   const winPctRankings = [
     ...activeRecords.sort((a, b) => b.winPct - a.winPct),
