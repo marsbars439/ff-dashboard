@@ -205,11 +205,17 @@ class SleeperService {
       rosterToUserId[roster.roster_id] = roster.owner_id;
     });
 
-    // Map user_id to username for reference
+    // Map user_id to username and team name for reference
     const userIdToUsername = {};
+    const userIdToTeamName = {};
     users.forEach(user => {
       if (user.user_id) {
         userIdToUsername[user.user_id] = user.username;
+
+        const userTeamName = user.metadata?.team_name || user.display_name;
+        if (userTeamName) {
+          userIdToTeamName[user.user_id] = userTeamName;
+        }
       }
     });
 
@@ -239,9 +245,10 @@ class SleeperService {
       const username = userIdToUsername[userId] || '';
       const nameId = userIdToNameId[userId] || null;
 
-      // Get team name - Sleeper stores this on the roster metadata.
+      // Get team name - Sleeper stores this on the roster or user metadata.
       // Fall back to league metadata keys for older seasons if needed.
       const teamName = roster.metadata?.team_name ||
+                      userIdToTeamName[userId] ||
                       leagueInfo.metadata?.team_names?.[rosterId] ||
                       leagueInfo.metadata?.[`team_name_${rosterId}`] ||
                       '';
