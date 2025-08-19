@@ -4,7 +4,11 @@ const PlayoffBracket = ({ rounds = [] }) => {
   const filteredRounds = (rounds || []).map(r => ({
     ...r,
     matchups: (r.matchups || []).filter(
-      m => m.home?.roster_id != null && m.away?.roster_id != null
+      m =>
+        m.home?.roster_id != null &&
+        m.away?.roster_id != null &&
+        m.home?.seed <= 6 &&
+        m.away?.seed <= 6
     )
   })).filter(r => r.matchups.length > 0);
 
@@ -22,11 +26,15 @@ const PlayoffBracket = ({ rounds = [] }) => {
                 <div key={idx} className="relative">
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 w-40 sm:w-48 text-xs sm:text-sm">
                     <div className={`flex justify-between ${homeWin ? 'font-semibold text-green-600' : ''}`}>
-                      <span className="truncate">{m.home.manager_name}</span>
+                      <span className="truncate">
+                        {m.home.seed != null ? `(${m.home.seed}) ${m.home.manager_name}` : m.home.manager_name}
+                      </span>
                       <span>{m.home.points}</span>
                     </div>
                     <div className={`flex justify-between ${awayWin ? 'font-semibold text-green-600' : ''}`}>
-                      <span className="truncate">{m.away.manager_name}</span>
+                      <span className="truncate">
+                        {m.away.seed != null ? `(${m.away.seed}) ${m.away.manager_name}` : m.away.manager_name}
+                      </span>
                       <span>{m.away.points}</span>
                     </div>
                   </div>

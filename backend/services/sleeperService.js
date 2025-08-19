@@ -283,7 +283,7 @@ class SleeperService {
           }
         });
 
-        // Map roster_id to team and manager names
+        // Map roster_id to team/manager names and calculate seeds
         const rosterIdToTeam = {};
         const rosterIdToManager = {};
         rosters.forEach(r => {
@@ -291,6 +291,20 @@ class SleeperService {
           const teamName = r.metadata?.team_name || user.metadata?.team_name || user.display_name || `Team ${r.roster_id}`;
           rosterIdToTeam[r.roster_id] = teamName;
           rosterIdToManager[r.roster_id] = userIdToName[r.owner_id] || teamName;
+        });
+
+        // Calculate seeds based on regular season performance
+        const sortedRosters = [...rosters].sort((a, b) => {
+          if (b.settings.wins !== a.settings.wins) {
+            return b.settings.wins - a.settings.wins;
+          }
+          const aPts = (a.settings.fpts || 0) + ((a.settings.fpts_decimal || 0) / 100);
+          const bPts = (b.settings.fpts || 0) + ((b.settings.fpts_decimal || 0) / 100);
+          return bPts - aPts;
+        });
+        const rosterIdToSeed = {};
+        sortedRosters.forEach((r, idx) => {
+          rosterIdToSeed[r.roster_id] = idx + 1;
         });
 
         // Determine number of playoff rounds from winners bracket
@@ -340,7 +354,8 @@ class SleeperService {
                 roster_id: m.roster_id,
                 team_name: rosterIdToTeam[m.roster_id] || '',
                 manager_name: rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
-                points: m.points || 0
+                points: m.points || 0,
+                seed: rosterIdToSeed[m.roster_id] || null
               };
 
               if (!matchupsMap[m.matchup_id].home) {
@@ -351,7 +366,13 @@ class SleeperService {
             });
 
             const matchups = Object.values(matchupsMap).filter(
-              m => m.home && m.away && m.home.roster_id != null && m.away.roster_id != null
+              m =>
+                m.home &&
+                m.away &&
+                m.home.roster_id != null &&
+                m.away.roster_id != null &&
+                m.home.seed <= 6 &&
+                m.away.seed <= 6
             );
 
             return { round: idx + 1, matchups };
