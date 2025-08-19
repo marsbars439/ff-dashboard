@@ -499,8 +499,10 @@ const FantasyFootballApp = () => {
       ? Math.max(...teamSeasons.map(s => s.year))
       : null;
     const currentYearSeasons = seasonsByYear[mostRecentYear] || [];
-    const currentSeasonInProgress = currentYearSeasons.some(
-      s => !s.regular_season_rank || s.regular_season_rank <= 0
+    // Season is considered incomplete until a champion is crowned
+    // (no team has a playoff_finish of 1 yet).
+    const currentSeasonInProgress = !currentYearSeasons.some(
+      s => s.playoff_finish === 1
     );
 
     teamSeasons.forEach(season => {
@@ -572,15 +574,16 @@ const FantasyFootballApp = () => {
   };
 
   const getCurrentYearChumpionDues = () => {
-    // Find the chumpion for the current year (highest regular_season_rank)
-    const currentYearSeasonsWithRank = currentYearSeasons.filter(
-      s => s.regular_season_rank && s.regular_season_rank > 0
-    );
-    // Only return dues if the season is complete (all teams have a rank)
-    if (currentYearSeasonsWithRank.length !== currentYearSeasons.length) return 0;
+    // Only return dues once a champion has been decided
+    if (!currentYearSeasons.some(s => s.playoff_finish === 1)) return 0;
 
-    const currentChumpionSeason = currentYearSeasonsWithRank.reduce((worst, current) =>
-      current.regular_season_rank > worst.regular_season_rank ? current : worst
+    // Find the chumpion for the current year (highest regular_season_rank)
+    const currentChumpionSeason = currentYearSeasons.reduce(
+      (worst, current) =>
+        !worst || current.regular_season_rank > worst.regular_season_rank
+          ? current
+          : worst,
+      null
     );
     return currentChumpionSeason?.dues_chumpion || 0;
   };
