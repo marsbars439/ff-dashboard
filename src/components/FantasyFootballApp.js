@@ -671,11 +671,13 @@ const FantasyFootballApp = () => {
       : null;
 
   // Medal Rankings: Sort by medals only, don't separate active/inactive
-  const medalRankings = Object.values(allRecords).sort((a, b) => {
-    if (b.championships !== a.championships) return b.championships - a.championships;
-    if (b.secondPlace !== a.secondPlace) return b.secondPlace - a.secondPlace;
-    return b.thirdPlace - a.thirdPlace;
-  });
+  const medalRankings = Object.values(allRecords)
+    .filter(record => record.totalMedals > 0)
+    .sort((a, b) => {
+      if (b.championships !== a.championships) return b.championships - a.championships;
+      if (b.secondPlace !== a.secondPlace) return b.secondPlace - a.secondPlace;
+      return b.thirdPlace - a.thirdPlace;
+    });
 
   // Chumpion Rankings: only include managers with chumpionships and sort by count, then by seasons (fewer seasons = worse ranking)
   const chumpionRankings = Object.values(allRecords)
