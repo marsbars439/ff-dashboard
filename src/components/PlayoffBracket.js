@@ -6,9 +6,10 @@ const PlayoffBracket = ({ rounds = [] }) => {
     matchups: (r.matchups || []).filter(
       m =>
         m.home?.roster_id != null &&
-        m.away?.roster_id != null &&
         m.home?.seed <= 6 &&
-        m.away?.seed <= 6
+        (m.away == null ||
+          m.away?.roster_id == null ||
+          m.away?.seed <= 6)
     )
   })).filter(r => r.matchups.length > 0);
 
@@ -20,8 +21,11 @@ const PlayoffBracket = ({ rounds = [] }) => {
         {filteredRounds.map((round, roundIdx) => (
           <div key={roundIdx} className="flex flex-col space-y-6">
             {round.matchups.map((m, idx) => {
-              const homeWin = m.home.points > m.away.points;
-              const awayWin = m.away.points > m.home.points;
+              const homePoints = m.home?.points ?? 0;
+              const awayPoints = m.away?.points ?? 0;
+              const hasAway = m.away?.roster_id != null;
+              const homeWin = hasAway && homePoints > awayPoints;
+              const awayWin = hasAway && awayPoints > homePoints;
               return (
                 <div key={idx} className="relative">
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 w-40 sm:w-48 text-xs sm:text-sm">
@@ -29,13 +33,15 @@ const PlayoffBracket = ({ rounds = [] }) => {
                       <span className="truncate">
                         {m.home.seed != null ? `(${m.home.seed}) ${m.home.manager_name}` : m.home.manager_name}
                       </span>
-                      <span>{m.home.points}</span>
+                      <span>{homePoints || ''}</span>
                     </div>
                     <div className={`flex justify-between ${awayWin ? 'font-semibold text-green-600' : ''}`}>
                       <span className="truncate">
-                        {m.away.seed != null ? `(${m.away.seed}) ${m.away.manager_name}` : m.away.manager_name}
+                        {m.away?.seed != null
+                          ? `(${m.away.seed}) ${m.away.manager_name}`
+                          : m.away?.manager_name || 'Bye'}
                       </span>
-                      <span>{m.away.points}</span>
+                      <span>{hasAway ? (awayPoints || '') : ''}</span>
                     </div>
                   </div>
                   {roundIdx < filteredRounds.length - 1 && (
