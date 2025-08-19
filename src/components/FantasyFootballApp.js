@@ -121,7 +121,12 @@ const FantasyFootballApp = () => {
       const response = await fetch(`${API_BASE_URL}/seasons/${year}/playoffs`);
       if (response.ok) {
         const data = await response.json();
-        setPlayoffBracket(data.bracket || []);
+        const hasBracket = Array.isArray(data.bracket) &&
+          data.bracket.some(round =>
+            Array.isArray(round.matchups) &&
+            round.matchups.some(m => m.home && m.away)
+          );
+        setPlayoffBracket(hasBracket ? data.bracket : []);
       }
     } catch (error) {
       console.error('Error fetching playoff bracket:', error);
