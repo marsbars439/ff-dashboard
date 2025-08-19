@@ -128,9 +128,10 @@ const FantasyFootballApp = () => {
                 ? round.matchups.filter(
                     m =>
                       m.home?.roster_id != null &&
-                      m.away?.roster_id != null &&
                       m.home?.seed <= 6 &&
-                      m.away?.seed <= 6
+                      (m.away == null ||
+                        m.away?.roster_id == null ||
+                        m.away?.seed <= 6)
                   )
                 : []
             }))

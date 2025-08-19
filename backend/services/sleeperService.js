@@ -378,8 +378,93 @@ class SleeperService {
             return { round: idx + 1, matchups };
           })
         );
+        if (rounds.length > 0) {
+          const seed1 = sortedRosters[0];
+          const seed2 = sortedRosters[1];
+          const byeTeam = {
+            roster_id: null,
+            team_name: '',
+            manager_name: 'BYE',
+            points: 0,
+            seed: null
+          };
 
-        return rounds.every(r => !r.matchups || r.matchups.length === 0) ? [] : rounds;
+          const round1 = rounds[0] || { round: 1, matchups: [] };
+          const match4v5 = round1.matchups.find(
+            m =>
+              [m.home.seed, m.away.seed].includes(4) &&
+              [m.home.seed, m.away.seed].includes(5)
+          );
+          const match3v6 = round1.matchups.find(
+            m =>
+              [m.home.seed, m.away.seed].includes(3) &&
+              [m.home.seed, m.away.seed].includes(6)
+          );
+
+          round1.matchups = [
+            {
+              home: {
+                roster_id: seed1.roster_id,
+                team_name: rosterIdToTeam[seed1.roster_id] || '',
+                manager_name:
+                  rosterIdToManager[seed1.roster_id] ||
+                  rosterIdToTeam[seed1.roster_id] ||
+                  '',
+                points: 0,
+                seed: 1
+              },
+              away: byeTeam
+            },
+            match4v5,
+            match3v6,
+            {
+              home: {
+                roster_id: seed2.roster_id,
+                team_name: rosterIdToTeam[seed2.roster_id] || '',
+                manager_name:
+                  rosterIdToManager[seed2.roster_id] ||
+                  rosterIdToTeam[seed2.roster_id] ||
+                  '',
+                points: 0,
+                seed: 2
+              },
+              away: byeTeam
+            }
+          ].filter(Boolean);
+          rounds[0] = round1;
+
+          if (rounds[1] && rounds[2]) {
+            const semifinalWinners = [];
+            const semifinalLosers = [];
+            rounds[1].matchups.forEach(m => {
+              const homePoints = m.home.points || 0;
+              const awayPoints = m.away.points || 0;
+              if (homePoints > awayPoints) {
+                semifinalWinners.push(m.home.roster_id);
+                semifinalLosers.push(m.away.roster_id);
+              } else if (awayPoints > homePoints) {
+                semifinalWinners.push(m.away.roster_id);
+                semifinalLosers.push(m.home.roster_id);
+              }
+            });
+
+            rounds[2].matchups = rounds[2].matchups.filter(m => {
+              const home = m.home.roster_id;
+              const away = m.away.roster_id;
+              const isChampionship =
+                semifinalWinners.includes(home) &&
+                semifinalWinners.includes(away);
+              const isThirdPlace =
+                semifinalLosers.includes(home) &&
+                semifinalLosers.includes(away);
+              return isChampionship || isThirdPlace;
+            });
+          }
+        }
+
+        return rounds.every(r => !r.matchups || r.matchups.length === 0)
+          ? []
+          : rounds;
       } catch (error) {
         console.error('❌ Error fetching playoff matchups:', error.message);
         throw error;
