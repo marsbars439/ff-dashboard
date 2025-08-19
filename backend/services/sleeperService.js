@@ -448,6 +448,18 @@ class SleeperService {
               }
             });
 
+            const quarterfinalLosers = [];
+            rounds[0].matchups.forEach(m => {
+              if (!m.away || m.away.roster_id == null) return; // skip byes
+              const homePoints = m.home.points || 0;
+              const awayPoints = m.away.points || 0;
+              if (homePoints > awayPoints) {
+                quarterfinalLosers.push(m.away.roster_id);
+              } else if (awayPoints > homePoints) {
+                quarterfinalLosers.push(m.home.roster_id);
+              }
+            });
+
             rounds[2].matchups = rounds[2].matchups.filter(m => {
               const home = m.home.roster_id;
               const away = m.away.roster_id;
@@ -457,7 +469,10 @@ class SleeperService {
               const isThirdPlace =
                 semifinalLosers.includes(home) &&
                 semifinalLosers.includes(away);
-              return isChampionship || isThirdPlace;
+              const isFifthPlace =
+                quarterfinalLosers.includes(home) &&
+                quarterfinalLosers.includes(away);
+              return isChampionship || isThirdPlace || isFifthPlace;
             });
           }
         }
