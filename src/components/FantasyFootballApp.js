@@ -495,6 +495,14 @@ const FantasyFootballApp = () => {
       }
     });
 
+    const mostRecentYear = teamSeasons.length > 0
+      ? Math.max(...teamSeasons.map(s => s.year))
+      : null;
+    const currentYearSeasons = seasonsByYear[mostRecentYear] || [];
+    const currentSeasonInProgress = currentYearSeasons.some(
+      s => !s.regular_season_rank || s.regular_season_rank <= 0
+    );
+
     teamSeasons.forEach(season => {
       if (records[season.name_id]) {
         const record = records[season.name_id];
@@ -503,8 +511,12 @@ const FantasyFootballApp = () => {
         record.totalPointsFor += season.points_for;
         record.totalPointsAgainst += season.points_against;
         record.totalPayout += season.payout || 0;
-        record.totalDues += season.dues || 250;
-        record.totalDuesChumpion += season.dues_chumpion || 0;
+        const isCurrentIncomplete =
+          season.year === mostRecentYear && currentSeasonInProgress;
+        record.totalDues += isCurrentIncomplete ? 0 : (season.dues || 250);
+        record.totalDuesChumpion += isCurrentIncomplete
+          ? 0
+          : (season.dues_chumpion || 0);
         record.seasons += 1;
         record.gamesPlayed += (season.wins + season.losses);
         
