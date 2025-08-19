@@ -121,15 +121,24 @@ const FantasyFootballApp = () => {
       const response = await fetch(`${API_BASE_URL}/seasons/${year}/playoffs`);
       if (response.ok) {
         const data = await response.json();
-        const hasBracket = Array.isArray(data.bracket) &&
-          data.bracket.some(round =>
-            Array.isArray(round.matchups) &&
-            round.matchups.some(m => m.home && m.away)
-          );
-        setPlayoffBracket(hasBracket ? data.bracket : []);
+        const cleanBracket = Array.isArray(data.bracket)
+          ? data.bracket.map(round => ({
+              ...round,
+              matchups: Array.isArray(round.matchups)
+                ? round.matchups.filter(m =>
+                    m.home?.roster_id != null && m.away?.roster_id != null
+                  )
+                : []
+            }))
+          : [];
+        const hasBracket = cleanBracket.some(r => r.matchups.length > 0);
+        setPlayoffBracket(hasBracket ? cleanBracket : []);
+      } else {
+        setPlayoffBracket([]);
       }
     } catch (error) {
       console.error('Error fetching playoff bracket:', error);
+      setPlayoffBracket([]);
     }
   };
 

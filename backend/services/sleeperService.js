@@ -295,6 +295,7 @@ class SleeperService {
 
         // Determine number of playoff rounds from winners bracket
         let totalRounds = 3;
+        const playoffTeamIds = new Set();
         try {
           const bracket = await this.client
             .get(`/league/${leagueId}/winners_bracket`)
@@ -307,6 +308,11 @@ class SleeperService {
           if (seededGames.length === 0) {
             return [];
           }
+
+          seededGames.forEach(g => {
+            if (g.t1 != null) playoffTeamIds.add(g.t1);
+            if (g.t2 != null) playoffTeamIds.add(g.t2);
+          });
 
           if (Array.isArray(bracket) && bracket.length > 0) {
             totalRounds = Math.max(...bracket.map(g => g.r || 0));
@@ -324,6 +330,8 @@ class SleeperService {
 
             const matchupsMap = {};
             weekMatchups.forEach(m => {
+              if (!playoffTeamIds.has(m.roster_id)) return;
+
               if (!matchupsMap[m.matchup_id]) {
                 matchupsMap[m.matchup_id] = { home: null, away: null };
               }
@@ -342,11 +350,15 @@ class SleeperService {
               }
             });
 
-            return { round: idx + 1, matchups: Object.values(matchupsMap) };
+            const matchups = Object.values(matchupsMap).filter(
+              m => m.home && m.away && m.home.roster_id != null && m.away.roster_id != null
+            );
+
+            return { round: idx + 1, matchups };
           })
         );
 
-        return rounds;
+        return rounds.every(r => !r.matchups || r.matchups.length === 0) ? [] : rounds;
       } catch (error) {
         console.error('❌ Error fetching playoff matchups:', error.message);
         throw error;
