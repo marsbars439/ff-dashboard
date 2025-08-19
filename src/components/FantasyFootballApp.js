@@ -16,7 +16,9 @@ import {
   Save,
   X,
   Trash2,
-  ChevronDown
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import SleeperAdmin from './SleeperAdmin';
 import PlayoffBracket from './PlayoffBracket';
@@ -42,6 +44,7 @@ const FantasyFootballApp = () => {
   const [seasonMatchups, setSeasonMatchups] = useState([]);
   const [playoffBracket, setPlayoffBracket] = useState([]);
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
+  const [seasonDataPage, setSeasonDataPage] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -63,6 +66,10 @@ const FantasyFootballApp = () => {
       fetchPlayoffBracket(selectedSeasonYear);
     }
   }, [selectedSeasonYear]);
+
+  useEffect(() => {
+    setSeasonDataPage(0);
+  }, [teamSeasons]);
 
   const fetchData = async () => {
     try {
@@ -701,6 +708,24 @@ const FantasyFootballApp = () => {
   const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
   const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
   const thirdPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 3);
+
+  const seasonDataYears = availableYears;
+  const currentSeasonDataYear = seasonDataYears[seasonDataPage] || null;
+  const paginatedSeasonData = currentSeasonDataYear
+    ? teamSeasons
+        .filter(s => s.year === currentSeasonDataYear)
+        .sort((a, b) => (a.regular_season_rank || 99) - (b.regular_season_rank || 99))
+    : [];
+
+  const handlePrevSeasonData = () => {
+    setEditingRow(null);
+    setSeasonDataPage(prev => Math.min(prev + 1, seasonDataYears.length - 1));
+  };
+
+  const handleNextSeasonData = () => {
+    setEditingRow(null);
+    setSeasonDataPage(prev => Math.max(prev - 1, 0));
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -1392,6 +1417,25 @@ const FantasyFootballApp = () => {
                   <Edit3 className="w-5 h-5 text-green-500" />
                   <span>Season Data</span>
                 </h3>
+                {seasonDataYears.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={handlePrevSeasonData}
+                      disabled={seasonDataPage >= seasonDataYears.length - 1}
+                      className={`p-1 rounded ${seasonDataPage >= seasonDataYears.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:text-gray-900'}`}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="font-medium">{currentSeasonDataYear}</span>
+                    <button
+                      onClick={handleNextSeasonData}
+                      disabled={seasonDataPage === 0}
+                      className={`p-1 rounded ${seasonDataPage === 0 ? 'text-gray-300' : 'text-gray-600 hover:text-gray-900'}`}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
               
               <div className="overflow-x-auto">
@@ -1413,7 +1457,7 @@ const FantasyFootballApp = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {teamSeasons.sort((a, b) => b.year - a.year || (a.regular_season_rank || 99) - (b.regular_season_rank || 99)).map((season) => (
+                    {paginatedSeasonData.map((season) => (
                       <tr key={season.id} className="border-b hover:bg-gray-50">
                         {editingRow === season.id ? (
                           <>
