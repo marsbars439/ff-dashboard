@@ -46,6 +46,15 @@ const FantasyFootballApp = () => {
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
   const [seasonDataPage, setSeasonDataPage] = useState(0);
 
+  // Determine if a season's regular season is complete (all teams have 14 games)
+  const isRegularSeasonComplete = year => {
+    const seasons = teamSeasons.filter(s => s.year === year);
+    return (
+      seasons.length > 0 &&
+      seasons.every(s => (s.wins + s.losses + (s.ties || 0)) === 14)
+    );
+  };
+
   useEffect(() => {
     fetchData();
     fetchRules();
@@ -124,6 +133,11 @@ const FantasyFootballApp = () => {
   };
 
   const fetchPlayoffBracket = async (year) => {
+    // Only fetch playoff data once the regular season has concluded
+    if (!isRegularSeasonComplete(year)) {
+      setPlayoffBracket([]);
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/seasons/${year}/playoffs`);
       if (response.ok) {
@@ -511,9 +525,14 @@ const FantasyFootballApp = () => {
     const chumpionsByYear = {};
     Object.keys(seasonsByYear).forEach(year => {
       const seasonsInYear = seasonsByYear[year];
-      const validRanks = seasonsInYear.filter(s => s.regular_season_rank && s.regular_season_rank > 0);
-      // Only determine a chumpion if all teams have a valid rank
-      if (validRanks.length === seasonsInYear.length && validRanks.length > 0) {
+      const validRanks = seasonsInYear.filter(
+        s => s.regular_season_rank && s.regular_season_rank > 0
+      );
+      const seasonComplete = seasonsInYear.every(
+        s => (s.wins + s.losses + (s.ties || 0)) === 14
+      );
+      // Only determine a chumpion if regular season is complete and all teams have a valid rank
+      if (seasonComplete && validRanks.length === seasonsInYear.length && validRanks.length > 0) {
         const chumpion = validRanks.reduce((worst, current) =>
           current.regular_season_rank > worst.regular_season_rank ? current : worst
         );
@@ -600,11 +619,13 @@ const FantasyFootballApp = () => {
   };
 
   const getCurrentYearChumpionDues = () => {
-    // Only return dues once a champion has been decided
-    if (!currentYearSeasons.some(s => s.playoff_finish === 1)) return 0;
+    const mostRecentYearLocal =
+      teamSeasons.length > 0 ? Math.max(...teamSeasons.map(s => s.year)) : null;
+    if (!mostRecentYearLocal || !isRegularSeasonComplete(mostRecentYearLocal)) return 0;
 
+    const seasons = teamSeasons.filter(s => s.year === mostRecentYearLocal);
     // Find the chumpion for the current year (highest regular_season_rank)
-    const currentChumpionSeason = currentYearSeasons.reduce(
+    const currentChumpionSeason = seasons.reduce(
       (worst, current) =>
         !worst || current.regular_season_rank > worst.regular_season_rank
           ? current
@@ -663,13 +684,14 @@ const FantasyFootballApp = () => {
   const mostRecentYear = teamSeasons.length > 0 ? Math.max(...teamSeasons.map(s => s.year)) : new Date().getFullYear();
   const currentYearSeasons = teamSeasons.filter(s => s.year === mostRecentYear);
   const currentChampion = currentYearSeasons.find(s => s.playoff_finish === 1);
+  const currentSeasonComplete = isRegularSeasonComplete(mostRecentYear);
   
   // Find current chumpion (highest regular_season_rank number)
   const currentYearSeasonsWithRank = currentYearSeasons.filter(
     s => s.regular_season_rank && s.regular_season_rank > 0
   );
   const currentChumpion =
-    currentChampion &&
+    currentSeasonComplete &&
     currentYearSeasonsWithRank.length === currentYearSeasons.length &&
     currentYearSeasonsWithRank.length > 0
       ? currentYearSeasonsWithRank.reduce((worst, current) =>
@@ -812,7 +834,7 @@ const FantasyFootballApp = () => {
                   <p className="font-semibold">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
                 </div>
               </div>
-              {playoffBracket.length > 0 && (
+              {isRegularSeasonComplete(selectedSeasonYear) && playoffBracket.length > 0 && (
                 <div className="mb-4">
                   <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Playoff Bracket</h3>
                   <PlayoffBracket rounds={playoffBracket} />
