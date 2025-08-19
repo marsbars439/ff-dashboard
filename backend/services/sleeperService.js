@@ -153,33 +153,6 @@ class SleeperService {
         }
       }
 
-      // Determine 5th and 6th place by looking at a matchup between
-      // the two teams that lost in the opening round. If Sleeper
-      // provides a 5th-place game, both losers from the first round
-      // should meet again later in the bracket.
-      const firstRound = Math.min(...bracket.map(game => game.r));
-      const firstRoundGames = bracket.filter(game =>
-        game.r === firstRound && game.t1 && game.t2
-      );
-
-      const firstRoundLosers = firstRoundGames
-        .map(game => game.w === game.t1 ? game.t2 : game.t1)
-        .filter(id => id != null);
-
-      const fifthPlaceGame = bracket.find(game =>
-        firstRoundLosers.includes(game.t1) &&
-        firstRoundLosers.includes(game.t2)
-      );
-
-      if (fifthPlaceGame && fifthPlaceGame.w) {
-        results[fifthPlaceGame.w] = 5;  // 5th place
-        const sixthPlace = fifthPlaceGame.w === fifthPlaceGame.t1
-          ? fifthPlaceGame.t2
-          : fifthPlaceGame.t1;
-        if (sixthPlace) {
-          results[sixthPlace] = 6;  // 6th place
-        }
-      }
     }
 
     return results;
@@ -323,7 +296,18 @@ class SleeperService {
         // Determine number of playoff rounds from winners bracket
         let totalRounds = 3;
         try {
-          const bracket = await this.client.get(`/league/${leagueId}/winners_bracket`).then(res => res.data);
+          const bracket = await this.client
+            .get(`/league/${leagueId}/winners_bracket`)
+            .then(res => res.data);
+
+          const seededGames = Array.isArray(bracket)
+            ? bracket.filter(g => g.t1 != null && g.t2 != null)
+            : [];
+
+          if (seededGames.length === 0) {
+            return [];
+          }
+
           if (Array.isArray(bracket) && bracket.length > 0) {
             totalRounds = Math.max(...bracket.map(g => g.r || 0));
           }
