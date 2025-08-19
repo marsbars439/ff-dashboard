@@ -628,7 +628,9 @@ const FantasyFootballApp = () => {
     s => s.regular_season_rank && s.regular_season_rank > 0
   );
   const currentChumpion =
-    currentYearSeasonsWithRank.length === currentYearSeasons.length && currentYearSeasonsWithRank.length > 0
+    currentChampion &&
+    currentYearSeasonsWithRank.length === currentYearSeasons.length &&
+    currentYearSeasonsWithRank.length > 0
       ? currentYearSeasonsWithRank.reduce((worst, current) =>
           current.regular_season_rank > worst.regular_season_rank ? current : worst
         )
