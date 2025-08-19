@@ -71,17 +71,23 @@ const PlayoffBracket = ({ rounds = [] }) => {
   const roundLabels = ['Round 1', 'Round 2', 'Round 3'];
 
   return (
-    <div className="overflow-x-auto">
-      <div className="flex justify-center items-start space-x-4 sm:space-x-8">
+    <div className="w-full overflow-x-auto">
+      <div className="flex items-start space-x-4 sm:space-x-8 w-max mx-auto">
         {filteredRounds.map((round, roundIdx) => (
-          <div key={roundIdx} className="flex flex-col space-y-6">
-            <div className="text-center text-sm sm:text-base font-semibold mb-2">
+          <div
+            key={roundIdx}
+            className={`flex flex-col space-y-4 ${
+              roundIdx === 1 ? 'mt-12' : roundIdx === 2 ? 'mt-24' : ''
+            }`}
+          >
+            <div className="text-center text-sm sm:text-base font-semibold mb-1">
               {roundLabels[roundIdx] || `Round ${roundIdx + 1}`}
             </div>
             {round.matchups.map((m, idx) => {
               const homePoints = m.home?.points ?? 0;
               const awayPoints = m.away?.points ?? 0;
               const hasAway = m.away?.roster_id != null;
+              const isBye = roundIdx === 0 && !hasAway;
               const homeWin = hasAway && homePoints > awayPoints;
               const awayWin = hasAway && awayPoints > homePoints;
               let gameLabel = '';
@@ -108,7 +114,11 @@ const PlayoffBracket = ({ rounds = [] }) => {
                     </div>
                   )}
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 w-40 sm:w-48 text-xs sm:text-sm">
-                    <div className={`flex justify-between ${homeWin ? 'font-semibold text-green-600' : ''}`}>
+                    <div
+                      className={`flex justify-between ${
+                        homeWin || isBye ? 'font-semibold text-green-600' : ''
+                      }`}
+                    >
                       <span className="truncate">
                         {m.home.seed != null ? `(${m.home.seed}) ${m.home.manager_name}` : m.home.manager_name}
                       </span>
