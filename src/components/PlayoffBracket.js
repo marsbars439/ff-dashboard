@@ -16,9 +16,6 @@ const PlayoffBracket = ({ rounds = [] }) => {
     .filter(r => r.matchups.length > 0);
 
   const round1Losers = new Set();
-  const semifinalWinners = new Set();
-  const semifinalLosers = new Set();
-
   if (filteredRounds[0]) {
     filteredRounds[0].matchups.forEach(m => {
       if (!m.away || m.away.roster_id == null) return; // skip byes
@@ -32,7 +29,17 @@ const PlayoffBracket = ({ rounds = [] }) => {
     });
   }
 
+  const semifinalWinners = new Set();
+  const semifinalLosers = new Set();
   if (filteredRounds[1]) {
+    // Remove 5th place game from second round
+    filteredRounds[1].matchups = filteredRounds[1].matchups.filter(m => {
+      const homeId = m.home.roster_id;
+      const awayId = m.away.roster_id;
+      return !(round1Losers.has(homeId) && round1Losers.has(awayId));
+    });
+
+    // Determine semifinal winners and losers
     filteredRounds[1].matchups.forEach(m => {
       const homePoints = m.home?.points ?? 0;
       const awayPoints = m.away?.points ?? 0;
@@ -43,6 +50,19 @@ const PlayoffBracket = ({ rounds = [] }) => {
         semifinalWinners.add(m.away.roster_id);
         semifinalLosers.add(m.home.roster_id);
       }
+    });
+  }
+
+  if (filteredRounds[2]) {
+    // Only keep championship and 3rd place games in final round
+    filteredRounds[2].matchups = filteredRounds[2].matchups.filter(m => {
+      const homeId = m.home.roster_id;
+      const awayId = m.away.roster_id;
+      const isChampionship =
+        semifinalWinners.has(homeId) && semifinalWinners.has(awayId);
+      const isThirdPlace =
+        semifinalLosers.has(homeId) && semifinalLosers.has(awayId);
+      return isChampionship || isThirdPlace;
     });
   }
 
@@ -78,11 +98,6 @@ const PlayoffBracket = ({ rounds = [] }) => {
                   semifinalLosers.has(awayId)
                 ) {
                   gameLabel = '3rd Place Game';
-                } else if (
-                  round1Losers.has(homeId) &&
-                  round1Losers.has(awayId)
-                ) {
-                  gameLabel = '5th Place Game';
                 }
               }
               return (

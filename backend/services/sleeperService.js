@@ -460,6 +460,17 @@ class SleeperService {
               }
             });
 
+            // Remove fifth place game from semifinals round
+            rounds[1].matchups = rounds[1].matchups.filter(m => {
+              const home = m.home.roster_id;
+              const away = m.away.roster_id;
+              return !(
+                quarterfinalLosers.includes(home) &&
+                quarterfinalLosers.includes(away)
+              );
+            });
+
+            // Only keep championship and third place games in final round
             rounds[2].matchups = rounds[2].matchups.filter(m => {
               const home = m.home.roster_id;
               const away = m.away.roster_id;
@@ -469,10 +480,7 @@ class SleeperService {
               const isThirdPlace =
                 semifinalLosers.includes(home) &&
                 semifinalLosers.includes(away);
-              const isFifthPlace =
-                quarterfinalLosers.includes(home) &&
-                quarterfinalLosers.includes(away);
-              return isChampionship || isThirdPlace || isFifthPlace;
+              return isChampionship || isThirdPlace;
             });
           }
         }
