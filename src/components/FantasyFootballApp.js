@@ -246,7 +246,7 @@ const FantasyFootballApp = () => {
               trade: true,
               trade_roster_id: sp.roster_id,
               trade_amount: sp.trade_amount || '',
-              locked: true
+              locked: false
             });
           }
         });
@@ -271,7 +271,6 @@ const FantasyFootballApp = () => {
       const updated = prev.map(team => ({ ...team, players: [...team.players] }));
       const team = updated.find(t => t.roster_id === rosterId);
       const player = team.players[playerIndex];
-      if (player.locked) return prev;
       team.players[playerIndex] = { ...player, keep: !player.keep };
       team.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
       return updated;
@@ -1357,7 +1356,6 @@ const FantasyFootballApp = () => {
                                   type="checkbox"
                                   checked={player.keep}
                                   onChange={() => toggleKeeperSelection(selectedKeeperRoster.roster_id, idx)}
-                                  disabled={player.locked}
                                 />
                               </td>
                             </tr>
