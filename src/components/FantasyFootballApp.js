@@ -207,7 +207,8 @@ const FantasyFootballApp = () => {
               keep: !!savedPlayer,
               trade: savedPlayer ? savedPlayer.trade_from_roster_id != null : false,
               trade_roster_id: savedPlayer ? savedPlayer.trade_from_roster_id : null,
-              trade_amount: savedPlayer ? savedPlayer.trade_amount : ''
+              trade_amount: savedPlayer ? savedPlayer.trade_amount : '',
+              locked: savedPlayer ? savedPlayer.trade_from_roster_id != null : false
             };
           });
 
@@ -220,7 +221,8 @@ const FantasyFootballApp = () => {
               keep: true,
               trade: sp.trade_from_roster_id != null,
               trade_roster_id: sp.trade_from_roster_id,
-              trade_amount: sp.trade_amount || ''
+              trade_amount: sp.trade_amount || '',
+              locked: sp.trade_from_roster_id != null
             });
           }
         });
@@ -241,72 +243,131 @@ const FantasyFootballApp = () => {
   };
 
   const toggleKeeperSelection = (rosterId, playerIndex) => {
-    setKeepers(prev =>
-      prev.map(team =>
-        team.roster_id === rosterId
-          ? {
-              ...team,
-              players: team.players
-                .map((p, idx) => (idx === playerIndex ? { ...p, keep: !p.keep } : p))
-                .sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0))
-            }
-          : team
-      )
-    );
+    setKeepers(prev => {
+      const updated = prev.map(team => ({ ...team, players: [...team.players] }));
+      const team = updated.find(t => t.roster_id === rosterId);
+      const player = team.players[playerIndex];
+      if (player.locked) return prev;
+      team.players[playerIndex] = { ...player, keep: !player.keep };
+      team.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
+      return updated;
+    });
   };
 
   const toggleTradeSelection = (rosterId, playerIndex) => {
-    setKeepers(prev =>
-      prev.map(team =>
-        team.roster_id === rosterId
-          ? {
-              ...team,
-              players: team.players.map((p, idx) =>
-                idx === playerIndex
-                  ? {
-                      ...p,
-                      trade: !p.trade,
-                      trade_roster_id: !p.trade
-                        ? prev.find(t => t.roster_id !== rosterId)?.roster_id || null
-                        : null,
-                      trade_amount: ''
-                    }
-                  : p
-              )
-            }
-          : team
-      )
-    );
+    setKeepers(prev => {
+      const updated = prev.map(team => ({ ...team, players: [...team.players] }));
+      const sourceTeam = updated.find(t => t.roster_id === rosterId);
+      const player = sourceTeam.players[playerIndex];
+      if (player.locked) return prev;
+
+      if (!player.trade) {
+        const defaultTarget = updated.find(t => t.roster_id !== rosterId)?.roster_id || null;
+        player.trade = true;
+        player.trade_roster_id = defaultTarget;
+        player.trade_amount = '';
+        player.keep = false;
+
+        if (defaultTarget != null) {
+          const targetTeam = updated.find(t => t.roster_id === defaultTarget);
+          if (!targetTeam.players.some(p => p.name === player.name && p.locked && p.trade_roster_id === rosterId)) {
+            targetTeam.players.push({
+              name: player.name,
+              previous_cost: player.previous_cost,
+              years_kept: player.years_kept,
+              keep: true,
+              trade: true,
+              trade_roster_id: rosterId,
+              trade_amount: '',
+              locked: true
+            });
+            targetTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
+          }
+        }
+      } else {
+        if (player.trade_roster_id) {
+          const targetTeam = updated.find(t => t.roster_id === player.trade_roster_id);
+          if (targetTeam) {
+            targetTeam.players = targetTeam.players.filter(
+              p => !(p.name === player.name && p.locked && p.trade_roster_id === rosterId)
+            );
+          }
+        }
+        player.trade = false;
+        player.trade_roster_id = null;
+        player.trade_amount = '';
+        player.keep = true;
+      }
+
+      sourceTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
+
+      return updated;
+    });
   };
 
   const handleTradeRosterChange = (rosterId, playerIndex, value) => {
-    setKeepers(prev =>
-      prev.map(team =>
-        team.roster_id === rosterId
-          ? {
-              ...team,
-              players: team.players.map((p, idx) =>
-                idx === playerIndex ? { ...p, trade_roster_id: Number(value) } : p
-              )
-            }
-          : team
-      )
-    );
+    setKeepers(prev => {
+      const updated = prev.map(team => ({ ...team, players: [...team.players] }));
+      const sourceTeam = updated.find(t => t.roster_id === rosterId);
+      const player = sourceTeam.players[playerIndex];
+      if (player.locked) return prev;
+
+      const oldTarget = player.trade_roster_id;
+      const newTarget = Number(value);
+      player.trade_roster_id = newTarget;
+
+      // remove from old target
+      if (oldTarget) {
+        const oldTeam = updated.find(t => t.roster_id === oldTarget);
+        if (oldTeam) {
+          oldTeam.players = oldTeam.players.filter(
+            p => !(p.name === player.name && p.locked && p.trade_roster_id === rosterId)
+          );
+        }
+      }
+
+      // add to new target
+      if (newTarget) {
+        const newTeam = updated.find(t => t.roster_id === newTarget);
+        if (!newTeam.players.some(p => p.name === player.name && p.locked && p.trade_roster_id === rosterId)) {
+          newTeam.players.push({
+            name: player.name,
+            previous_cost: player.previous_cost,
+            years_kept: player.years_kept,
+            keep: true,
+            trade: true,
+            trade_roster_id: rosterId,
+            trade_amount: player.trade_amount || '',
+            locked: true
+          });
+          newTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
+        }
+      }
+
+      sourceTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
+
+      return updated;
+    });
   };
 
   const handleTradeAmountChange = (rosterId, playerIndex, value) => {
-    setKeepers(prev =>
-      prev.map(team =>
-        team.roster_id === rosterId
-          ? {
-              ...team,
-              players: team.players.map((p, idx) =>
-                idx === playerIndex ? { ...p, trade_amount: value } : p
-              )
-            }
-          : team
-      )
-    );
+    setKeepers(prev => {
+      const updated = prev.map(team => ({ ...team, players: [...team.players] }));
+      const sourceTeam = updated.find(t => t.roster_id === rosterId);
+      const player = sourceTeam.players[playerIndex];
+      if (player.locked) return prev;
+
+      player.trade_amount = value;
+      if (player.trade_roster_id) {
+        const targetTeam = updated.find(t => t.roster_id === player.trade_roster_id);
+        const targetPlayer = targetTeam.players.find(
+          p => p.name === player.name && p.locked && p.trade_roster_id === rosterId
+        );
+        if (targetPlayer) targetPlayer.trade_amount = value;
+      }
+
+      return updated;
+    });
   };
 
   const saveKeeperSelections = async () => {
@@ -314,13 +375,23 @@ const FantasyFootballApp = () => {
     if (!roster) return;
     const playersByRoster = {};
     roster.players.forEach(p => {
-      if (p.keep) {
-        const targetRosterId = p.trade ? p.trade_roster_id : roster.roster_id;
+      if (p.keep || p.trade) {
+        let targetRosterId = roster.roster_id;
+        let tradeFrom = null;
+        if (p.trade) {
+          if (p.locked) {
+            targetRosterId = roster.roster_id;
+            tradeFrom = p.trade_roster_id;
+          } else {
+            targetRosterId = p.trade_roster_id;
+            tradeFrom = roster.roster_id;
+          }
+        }
         if (!playersByRoster[targetRosterId]) playersByRoster[targetRosterId] = [];
         playersByRoster[targetRosterId].push({
           name: p.name,
           previous_cost: p.previous_cost,
-          trade_from_roster_id: p.trade ? roster.roster_id : null,
+          trade_from_roster_id: tradeFrom,
           trade_amount: p.trade ? (p.trade_amount ? Number(p.trade_amount) : null) : null
         });
       }
@@ -1200,6 +1271,7 @@ const FantasyFootballApp = () => {
                                   type="checkbox"
                                   checked={player.trade || false}
                                   onChange={() => toggleTradeSelection(selectedKeeperRoster.roster_id, idx)}
+                                  disabled={player.locked}
                                 />
                                 {player.trade && (
                                   <div className="mt-1 space-y-1">
@@ -1213,6 +1285,7 @@ const FantasyFootballApp = () => {
                                         )
                                       }
                                       className="border border-gray-300 rounded px-1 py-0.5 text-xs"
+                                      disabled={player.locked}
                                     >
                                       <option value="">Select manager</option>
                                       {keepers
@@ -1235,6 +1308,7 @@ const FantasyFootballApp = () => {
                                       }
                                       placeholder="$"
                                       className="border border-gray-300 rounded px-1 py-0.5 text-xs w-20"
+                                      disabled={player.locked}
                                     />
                                   </div>
                                 )}
@@ -1244,6 +1318,7 @@ const FantasyFootballApp = () => {
                                   type="checkbox"
                                   checked={player.keep}
                                   onChange={() => toggleKeeperSelection(selectedKeeperRoster.roster_id, idx)}
+                                  disabled={player.locked}
                                 />
                               </td>
                             </tr>
