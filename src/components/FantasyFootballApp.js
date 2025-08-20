@@ -430,6 +430,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
           throw new Error(err.error || 'Failed to save');
         }
       }
+      await fetchKeepers(selectedKeeperYear);
     } catch (error) {
       console.error('Error saving keepers:', error);
     }
