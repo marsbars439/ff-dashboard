@@ -112,6 +112,27 @@ db.serialize(() => {
     }
   });
 
+  // Create keepers table
+  console.log('📊 Creating keepers table...');
+  db.run(`
+    CREATE TABLE IF NOT EXISTS keepers (
+      year INTEGER,
+      roster_id INTEGER,
+      player_name TEXT,
+      previous_cost REAL,
+      years_kept INTEGER,
+      trade_from_roster_id INTEGER,
+      trade_amount REAL,
+      PRIMARY KEY (year, roster_id, player_name)
+    )
+  `, (err) => {
+    if (err) {
+      console.error('❌ Error creating keepers table:', err.message);
+    } else {
+      console.log('✅ Keepers table created successfully');
+    }
+  });
+
   // Create rules table for future use
   console.log('📊 Creating rules table...');
   db.run(`
@@ -167,6 +188,10 @@ db.serialize(() => {
   console.log('📈 Creating database indexes...');
   
   const indexes = [
+    {
+      name: 'idx_keepers_year_roster',
+      sql: 'CREATE INDEX IF NOT EXISTS idx_keepers_year_roster ON keepers(year, roster_id)'
+    },
     {
       name: 'idx_team_seasons_year',
       sql: 'CREATE INDEX IF NOT EXISTS idx_team_seasons_year ON team_seasons(year)'
@@ -246,6 +271,15 @@ db.serialize(() => {
       console.error('❌ Error checking manager_sleeper_ids table:', err.message);
     } else {
       console.log('✅ manager_sleeper_ids table columns:', columns.map(col => col.name).join(', '));
+    }
+  });
+
+  // Check keepers table structure
+  db.all("PRAGMA table_info(keepers)", (err, columns) => {
+    if (err) {
+      console.error('❌ Error checking keepers table:', err.message);
+    } else {
+      console.log('✅ Keepers table columns:', columns.map(col => col.name).join(', '));
     }
   });
 
