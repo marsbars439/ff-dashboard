@@ -204,11 +204,29 @@ const FantasyFootballApp = () => {
               name: p.name,
               previous_cost: p.draft_cost || '',
               years_kept: prevPlayer ? prevPlayer.years_kept : 0,
-              keep: !!savedPlayer
+              keep: !!savedPlayer,
+              trade: savedPlayer ? savedPlayer.trade_from_roster_id != null : false,
+              trade_roster_id: savedPlayer ? savedPlayer.trade_from_roster_id : null,
+              trade_amount: savedPlayer ? savedPlayer.trade_amount : ''
             };
-          })
-          .sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
-        return { ...team, players };
+          });
+
+        savedTeam.forEach(sp => {
+          if (!players.some(p => p.name === sp.player_name)) {
+            players.push({
+              name: sp.player_name,
+              previous_cost: sp.previous_cost,
+              years_kept: sp.years_kept,
+              keep: true,
+              trade: sp.trade_from_roster_id != null,
+              trade_roster_id: sp.trade_from_roster_id,
+              trade_amount: sp.trade_amount || ''
+            });
+          }
+        });
+
+        const sortedPlayers = players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
+        return { ...team, players: sortedPlayers };
       });
 
       setKeepers(processed);
@@ -237,27 +255,93 @@ const FantasyFootballApp = () => {
     );
   };
 
+  const toggleTradeSelection = (rosterId, playerIndex) => {
+    setKeepers(prev =>
+      prev.map(team =>
+        team.roster_id === rosterId
+          ? {
+              ...team,
+              players: team.players.map((p, idx) =>
+                idx === playerIndex
+                  ? {
+                      ...p,
+                      trade: !p.trade,
+                      trade_roster_id: !p.trade
+                        ? prev.find(t => t.roster_id !== rosterId)?.roster_id || null
+                        : null,
+                      trade_amount: ''
+                    }
+                  : p
+              )
+            }
+          : team
+      )
+    );
+  };
+
+  const handleTradeRosterChange = (rosterId, playerIndex, value) => {
+    setKeepers(prev =>
+      prev.map(team =>
+        team.roster_id === rosterId
+          ? {
+              ...team,
+              players: team.players.map((p, idx) =>
+                idx === playerIndex ? { ...p, trade_roster_id: Number(value) } : p
+              )
+            }
+          : team
+      )
+    );
+  };
+
+  const handleTradeAmountChange = (rosterId, playerIndex, value) => {
+    setKeepers(prev =>
+      prev.map(team =>
+        team.roster_id === rosterId
+          ? {
+              ...team,
+              players: team.players.map((p, idx) =>
+                idx === playerIndex ? { ...p, trade_amount: value } : p
+              )
+            }
+          : team
+      )
+    );
+  };
+
   const saveKeeperSelections = async () => {
     const roster = selectedKeeperRoster;
     if (!roster) return;
-    const playersToSave = roster.players
-      .filter(p => p.keep)
-      .map(p => ({ name: p.name, previous_cost: p.previous_cost }));
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/keepers/${selectedKeeperYear}/${roster.roster_id}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ players: playersToSave })
-        }
-      );
-      if (response.ok) {
-        alert('Keepers saved successfully!');
-      } else {
-        const err = await response.json();
-        alert('Error: ' + err.error);
+    const playersByRoster = {};
+    roster.players.forEach(p => {
+      if (p.keep) {
+        const targetRosterId = p.trade ? p.trade_roster_id : roster.roster_id;
+        if (!playersByRoster[targetRosterId]) playersByRoster[targetRosterId] = [];
+        playersByRoster[targetRosterId].push({
+          name: p.name,
+          previous_cost: p.previous_cost,
+          trade_from_roster_id: p.trade ? roster.roster_id : null,
+          trade_amount: p.trade ? (p.trade_amount ? Number(p.trade_amount) : null) : null
+        });
       }
+    });
+    try {
+      for (const [rId, players] of Object.entries(playersByRoster)) {
+        const response = await fetch(
+          `${API_BASE_URL}/keepers/${selectedKeeperYear}/${rId}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ players })
+          }
+        );
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || 'Failed to save');
+        }
+      }
+      alert('Keepers saved successfully!');
+      await fetchKeepers(selectedKeeperYear);
     } catch (error) {
       alert('Error saving keepers: ' + error.message);
     }
@@ -1101,6 +1185,7 @@ const FantasyFootballApp = () => {
                             <th className="py-1 px-2">Player</th>
                             <th className="py-1 px-2">Previous Cost</th>
                             <th className="py-1 px-2"># of Years Kept</th>
+                            <th className="py-1 px-2">Trade?</th>
                             <th className="py-1 px-2">Keep?</th>
                           </tr>
                         </thead>
@@ -1110,6 +1195,50 @@ const FantasyFootballApp = () => {
                               <td className="py-1 px-2">{player.name}</td>
                               <td className="py-1 px-2">{player.previous_cost ? `$${player.previous_cost}` : ''}</td>
                               <td className="py-1 px-2">{player.years_kept}</td>
+                              <td className="py-1 px-2">
+                                <input
+                                  type="checkbox"
+                                  checked={player.trade || false}
+                                  onChange={() => toggleTradeSelection(selectedKeeperRoster.roster_id, idx)}
+                                />
+                                {player.trade && (
+                                  <div className="mt-1 space-y-1">
+                                    <select
+                                      value={player.trade_roster_id || ''}
+                                      onChange={e =>
+                                        handleTradeRosterChange(
+                                          selectedKeeperRoster.roster_id,
+                                          idx,
+                                          e.target.value
+                                        )
+                                      }
+                                      className="border border-gray-300 rounded px-1 py-0.5 text-xs"
+                                    >
+                                      <option value="">Select manager</option>
+                                      {keepers
+                                        .filter(t => t.roster_id !== selectedKeeperRoster.roster_id)
+                                        .map(t => (
+                                          <option key={t.roster_id} value={t.roster_id}>
+                                            {t.manager_name || t.team_name}
+                                          </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                      type="number"
+                                      value={player.trade_amount || ''}
+                                      onChange={e =>
+                                        handleTradeAmountChange(
+                                          selectedKeeperRoster.roster_id,
+                                          idx,
+                                          e.target.value
+                                        )
+                                      }
+                                      placeholder="$"
+                                      className="border border-gray-300 rounded px-1 py-0.5 text-xs w-20"
+                                    />
+                                  </div>
+                                )}
+                              </td>
                               <td className="py-1 px-2">
                                 <input
                                   type="checkbox"

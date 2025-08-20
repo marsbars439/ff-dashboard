@@ -27,6 +27,8 @@ db.serialize(() => {
       player_name TEXT,
       previous_cost REAL,
       years_kept INTEGER,
+      trade_from_roster_id INTEGER,
+      trade_amount REAL,
       PRIMARY KEY (year, roster_id, player_name)
     )
   `);
@@ -211,7 +213,7 @@ app.get('/api/seasons/:year/keepers', (req, res) => {
 app.get('/api/keepers/:year', (req, res) => {
   const year = parseInt(req.params.year);
   db.all(
-    'SELECT roster_id, player_name, previous_cost, years_kept FROM keepers WHERE year = ?',
+    'SELECT roster_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount FROM keepers WHERE year = ?',
     [year],
     (err, rows) => {
       if (err) {
@@ -239,8 +241,8 @@ app.post('/api/keepers/:year/:rosterId', async (req, res) => {
       );
       const yearsKept = prev ? prev.years_kept + 1 : 1;
       await runAsync(
-        'INSERT INTO keepers (year, roster_id, player_name, previous_cost, years_kept) VALUES (?, ?, ?, ?, ?)',
-        [year, rosterId, p.name, p.previous_cost, yearsKept]
+        'INSERT INTO keepers (year, roster_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [year, rosterId, p.name, p.previous_cost, yearsKept, p.trade_from_roster_id || null, p.trade_amount || null]
       );
     }
 
