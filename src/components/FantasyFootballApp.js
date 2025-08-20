@@ -266,16 +266,18 @@ const FantasyFootballApp = () => {
     }
   };
 
-  const toggleKeeperSelection = (rosterId, playerIndex) => {
-    setKeepers(prev => {
-      const updated = prev.map(team => ({ ...team, players: [...team.players] }));
-      const team = updated.find(t => t.roster_id === rosterId);
-      const player = team.players[playerIndex];
-      team.players[playerIndex] = { ...player, keep: !player.keep };
-      team.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
-      return updated;
-    });
-  };
+const toggleKeeperSelection = (rosterId, playerIndex) => {
+  setKeepers(prev => {
+    const updated = prev.map(team => ({ ...team, players: [...team.players] }));
+    const team = updated.find(t => t.roster_id === rosterId);
+    const player = team.players[playerIndex];
+    if (player.trade && !player.locked) return prev;
+    team.players[playerIndex] = { ...player, keep: !player.keep };
+    team.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
+    saveAllKeepers(updated);
+    return updated;
+  });
+};
 
   const toggleTradeSelection = (rosterId, playerIndex) => {
     setKeepers(prev => {
@@ -324,6 +326,7 @@ const FantasyFootballApp = () => {
 
       sourceTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
 
+      saveAllKeepers(updated);
       return updated;
     });
   };
@@ -369,6 +372,7 @@ const FantasyFootballApp = () => {
 
       sourceTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
 
+      saveAllKeepers(updated);
       return updated;
     });
   };
@@ -389,6 +393,7 @@ const FantasyFootballApp = () => {
         if (targetPlayer) targetPlayer.trade_amount = value;
       }
 
+      saveAllKeepers(updated);
       return updated;
     });
   };
@@ -398,51 +403,35 @@ const FantasyFootballApp = () => {
     return team ? team.manager_name || team.team_name || `Roster ${rosterId}` : `Roster ${rosterId}`;
   };
 
-  const saveKeeperSelections = async () => {
-    const roster = selectedKeeperRoster;
-    if (!roster) return;
+  const saveAllKeepers = async (data) => {
+    if (!selectedKeeperYear) return;
     const playersByRoster = {};
-    roster.players.forEach(p => {
-      if (p.keep || p.trade) {
-        let targetRosterId = roster.roster_id;
-        let tradeFrom = null;
-        if (p.trade) {
-          if (p.locked) {
-            targetRosterId = roster.roster_id;
-            tradeFrom = p.trade_roster_id;
-          } else {
-            targetRosterId = p.trade_roster_id;
-            tradeFrom = roster.roster_id;
-          }
-        }
-        if (!playersByRoster[targetRosterId]) playersByRoster[targetRosterId] = [];
-        playersByRoster[targetRosterId].push({
+    data.forEach(team => {
+      const teamPlayers = team.players
+        .filter(p => (p.trade ? p.locked && p.keep : p.keep))
+        .map(p => ({
           name: p.name,
           previous_cost: p.previous_cost,
-          trade_from_roster_id: tradeFrom,
+          trade_from_roster_id: p.trade ? p.trade_roster_id : null,
           trade_amount: p.trade ? (p.trade_amount ? Number(p.trade_amount) : null) : null
-        });
-      }
+        }));
+      playersByRoster[team.roster_id] = teamPlayers;
     });
+
     try {
       for (const [rId, players] of Object.entries(playersByRoster)) {
-        const response = await fetch(
-          `${API_BASE_URL}/keepers/${selectedKeeperYear}/${rId}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ players })
-          }
-        );
+        const response = await fetch(`${API_BASE_URL}/keepers/${selectedKeeperYear}/${rId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ players })
+        });
         if (!response.ok) {
           const err = await response.json();
           throw new Error(err.error || 'Failed to save');
         }
       }
-      alert('Keepers saved successfully!');
-      await fetchKeepers(selectedKeeperYear);
     } catch (error) {
-      alert('Error saving keepers: ' + error.message);
+      console.error('Error saving keepers:', error);
     }
   };
 
@@ -1356,6 +1345,7 @@ const FantasyFootballApp = () => {
                                   type="checkbox"
                                   checked={player.keep}
                                   onChange={() => toggleKeeperSelection(selectedKeeperRoster.roster_id, idx)}
+                                  disabled={player.trade && !player.locked}
                                 />
                               </td>
                             </tr>
@@ -1363,12 +1353,6 @@ const FantasyFootballApp = () => {
                         </tbody>
                       </table>
                     </div>
-                    <button
-                      onClick={saveKeeperSelections}
-                      className="mt-4 inline-flex items-center bg-blue-600 text-white px-3 py-2 rounded"
-                    >
-                      <Save className="w-4 h-4 mr-1" /> Save Keepers
-                    </button>
                   </div>
                 )
               )}
