@@ -203,7 +203,9 @@ const FantasyFootballApp = () => {
 
       const processed = currentData.rosters.map(team => {
         const prevTeam = prevKeepers.keepers.filter(k => k.roster_id === team.roster_id);
-        const savedTeam = savedKeepers.keepers.filter(k => k.roster_id === team.roster_id);
+        const savedTeam = savedKeepers.keepers.filter(
+          k => k.roster_id === team.roster_id && k.trade_from_roster_id !== k.roster_id
+        );
         const players = team.players
           .map(p => {
             const prevPlayer = prevTeam.find(k => k.player_name === p.name);
