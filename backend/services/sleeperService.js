@@ -267,7 +267,7 @@ class SleeperService {
     /**
      * Fetch playoff matchups and scores for all rounds
      */
-    async getPlayoffMatchups(leagueId, managers = []) {
+  async getPlayoffMatchups(leagueId, managers = []) {
       try {
         const leagueInfo = await this.getLeagueInfo(leagueId);
         const rosters = await this.getRosters(leagueId);
@@ -490,6 +490,52 @@ class SleeperService {
           : rounds;
       } catch (error) {
         console.error('❌ Error fetching playoff matchups:', error.message);
+        throw error;
+      }
+    }
+
+    /**
+     * Fetch final rosters with player names for a league
+     */
+    async getFinalRosters(leagueId, managers = []) {
+      try {
+        const rosters = await this.getRosters(leagueId);
+        const users = await this.getUsers(leagueId);
+        const players = await this.client.get('/players/nfl').then(res => res.data);
+
+        const userIdToName = {};
+        managers.forEach(m => {
+          if (m.sleeper_user_id) {
+            userIdToName[m.sleeper_user_id] = m.full_name;
+          }
+        });
+
+        return rosters.map(r => {
+          const user = users.find(u => u.user_id === r.owner_id) || {};
+          const teamName =
+            r.metadata?.team_name ||
+            user.metadata?.team_name ||
+            user.display_name ||
+            `Team ${r.roster_id}`;
+          const managerName = userIdToName[r.owner_id] || teamName;
+
+          const playerNames = (r.players || []).map(pid => {
+            const p = players[pid] || {};
+            return (
+              p.full_name ||
+              (p.first_name && p.last_name ? `${p.first_name} ${p.last_name}` : pid)
+            );
+          });
+
+          return {
+            roster_id: r.roster_id,
+            team_name: teamName,
+            manager_name: managerName,
+            players: playerNames
+          };
+        });
+      } catch (error) {
+        console.error('❌ Error fetching final rosters:', error.message);
         throw error;
       }
     }
