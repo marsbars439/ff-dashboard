@@ -989,7 +989,10 @@ const FantasyFootballApp = () => {
                       )}
                       <ul className="text-sm grid grid-cols-2 gap-1">
                         {team.players.map((player, idx) => (
-                          <li key={idx}>{player}</li>
+                          <li key={idx}>
+                            {player.name}
+                            {player.draft_cost ? ` - $${player.draft_cost}` : ''}
+                          </li>
                         ))}
                       </ul>
                     </div>

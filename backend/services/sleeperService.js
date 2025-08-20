@@ -501,7 +501,33 @@ class SleeperService {
       try {
         const rosters = await this.getRosters(leagueId);
         const users = await this.getUsers(leagueId);
-        const players = await this.client.get('/players/nfl').then(res => res.data);
+        const players = await this.client
+          .get('/players/nfl')
+          .then(res => res.data);
+
+        // Fetch draft data to determine cost for drafted players
+        let playerCosts = {};
+        try {
+          const drafts = await this.client
+            .get(`/league/${leagueId}/drafts`)
+            .then(res => res.data);
+          if (Array.isArray(drafts) && drafts.length > 0) {
+            const draftId = drafts[0].draft_id;
+            const picks = await this.client
+              .get(`/draft/${draftId}/picks`)
+              .then(res => res.data);
+            picks.forEach(pick => {
+              if (pick.player_id) {
+                const amount = pick.metadata?.amount;
+                if (amount) {
+                  playerCosts[pick.player_id] = amount;
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('⚠️ Could not fetch draft data:', e.message);
+        }
 
         const userIdToName = {};
         managers.forEach(m => {
@@ -519,19 +545,24 @@ class SleeperService {
             `Team ${r.roster_id}`;
           const managerName = userIdToName[r.owner_id] || teamName;
 
-          const playerNames = (r.players || []).map(pid => {
+          const playerInfos = (r.players || []).map(pid => {
             const p = players[pid] || {};
-            return (
+            const name =
               p.full_name ||
-              (p.first_name && p.last_name ? `${p.first_name} ${p.last_name}` : pid)
-            );
+              (p.first_name && p.last_name
+                ? `${p.first_name} ${p.last_name}`
+                : pid);
+            return {
+              name,
+              draft_cost: playerCosts[pid] || ''
+            };
           });
 
           return {
             roster_id: r.roster_id,
             team_name: teamName,
             manager_name: managerName,
-            players: playerNames
+            players: playerInfos
           };
         });
       } catch (error) {
