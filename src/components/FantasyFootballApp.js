@@ -201,20 +201,27 @@ const FantasyFootballApp = () => {
         return acc;
       }, {});
 
+      const prevMap = prevKeepers.keepers.reduce((acc, k) => {
+        acc[k.player_name] = k;
+        return acc;
+      }, {});
+
       const processed = currentData.rosters.map(team => {
-        const prevTeam = prevKeepers.keepers.filter(k => k.roster_id === team.roster_id);
         const savedTeam = savedKeepers.keepers.filter(
           k => k.roster_id === team.roster_id && k.trade_from_roster_id !== k.roster_id
         );
         const players = team.players
           .map(p => {
-            const prevPlayer = prevTeam.find(k => k.player_name === p.name);
+            const prevPlayer = prevMap[p.name];
+            const baseYears = prevPlayer ? prevPlayer.years_kept : 0;
             const savedPlayer = savedTeam.find(k => k.player_name === p.name);
+            const keep = !!savedPlayer;
             return {
               name: p.name,
               previous_cost: p.draft_cost || '',
-              years_kept: prevPlayer ? prevPlayer.years_kept : 0,
-              keep: !!savedPlayer,
+              base_years_kept: baseYears,
+              years_kept: baseYears + (keep ? 1 : 0),
+              keep,
               trade: savedPlayer ? savedPlayer.trade_from_roster_id != null : false,
               trade_roster_id: savedPlayer ? savedPlayer.trade_from_roster_id : null,
               trade_amount: savedPlayer ? savedPlayer.trade_amount : '',
@@ -224,10 +231,12 @@ const FantasyFootballApp = () => {
 
         savedTeam.forEach(sp => {
           if (!players.some(p => p.name === sp.player_name)) {
+            const baseYears = prevMap[sp.player_name]?.years_kept || 0;
             players.push({
               name: sp.player_name,
               previous_cost: sp.previous_cost,
-              years_kept: sp.years_kept,
+              base_years_kept: baseYears,
+              years_kept: baseYears + 1,
               keep: true,
               trade: sp.trade_from_roster_id != null,
               trade_roster_id: sp.trade_from_roster_id,
@@ -240,10 +249,12 @@ const FantasyFootballApp = () => {
         const tradedAway = tradedFromMap[team.roster_id] || [];
         tradedAway.forEach(sp => {
           if (!players.some(p => p.name === sp.player_name && p.trade_roster_id === sp.roster_id)) {
+            const baseYears = prevMap[sp.player_name]?.years_kept || 0;
             players.push({
               name: sp.player_name,
               previous_cost: sp.previous_cost,
-              years_kept: sp.years_kept,
+              base_years_kept: baseYears,
+              years_kept: baseYears + 1,
               keep: false,
               trade: true,
               trade_roster_id: sp.roster_id,
@@ -279,7 +290,12 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
     const team = updated.find(t => t.roster_id === rosterId);
     const player = team.players[playerIndex];
     if (player.trade && !player.locked) return prev;
-    team.players[playerIndex] = { ...player, keep: !player.keep };
+    const newKeep = !player.keep;
+    team.players[playerIndex] = {
+      ...player,
+      keep: newKeep,
+      years_kept: player.base_years_kept + (newKeep ? 1 : 0)
+    };
     team.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
     saveAllKeepers(updated);
     return updated;
@@ -299,6 +315,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade_roster_id = defaultTarget;
         player.trade_amount = '';
         player.keep = false;
+        player.years_kept = player.base_years_kept;
 
         if (defaultTarget != null) {
           const targetTeam = updated.find(t => t.roster_id === defaultTarget);
@@ -306,7 +323,8 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
             targetTeam.players.push({
               name: player.name,
               previous_cost: player.previous_cost,
-              years_kept: player.years_kept,
+              base_years_kept: player.base_years_kept,
+              years_kept: player.base_years_kept + 1,
               keep: true,
               trade: true,
               trade_roster_id: rosterId,
@@ -328,6 +346,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade = false;
         player.trade_roster_id = null;
         player.trade_amount = '';
+        player.years_kept = player.base_years_kept + (player.keep ? 1 : 0);
       }
 
       sourceTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
@@ -365,7 +384,8 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
           newTeam.players.push({
             name: player.name,
             previous_cost: player.previous_cost,
-            years_kept: player.years_kept,
+            base_years_kept: player.base_years_kept,
+            years_kept: player.base_years_kept + 1,
             keep: true,
             trade: true,
             trade_roster_id: rosterId,
