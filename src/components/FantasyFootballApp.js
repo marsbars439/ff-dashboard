@@ -43,6 +43,8 @@ const FantasyFootballApp = () => {
   const [selectedSeasonYear, setSelectedSeasonYear] = useState(null);
   const [seasonMatchups, setSeasonMatchups] = useState([]);
   const [playoffBracket, setPlayoffBracket] = useState([]);
+  const [selectedKeeperYear, setSelectedKeeperYear] = useState(null);
+  const [keepers, setKeepers] = useState([]);
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
   const [seasonDataPage, setSeasonDataPage] = useState(0);
 
@@ -67,7 +69,11 @@ const FantasyFootballApp = () => {
       const maxYear = Math.max(...teamSeasons.map(s => s.year));
       setSelectedSeasonYear(maxYear);
     }
-  }, [teamSeasons, selectedSeasonYear]);
+    if (teamSeasons.length > 0 && !selectedKeeperYear) {
+      const maxYear = Math.max(...teamSeasons.map(s => s.year));
+      setSelectedKeeperYear(maxYear);
+    }
+  }, [teamSeasons, selectedSeasonYear, selectedKeeperYear]);
 
   useEffect(() => {
     if (selectedSeasonYear) {
@@ -75,6 +81,12 @@ const FantasyFootballApp = () => {
       fetchPlayoffBracket(selectedSeasonYear);
     }
   }, [selectedSeasonYear]);
+
+  useEffect(() => {
+    if (selectedKeeperYear) {
+      fetchKeepers(selectedKeeperYear);
+    }
+  }, [selectedKeeperYear]);
 
   useEffect(() => {
     setSeasonDataPage(0);
@@ -165,6 +177,21 @@ const FantasyFootballApp = () => {
     } catch (error) {
       console.error('Error fetching playoff bracket:', error);
       setPlayoffBracket([]);
+    }
+  };
+
+  const fetchKeepers = async (year) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/seasons/${year}/keepers`);
+      if (response.ok) {
+        const data = await response.json();
+        setKeepers(data.rosters);
+      } else {
+        setKeepers([]);
+      }
+    } catch (error) {
+      console.error('Error fetching keepers:', error);
+      setKeepers([]);
     }
   };
 
@@ -780,6 +807,16 @@ const FantasyFootballApp = () => {
                 Seasons
               </button>
               <button
+                onClick={() => setActiveTab('keepers')}
+                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
+                  activeTab === 'keepers'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Keepers
+              </button>
+              <button
                 onClick={() => setActiveTab('rules')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'rules'
@@ -923,6 +960,43 @@ const FantasyFootballApp = () => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+        {activeTab === 'keepers' && (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Keepers {selectedKeeperYear}</h2>
+                <select
+                  value={selectedKeeperYear || ''}
+                  onChange={e => setSelectedKeeperYear(Number(e.target.value))}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                >
+                  {availableYears.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+              {keepers.length === 0 ? (
+                <p className="text-gray-500">No roster data available for this season.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {keepers.map(team => (
+                    <div key={team.roster_id} className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="font-semibold text-lg">{team.team_name}</h3>
+                      {team.manager_name && (
+                        <p className="text-sm text-gray-600 mb-2">{team.manager_name}</p>
+                      )}
+                      <ul className="text-sm grid grid-cols-2 gap-1">
+                        {team.players.map((player, idx) => (
+                          <li key={idx}>{player}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
         {activeTab === 'records' && (
