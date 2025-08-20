@@ -256,9 +256,14 @@ const FantasyFootballApp = () => {
       });
 
       setKeepers(processed);
-      setSelectedKeeperRosterId(
-        processed.length > 0 ? processed[0].roster_id : null
-      );
+      const prevManager = keepers.find(t => t.roster_id === selectedKeeperRosterId)?.manager_name;
+      setSelectedKeeperRosterId(() => {
+        if (prevManager) {
+          const match = processed.find(t => t.manager_name === prevManager);
+          if (match) return match.roster_id;
+        }
+        return processed.length > 0 ? processed[0].roster_id : null;
+      });
     } catch (error) {
       console.error('Error fetching keepers:', error);
       setKeepers([]);
@@ -321,7 +326,6 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade = false;
         player.trade_roster_id = null;
         player.trade_amount = '';
-        player.keep = true;
       }
 
       sourceTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
