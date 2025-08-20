@@ -32,6 +32,25 @@ db.serialize(() => {
       PRIMARY KEY (year, roster_id, player_name)
     )
   `);
+
+  // Ensure new trade columns exist for legacy databases
+  db.run(
+    `ALTER TABLE keepers ADD COLUMN trade_from_roster_id INTEGER`,
+    err => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Error adding trade_from_roster_id column:', err.message);
+      }
+    }
+  );
+
+  db.run(
+    `ALTER TABLE keepers ADD COLUMN trade_amount REAL`,
+    err => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Error adding trade_amount column:', err.message);
+      }
+    }
+  );
 });
 
 // Helper functions for async DB operations
