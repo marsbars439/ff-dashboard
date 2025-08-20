@@ -45,6 +45,7 @@ const FantasyFootballApp = () => {
   const [playoffBracket, setPlayoffBracket] = useState([]);
   const [selectedKeeperYear, setSelectedKeeperYear] = useState(null);
   const [keepers, setKeepers] = useState([]);
+  const [selectedKeeperRosterId, setSelectedKeeperRosterId] = useState(null);
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
   const [seasonDataPage, setSeasonDataPage] = useState(0);
 
@@ -186,12 +187,17 @@ const FantasyFootballApp = () => {
       if (response.ok) {
         const data = await response.json();
         setKeepers(data.rosters);
+        setSelectedKeeperRosterId(
+          data.rosters.length > 0 ? data.rosters[0].roster_id : null
+        );
       } else {
         setKeepers([]);
+        setSelectedKeeperRosterId(null);
       }
     } catch (error) {
       console.error('Error fetching keepers:', error);
       setKeepers([]);
+      setSelectedKeeperRosterId(null);
     }
   };
 
@@ -754,6 +760,7 @@ const FantasyFootballApp = () => {
   ];
 
   const availableYears = [...new Set(teamSeasons.map(s => s.year))].sort((a, b) => b - a);
+  const selectedKeeperRoster = keepers.find(team => team.roster_id === selectedKeeperRosterId) || null;
   const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
   const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
   const thirdPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 3);
@@ -967,37 +974,50 @@ const FantasyFootballApp = () => {
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Keepers {selectedKeeperYear}</h2>
-                <select
-                  value={selectedKeeperYear || ''}
-                  onChange={e => setSelectedKeeperYear(Number(e.target.value))}
-                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                >
-                  {availableYears.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    value={selectedKeeperYear || ''}
+                    onChange={e => setSelectedKeeperYear(Number(e.target.value))}
+                    className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  >
+                    {availableYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                  {keepers.length > 0 && (
+                    <select
+                      value={selectedKeeperRosterId || ''}
+                      onChange={e => setSelectedKeeperRosterId(Number(e.target.value))}
+                      className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                    >
+                      {keepers.map(team => (
+                        <option key={team.roster_id} value={team.roster_id}>
+                          {team.manager_name || team.team_name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </div>
               {keepers.length === 0 ? (
                 <p className="text-gray-500">No roster data available for this season.</p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {keepers.map(team => (
-                    <div key={team.roster_id} className="bg-gray-50 rounded-lg p-4">
-                      <h3 className="font-semibold text-lg">{team.team_name}</h3>
-                      {team.manager_name && (
-                        <p className="text-sm text-gray-600 mb-2">{team.manager_name}</p>
-                      )}
-                      <ul className="text-sm grid grid-cols-2 gap-1">
-                        {team.players.map((player, idx) => (
-                          <li key={idx}>
-                            {player.name}
-                            {player.draft_cost ? ` - $${player.draft_cost}` : ''}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
+                selectedKeeperRoster && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-lg">{selectedKeeperRoster.team_name}</h3>
+                    {selectedKeeperRoster.manager_name && (
+                      <p className="text-sm text-gray-600 mb-2">{selectedKeeperRoster.manager_name}</p>
+                    )}
+                    <ul className="text-sm list-disc list-inside space-y-1">
+                      {selectedKeeperRoster.players.map((player, idx) => (
+                        <li key={idx}>
+                          {player.name}
+                          {player.draft_cost ? ` - $${player.draft_cost}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )
               )}
             </div>
           </div>
