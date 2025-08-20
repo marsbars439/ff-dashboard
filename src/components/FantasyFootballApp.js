@@ -183,23 +183,64 @@ const FantasyFootballApp = () => {
 
   const fetchKeepers = async (year) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/seasons/${year}/keepers`);
-      if (response.ok) {
-        const data = await response.json();
-        setKeepers(data.rosters);
-        setSelectedKeeperRosterId(
-          data.rosters.length > 0 ? data.rosters[0].roster_id : null
-        );
-      } else {
-        setKeepers([]);
-        setSelectedKeeperRosterId(null);
-      }
+      const [currentRes, prevRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/seasons/${year}/keepers`),
+        fetch(`${API_BASE_URL}/seasons/${year - 1}/keepers`)
+      ]);
+
+      const currentData = currentRes.ok ? await currentRes.json() : { rosters: [] };
+      const prevData = prevRes.ok ? await prevRes.json() : { rosters: [] };
+
+      const processed = currentData.rosters.map(team => {
+        const prevTeam = prevData.rosters.find(r => r.roster_id === team.roster_id);
+        const players = team.players.map(p => {
+          const prevPlayer = prevTeam?.players.find(pp => pp.name === p.name);
+          const yearsKept = prevPlayer ? (prevPlayer.years_kept || 1) + 1 : 1;
+          return {
+            name: p.name,
+            previous_cost: p.draft_cost || '',
+            years_kept: yearsKept,
+            keep: false
+          };
+        });
+        return { ...team, players };
+      });
+
+      setKeepers(processed);
+      setSelectedKeeperRosterId(
+        processed.length > 0 ? processed[0].roster_id : null
+      );
     } catch (error) {
       console.error('Error fetching keepers:', error);
       setKeepers([]);
       setSelectedKeeperRosterId(null);
     }
   };
+
+  const toggleKeeperSelection = (rosterId, playerIndex) => {
+    setKeepers(prev =>
+      prev.map(team =>
+        team.roster_id === rosterId
+          ? {
+              ...team,
+              players: team.players.map((p, idx) =>
+                idx === playerIndex ? { ...p, keep: !p.keep } : p
+              )
+            }
+          : team
+      )
+    );
+  };
+
+  const keeperSummary = useMemo(() => {
+    return keepers
+      .map(team => ({
+        roster_id: team.roster_id,
+        team_name: team.manager_name || team.team_name,
+        players: team.players.filter(p => p.keep).map(p => p.name)
+      }))
+      .filter(team => team.players.length > 0);
+  }, [keepers]);
 
   const saveRules = async () => {
     try {
@@ -972,6 +1013,20 @@ const FantasyFootballApp = () => {
         {activeTab === 'keepers' && (
           <div className="space-y-4 sm:space-y-6">
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-bold mb-2">Keepers for the {selectedKeeperYear + 1} season</h3>
+              {keeperSummary.length === 0 ? (
+                <p className="text-gray-500 text-sm">No keepers selected.</p>
+              ) : (
+                <ul className="text-sm list-disc list-inside space-y-1">
+                  {keeperSummary.map(team => (
+                    <li key={team.roster_id}>
+                      <strong>{team.team_name}:</strong> {team.players.join(', ')}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Keepers {selectedKeeperYear}</h2>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -1004,18 +1059,38 @@ const FantasyFootballApp = () => {
               ) : (
                 selectedKeeperRoster && (
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-lg">{selectedKeeperRoster.team_name}</h3>
+                    <h3 className="font-semibold text-lg mb-2">{selectedKeeperRoster.team_name}</h3>
                     {selectedKeeperRoster.manager_name && (
                       <p className="text-sm text-gray-600 mb-2">{selectedKeeperRoster.manager_name}</p>
                     )}
-                    <ul className="text-sm list-disc list-inside space-y-1">
-                      {selectedKeeperRoster.players.map((player, idx) => (
-                        <li key={idx}>
-                          {player.name}
-                          {player.draft_cost ? ` - $${player.draft_cost}` : ''}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-sm">
+                        <thead>
+                          <tr className="text-left">
+                            <th className="py-1 px-2">Player</th>
+                            <th className="py-1 px-2">Previous Cost</th>
+                            <th className="py-1 px-2"># of Years Kept</th>
+                            <th className="py-1 px-2">Keep?</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedKeeperRoster.players.map((player, idx) => (
+                            <tr key={idx} className="border-t">
+                              <td className="py-1 px-2">{player.name}</td>
+                              <td className="py-1 px-2">{player.previous_cost ? `$${player.previous_cost}` : ''}</td>
+                              <td className="py-1 px-2">{player.years_kept}</td>
+                              <td className="py-1 px-2">
+                                <input
+                                  type="checkbox"
+                                  checked={player.keep}
+                                  onChange={() => toggleKeeperSelection(selectedKeeperRoster.roster_id, idx)}
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )
               )}
