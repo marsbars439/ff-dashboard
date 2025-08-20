@@ -133,6 +133,32 @@ db.serialize(() => {
     }
   });
 
+  // Add trade columns if they don't exist (for existing databases)
+  console.log('🔧 Checking for keeper trade columns...');
+  db.run(`
+    ALTER TABLE keepers ADD COLUMN trade_from_roster_id INTEGER;
+  `, (err) => {
+    if (err && err.message.includes('duplicate column name')) {
+      console.log('ℹ️  trade_from_roster_id column already exists');
+    } else if (err) {
+      console.error('❌ Error adding trade_from_roster_id column:', err.message);
+    } else {
+      console.log('✅ Added trade_from_roster_id column');
+    }
+  });
+
+  db.run(`
+    ALTER TABLE keepers ADD COLUMN trade_amount REAL;
+  `, (err) => {
+    if (err && err.message.includes('duplicate column name')) {
+      console.log('ℹ️  trade_amount column already exists');
+    } else if (err) {
+      console.error('❌ Error adding trade_amount column:', err.message);
+    } else {
+      console.log('✅ Added trade_amount column');
+    }
+  });
+
   // Create rules table for future use
   console.log('📊 Creating rules table...');
   db.run(`
