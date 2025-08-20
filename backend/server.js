@@ -18,6 +18,37 @@ app.use(express.json());
 const dbPath = path.join(__dirname, 'data', 'fantasy_football.db');
 const db = new sqlite3.Database(dbPath);
 
+// Ensure keepers table exists
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS keepers (
+      year INTEGER,
+      roster_id INTEGER,
+      player_name TEXT,
+      previous_cost REAL,
+      years_kept INTEGER,
+      PRIMARY KEY (year, roster_id, player_name)
+    )
+  `);
+});
+
+// Helper functions for async DB operations
+const runAsync = (sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+
+const getAsync = (sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
@@ -174,6 +205,49 @@ app.get('/api/seasons/:year/keepers', (req, res) => {
       res.status(500).json({ error: error.message });
     }
   });
+});
+
+// Get stored keeper selections for a season
+app.get('/api/keepers/:year', (req, res) => {
+  const year = parseInt(req.params.year);
+  db.all(
+    'SELECT roster_id, player_name, previous_cost, years_kept FROM keepers WHERE year = ?',
+    [year],
+    (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ keepers: rows });
+    }
+  );
+});
+
+// Save keeper selections for a roster in a given season
+app.post('/api/keepers/:year/:rosterId', async (req, res) => {
+  const year = parseInt(req.params.year);
+  const rosterId = parseInt(req.params.rosterId);
+  const players = Array.isArray(req.body.players) ? req.body.players : [];
+
+  try {
+    await runAsync('DELETE FROM keepers WHERE year = ? AND roster_id = ?', [year, rosterId]);
+
+    for (const p of players) {
+      const prev = await getAsync(
+        'SELECT years_kept FROM keepers WHERE year = ? AND roster_id = ? AND player_name = ?',
+        [year - 1, rosterId, p.name]
+      );
+      const yearsKept = prev ? prev.years_kept + 1 : 1;
+      await runAsync(
+        'INSERT INTO keepers (year, roster_id, player_name, previous_cost, years_kept) VALUES (?, ?, ?, ?, ?)',
+        [year, rosterId, p.name, p.previous_cost, yearsKept]
+      );
+    }
+
+    res.json({ message: 'Keepers saved' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Get team seasons by manager

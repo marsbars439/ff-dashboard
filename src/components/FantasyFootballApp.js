@@ -183,26 +183,31 @@ const FantasyFootballApp = () => {
 
   const fetchKeepers = async (year) => {
     try {
-      const [currentRes, prevRes] = await Promise.all([
+      const [currentRes, prevKeepRes, savedKeepRes] = await Promise.all([
         fetch(`${API_BASE_URL}/seasons/${year}/keepers`),
-        fetch(`${API_BASE_URL}/seasons/${year - 1}/keepers`)
+        fetch(`${API_BASE_URL}/keepers/${year - 1}`),
+        fetch(`${API_BASE_URL}/keepers/${year}`)
       ]);
 
       const currentData = currentRes.ok ? await currentRes.json() : { rosters: [] };
-      const prevData = prevRes.ok ? await prevRes.json() : { rosters: [] };
+      const prevKeepers = prevKeepRes.ok ? await prevKeepRes.json() : { keepers: [] };
+      const savedKeepers = savedKeepRes.ok ? await savedKeepRes.json() : { keepers: [] };
 
       const processed = currentData.rosters.map(team => {
-        const prevTeam = prevData.rosters.find(r => r.roster_id === team.roster_id);
-        const players = team.players.map(p => {
-          const prevPlayer = prevTeam?.players.find(pp => pp.name === p.name);
-          const yearsKept = prevPlayer ? (prevPlayer.years_kept || 1) + 1 : 1;
-          return {
-            name: p.name,
-            previous_cost: p.draft_cost || '',
-            years_kept: yearsKept,
-            keep: false
-          };
-        });
+        const prevTeam = prevKeepers.keepers.filter(k => k.roster_id === team.roster_id);
+        const savedTeam = savedKeepers.keepers.filter(k => k.roster_id === team.roster_id);
+        const players = team.players
+          .map(p => {
+            const prevPlayer = prevTeam.find(k => k.player_name === p.name);
+            const savedPlayer = savedTeam.find(k => k.player_name === p.name);
+            return {
+              name: p.name,
+              previous_cost: p.draft_cost || '',
+              years_kept: prevPlayer ? prevPlayer.years_kept : 0,
+              keep: !!savedPlayer
+            };
+          })
+          .sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
         return { ...team, players };
       });
 
@@ -223,13 +228,39 @@ const FantasyFootballApp = () => {
         team.roster_id === rosterId
           ? {
               ...team,
-              players: team.players.map((p, idx) =>
-                idx === playerIndex ? { ...p, keep: !p.keep } : p
-              )
+              players: team.players
+                .map((p, idx) => (idx === playerIndex ? { ...p, keep: !p.keep } : p))
+                .sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0))
             }
           : team
       )
     );
+  };
+
+  const saveKeeperSelections = async () => {
+    const roster = selectedKeeperRoster;
+    if (!roster) return;
+    const playersToSave = roster.players
+      .filter(p => p.keep)
+      .map(p => ({ name: p.name, previous_cost: p.previous_cost }));
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/keepers/${selectedKeeperYear}/${roster.roster_id}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ players: playersToSave })
+        }
+      );
+      if (response.ok) {
+        alert('Keepers saved successfully!');
+      } else {
+        const err = await response.json();
+        alert('Error: ' + err.error);
+      }
+    } catch (error) {
+      alert('Error saving keepers: ' + error.message);
+    }
   };
 
   const keeperSummary = useMemo(() => {
@@ -1091,6 +1122,12 @@ const FantasyFootballApp = () => {
                         </tbody>
                       </table>
                     </div>
+                    <button
+                      onClick={saveKeeperSelections}
+                      className="mt-4 inline-flex items-center bg-blue-600 text-white px-3 py-2 rounded"
+                    >
+                      <Save className="w-4 h-4 mr-1" /> Save Keepers
+                    </button>
                   </div>
                 )
               )}
