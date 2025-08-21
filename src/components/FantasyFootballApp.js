@@ -48,6 +48,7 @@ const FantasyFootballApp = () => {
   const [selectedKeeperRosterId, setSelectedKeeperRosterId] = useState(null);
   const [manualTrades, setManualTrades] = useState([]);
   const [newTrade, setNewTrade] = useState({ from: '', to: '', amount: '', note: '' });
+  const [keeperSummaryView, setKeeperSummaryView] = useState('keepers');
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
   const [seasonDataPage, setSeasonDataPage] = useState(0);
 
@@ -630,6 +631,27 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     });
     return [...manual, ...keeper];
   }, [keepers, manualTrades, selectedKeeperYear]);
+
+  const draftBudgetSummary = useMemo(() => {
+    const budgets = {};
+    keepers.forEach(team => {
+      const name = team.manager_name || team.team_name;
+      budgets[name] = 200;
+    });
+    tradeSummary.forEach(t => {
+      const amount = Number(t.amount);
+      if (t.manual) {
+        budgets[t.from] = (budgets[t.from] ?? 200) - amount;
+        budgets[t.to] = (budgets[t.to] ?? 200) + amount;
+      } else {
+        budgets[t.from] = (budgets[t.from] ?? 200) + amount;
+        budgets[t.to] = (budgets[t.to] ?? 200) - amount;
+      }
+    });
+    return Object.entries(budgets)
+      .map(([manager, amount]) => ({ manager, amount }))
+      .sort((a, b) => a.manager.localeCompare(b.manager));
+  }, [keepers, tradeSummary]);
 
   const saveRules = async () => {
     try {
@@ -1401,10 +1423,38 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         )}
         {activeTab === 'keepers' && (
           <div className="space-y-4 sm:space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-                <h3 className="text-lg sm:text-xl font-bold mb-4">Keepers for the {selectedKeeperYear + 1} season</h3>
-                {keeperSummary.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-0">
+                  {keeperSummaryView === 'keepers'
+                    ? `Keepers for the ${selectedKeeperYear + 1} season`
+                    : keeperSummaryView === 'trades'
+                    ? `Trades involving ${selectedKeeperYear + 1} draft money`
+                    : `${selectedKeeperYear + 1} Starting Draft Budget`}
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    className={`px-2 py-1 text-sm rounded ${keeperSummaryView === 'keepers' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+                    onClick={() => setKeeperSummaryView('keepers')}
+                  >
+                    Keepers
+                  </button>
+                  <button
+                    className={`px-2 py-1 text-sm rounded ${keeperSummaryView === 'trades' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+                    onClick={() => setKeeperSummaryView('trades')}
+                  >
+                    Trades
+                  </button>
+                  <button
+                    className={`px-2 py-1 text-sm rounded ${keeperSummaryView === 'budgets' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+                    onClick={() => setKeeperSummaryView('budgets')}
+                  >
+                    Draft Budgets
+                  </button>
+                </div>
+              </div>
+              {keeperSummaryView === 'keepers' && (
+                keeperSummary.length === 0 ? (
                   <p className="text-gray-500 text-sm">No keepers selected.</p>
                 ) : (
                   <ul className="text-sm list-disc list-inside space-y-1">
@@ -1414,11 +1464,10 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                       </li>
                     ))}
                   </ul>
-                )}
-              </div>
-              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-                <h3 className="text-lg sm:text-xl font-bold mb-4">Trades involving {selectedKeeperYear + 1} draft money</h3>
-                {tradeSummary.length === 0 ? (
+                )
+              )}
+              {keeperSummaryView === 'trades' && (
+                tradeSummary.length === 0 ? (
                   <p className="text-gray-500 text-sm">No trades recorded.</p>
                 ) : (
                   <ul className="text-sm list-disc list-inside space-y-1">
@@ -1430,8 +1479,21 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                       </li>
                     ))}
                   </ul>
-                )}
-              </div>
+                )
+              )}
+              {keeperSummaryView === 'budgets' && (
+                draftBudgetSummary.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No budget data.</p>
+                ) : (
+                  <ul className="text-sm list-disc list-inside space-y-1">
+                    {draftBudgetSummary.map((b, idx) => (
+                      <li key={idx}>
+                        <strong>{b.manager}:</strong> ${b.amount}
+                      </li>
+                    ))}
+                  </ul>
+                )
+              )}
             </div>
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
