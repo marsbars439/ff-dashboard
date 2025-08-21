@@ -120,7 +120,7 @@ db.serialize(() => {
       roster_id INTEGER,
       player_name TEXT,
       previous_cost REAL,
-      years_kept INTEGER,
+      years_kept INTEGER DEFAULT 0,
       trade_from_roster_id INTEGER,
       trade_amount REAL,
       PRIMARY KEY (year, roster_id, player_name)
