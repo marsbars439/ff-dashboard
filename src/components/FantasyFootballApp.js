@@ -244,7 +244,17 @@ const FantasyFootballApp = () => {
 
         const tradedAway = tradedFromMap[team.roster_id] || [];
         tradedAway.forEach(sp => {
-          if (!players.some(p => p.id === sp.player_id && p.trade_roster_id === sp.roster_id)) {
+          const existingIdx = players.findIndex(p => p.id === sp.player_id);
+          if (existingIdx !== -1) {
+            players[existingIdx] = {
+              ...players[existingIdx],
+              keep: false,
+              trade: true,
+              trade_roster_id: sp.roster_id,
+              trade_amount: sp.trade_amount || '',
+              locked: false
+            };
+          } else {
             players.push({
               id: sp.player_id,
               name: sp.player_name,
