@@ -46,6 +46,8 @@ const FantasyFootballApp = () => {
   const [selectedKeeperYear, setSelectedKeeperYear] = useState(null);
   const [keepers, setKeepers] = useState([]);
   const [selectedKeeperRosterId, setSelectedKeeperRosterId] = useState(null);
+  const [manualTrades, setManualTrades] = useState([]);
+  const [newTrade, setNewTrade] = useState({ from: '', to: '', amount: '', description: '' });
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
   const [seasonDataPage, setSeasonDataPage] = useState(0);
 
@@ -86,6 +88,7 @@ const FantasyFootballApp = () => {
   useEffect(() => {
     if (selectedKeeperYear) {
       fetchKeepers(selectedKeeperYear);
+      fetchManualTrades(selectedKeeperYear);
     }
   }, [selectedKeeperYear]);
 
@@ -513,6 +516,53 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
     }
   };
 
+  const fetchManualTrades = async (year) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/trades/${year}`);
+      if (res.ok) {
+        const data = await res.json();
+        setManualTrades(data.trades || []);
+      } else {
+        setManualTrades([]);
+      }
+    } catch (error) {
+      console.error('Error fetching trades:', error);
+      setManualTrades([]);
+    }
+  };
+
+  const addManualTrade = async () => {
+    if (!selectedKeeperYear || !newTrade.from || !newTrade.to || !newTrade.amount) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/trades`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          year: selectedKeeperYear,
+          from_roster_id: Number(newTrade.from),
+          to_roster_id: Number(newTrade.to),
+          amount: Number(newTrade.amount),
+          description: newTrade.description
+        })
+      });
+      if (res.ok) {
+        setNewTrade({ from: '', to: '', amount: '', description: '' });
+        fetchManualTrades(selectedKeeperYear);
+      }
+    } catch (error) {
+      console.error('Error saving trade:', error);
+    }
+  };
+
+  const deleteManualTrade = async (id) => {
+    try {
+      await fetch(`${API_BASE_URL}/trades/${id}`, { method: 'DELETE' });
+      fetchManualTrades(selectedKeeperYear);
+    } catch (error) {
+      console.error('Error deleting trade:', error);
+    }
+  };
+
   const keeperSummary = useMemo(() => {
     return keepers
       .map(team => ({
@@ -539,8 +589,16 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         }
       });
     });
+    manualTrades.forEach(t => {
+      trades.push({
+        from: getManagerName(t.from_roster_id),
+        to: getManagerName(t.to_roster_id),
+        player: t.description || 'cash',
+        amount: t.amount
+      });
+    });
     return trades;
-  }, [keepers]);
+  }, [keepers, manualTrades]);
 
   const saveRules = async () => {
     try {
@@ -1816,10 +1874,90 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         {activeTab === 'admin' && (
           <div className="space-y-6 sm:space-y-8">
             {/* Add the Sleeper Admin component */}
-            <SleeperAdmin 
-              API_BASE_URL={API_BASE_URL} 
+            <SleeperAdmin
+              API_BASE_URL={API_BASE_URL}
               onDataUpdate={fetchData}  // This will refresh your data after sync
             />
+            {/* Manual Trades Section */}
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Manual Trades</h3>
+                <select
+                  value={selectedKeeperYear || ''}
+                  onChange={e => setSelectedKeeperYear(Number(e.target.value))}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm mt-2 sm:mt-0"
+                >
+                  {availableYears.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+                <select
+                  value={newTrade.from}
+                  onChange={e => setNewTrade({ ...newTrade, from: e.target.value })}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm flex-1"
+                >
+                  <option value="">From Team</option>
+                  {keepers.map(team => (
+                    <option key={team.roster_id} value={team.roster_id}>
+                      {team.manager_name || team.team_name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={newTrade.to}
+                  onChange={e => setNewTrade({ ...newTrade, to: e.target.value })}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm flex-1"
+                >
+                  <option value="">To Team</option>
+                  {keepers.map(team => (
+                    <option key={team.roster_id} value={team.roster_id}>
+                      {team.manager_name || team.team_name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  placeholder="Amount"
+                  value={newTrade.amount}
+                  onChange={e => setNewTrade({ ...newTrade, amount: e.target.value })}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm w-24"
+                />
+                <input
+                  type="text"
+                  placeholder="Description"
+                  value={newTrade.description}
+                  onChange={e => setNewTrade({ ...newTrade, description: e.target.value })}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm flex-1"
+                />
+                <button
+                  onClick={addManualTrade}
+                  className="flex items-center px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Add
+                </button>
+              </div>
+              {manualTrades.length === 0 ? (
+                <p className="text-gray-500 text-sm">No trades recorded.</p>
+              ) : (
+                <ul className="text-sm space-y-1">
+                  {manualTrades.map(t => (
+                    <li key={t.id} className="flex items-center justify-between">
+                      <span>
+                        {getManagerName(t.from_roster_id)} (+${t.amount}) to {getManagerName(t.to_roster_id)} (-${t.amount}){t.description ? ` - ${t.description}` : ''}
+                      </span>
+                      <button
+                        onClick={() => deleteManualTrade(t.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             {/* Excel Upload Section */}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
