@@ -118,12 +118,13 @@ db.serialize(() => {
     CREATE TABLE IF NOT EXISTS keepers (
       year INTEGER,
       roster_id INTEGER,
+      player_id TEXT,
       player_name TEXT,
       previous_cost REAL,
       years_kept INTEGER DEFAULT 0,
       trade_from_roster_id INTEGER,
       trade_amount REAL,
-      PRIMARY KEY (year, roster_id, player_name)
+      PRIMARY KEY (year, roster_id, player_id)
     )
   `, (err) => {
     if (err) {
@@ -156,6 +157,19 @@ db.serialize(() => {
       console.error('❌ Error adding trade_amount column:', err.message);
     } else {
       console.log('✅ Added trade_amount column');
+    }
+  });
+
+  // Add player_id column if it doesn't exist
+  db.run(`
+    ALTER TABLE keepers ADD COLUMN player_id TEXT;
+  `, (err) => {
+    if (err && err.message.includes('duplicate column name')) {
+      console.log('ℹ️  player_id column already exists');
+    } else if (err) {
+      console.error('❌ Error adding player_id column:', err.message);
+    } else {
+      console.log('✅ Added player_id column');
     }
   });
 
@@ -217,6 +231,10 @@ db.serialize(() => {
     {
       name: 'idx_keepers_year_roster',
       sql: 'CREATE INDEX IF NOT EXISTS idx_keepers_year_roster ON keepers(year, roster_id)'
+    },
+    {
+      name: 'idx_keepers_year_player',
+      sql: 'CREATE INDEX IF NOT EXISTS idx_keepers_year_player ON keepers(year, player_id)'
     },
     {
       name: 'idx_team_seasons_year',

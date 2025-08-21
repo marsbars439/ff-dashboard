@@ -553,6 +553,7 @@ class SleeperService {
                 ? `${p.first_name} ${p.last_name}`
                 : pid);
             return {
+              id: pid,
               name,
               draft_cost: playerCosts[pid] || ''
             };
