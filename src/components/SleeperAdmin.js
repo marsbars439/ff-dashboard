@@ -368,9 +368,11 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
             onChange={(e) => setNewMapping(prev => ({ ...prev, name_id: e.target.value }))}
           >
             <option value="">Select Manager</option>
-            {managers.map(m => (
-              <option key={m.name_id} value={m.name_id}>{m.full_name}</option>
-            ))}
+            {[...managers]
+              .sort((a, b) => a.full_name.localeCompare(b.full_name))
+              .map(m => (
+                <option key={m.name_id} value={m.name_id}>{m.full_name}</option>
+              ))}
           </select>
           <input
             type="number"
