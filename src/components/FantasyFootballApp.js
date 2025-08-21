@@ -484,6 +484,27 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     });
   };
 
+  const handleTradeNoteChange = (rosterId, playerIndex, value) => {
+    setKeepers(prev => {
+      const updated = prev.map(team => ({ ...team, players: [...team.players] }));
+      const sourceTeam = updated.find(t => t.roster_id === rosterId);
+      const player = sourceTeam.players[playerIndex];
+      if (player.locked || player.years_kept > 1) return prev;
+
+      player.trade_note = value;
+      if (player.trade_roster_id) {
+        const targetTeam = updated.find(t => t.roster_id === player.trade_roster_id);
+        const targetPlayer = targetTeam.players.find(
+          p => p.id === player.id && p.locked && p.trade_roster_id === rosterId
+        );
+        if (targetPlayer) targetPlayer.trade_note = value;
+      }
+
+      saveAllKeepers(updated);
+      return updated;
+    });
+  };
+
   const getManagerName = (rosterId) => {
     const team = keepers.find(t => t.roster_id === rosterId);
     return team ? team.manager_name || team.team_name || `Roster ${rosterId}` : `Roster ${rosterId}`;
@@ -2266,26 +2287,5 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     </div>
   );
 };
-
-  const handleTradeNoteChange = (rosterId, playerIndex, value) => {
-    setKeepers(prev => {
-      const updated = prev.map(team => ({ ...team, players: [...team.players] }));
-      const sourceTeam = updated.find(t => t.roster_id === rosterId);
-      const player = sourceTeam.players[playerIndex];
-      if (player.locked || player.years_kept > 1) return prev;
-
-      player.trade_note = value;
-      if (player.trade_roster_id) {
-        const targetTeam = updated.find(t => t.roster_id === player.trade_roster_id);
-        const targetPlayer = targetTeam.players.find(
-          p => p.id === player.id && p.locked && p.trade_roster_id === rosterId
-        );
-        if (targetPlayer) targetPlayer.trade_note = value;
-      }
-
-      saveAllKeepers(updated);
-      return updated;
-    });
-  };
 
 export default FantasyFootballApp;
