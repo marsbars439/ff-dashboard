@@ -220,7 +220,7 @@ const FantasyFootballApp = () => {
               name: p.name,
               previous_cost: p.draft_cost || '',
               base_years_kept: baseYears,
-              years_kept: baseYears + (keep ? 1 : 0),
+              years_kept: keep ? baseYears + 1 : 0,
               keep,
               trade: savedPlayer ? savedPlayer.trade_from_roster_id != null : false,
               trade_roster_id: savedPlayer ? savedPlayer.trade_from_roster_id : null,
@@ -254,7 +254,7 @@ const FantasyFootballApp = () => {
               name: sp.player_name,
               previous_cost: sp.previous_cost,
               base_years_kept: baseYears,
-              years_kept: baseYears + 1,
+              years_kept: 0,
               keep: false,
               trade: true,
               trade_roster_id: sp.roster_id,
@@ -294,7 +294,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
     team.players[playerIndex] = {
       ...player,
       keep: newKeep,
-      years_kept: player.base_years_kept + (newKeep ? 1 : 0)
+      years_kept: newKeep ? player.base_years_kept + 1 : 0
     };
     team.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
     saveAllKeepers(updated);
@@ -315,7 +315,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade_roster_id = defaultTarget;
         player.trade_amount = '';
         player.keep = false;
-        player.years_kept = player.base_years_kept;
+        player.years_kept = 0;
 
         if (defaultTarget != null) {
           const targetTeam = updated.find(t => t.roster_id === defaultTarget);
@@ -346,7 +346,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade = false;
         player.trade_roster_id = null;
         player.trade_amount = '';
-        player.years_kept = player.base_years_kept + (player.keep ? 1 : 0);
+        player.years_kept = player.keep ? player.base_years_kept + 1 : 0;
       }
 
       sourceTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
