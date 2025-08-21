@@ -67,6 +67,18 @@ db.serialize(() => {
   db.run(
     'CREATE INDEX IF NOT EXISTS idx_keepers_year_player ON keepers(year, player_id)'
   );
+
+  // Table for manually entered trades not tied to keepers
+  db.run(`
+    CREATE TABLE IF NOT EXISTS manual_trades (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      year INTEGER,
+      from_roster_id INTEGER,
+      to_roster_id INTEGER,
+      amount REAL,
+      description TEXT
+    )
+  `);
 });
 
 // Helper functions for async DB operations
@@ -293,6 +305,53 @@ app.post('/api/keepers/:year/:rosterId', async (req, res) => {
     }
 
     res.json({ message: 'Keepers saved' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manually entered trades not tied to keepers
+app.get('/api/trades/:year', (req, res) => {
+  const year = parseInt(req.params.year);
+  db.all(
+    'SELECT id, year, from_roster_id, to_roster_id, amount, description FROM manual_trades WHERE year = ?',
+    [year],
+    (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ trades: rows });
+    }
+  );
+});
+
+app.post('/api/trades', async (req, res) => {
+  const { year, from_roster_id, to_roster_id, amount, description } = req.body;
+  if (
+    year == null ||
+    from_roster_id == null ||
+    to_roster_id == null ||
+    amount == null
+  ) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  try {
+    const result = await runAsync(
+      'INSERT INTO manual_trades (year, from_roster_id, to_roster_id, amount, description) VALUES (?, ?, ?, ?, ?)',
+      [year, from_roster_id, to_roster_id, amount, description || null]
+    );
+    res.json({ id: result.lastID });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/trades/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    await runAsync('DELETE FROM manual_trades WHERE id = ?', [id]);
+    res.json({ message: 'Trade deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
