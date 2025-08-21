@@ -282,7 +282,7 @@ app.post('/api/keepers/:year/:rosterId', async (req, res) => {
         'SELECT years_kept FROM keepers WHERE year = ? AND player_name = ?',
         [year - 1, p.name]
       );
-      const yearsKept = prev ? prev.years_kept + 1 : 0;
+      const yearsKept = prev ? prev.years_kept : 0;
       await runAsync(
         'INSERT INTO keepers (year, roster_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [year, rosterId, p.name, p.previous_cost, yearsKept, p.trade_from_roster_id || null, p.trade_amount || null]
