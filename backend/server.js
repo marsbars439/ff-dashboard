@@ -26,7 +26,7 @@ db.serialize(() => {
       roster_id INTEGER,
       player_name TEXT,
       previous_cost REAL,
-      years_kept INTEGER,
+      years_kept INTEGER DEFAULT 0,
       trade_from_roster_id INTEGER,
       trade_amount REAL,
       PRIMARY KEY (year, roster_id, player_name)
@@ -62,38 +62,6 @@ const runAsync = (sql, params = []) =>
     });
   });
 
-const getAsync = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
-
-// Recalculate years_kept for seasons after a given year
-const recalcYearsKeptFrom = async (startYear) => {
-  const maxRow = await getAsync('SELECT MAX(year) as maxYear FROM keepers');
-  const maxYear = maxRow && maxRow.maxYear ? maxRow.maxYear : startYear;
-
-  for (let y = startYear + 1; y <= maxYear; y++) {
-    const rows = await new Promise((resolve, reject) => {
-      db.all('SELECT rowid, player_name FROM keepers WHERE year = ?', [y], (err, r) => {
-        if (err) reject(err);
-        else resolve(r);
-      });
-    });
-
-    for (const row of rows) {
-      const prev = await getAsync(
-        'SELECT years_kept FROM keepers WHERE year = ? AND player_name = ?',
-        [y - 1, row.player_name]
-      );
-      const prevYears = prev ? Math.max(prev.years_kept, 1) : 0;
-      const yearsKept = prevYears + 1;
-      await runAsync('UPDATE keepers SET years_kept = ? WHERE rowid = ?', [yearsKept, row.rowid]);
-    }
-  }
-};
 
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
@@ -279,18 +247,11 @@ app.post('/api/keepers/:year/:rosterId', async (req, res) => {
     await runAsync('DELETE FROM keepers WHERE year = ? AND roster_id = ?', [year, rosterId]);
 
     for (const p of players) {
-      const prev = await getAsync(
-        'SELECT years_kept FROM keepers WHERE year = ? AND player_name = ?',
-        [year - 1, p.name]
-      );
-      const prevYears = prev ? Math.max(prev.years_kept, 1) : 0;
-      const yearsKept = prevYears + 1;
       await runAsync(
         'INSERT INTO keepers (year, roster_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [year, rosterId, p.name, p.previous_cost, yearsKept, p.trade_from_roster_id || null, p.trade_amount || null]
+        [year, rosterId, p.name, p.previous_cost, 0, p.trade_from_roster_id || null, p.trade_amount || null]
       );
     }
-    await recalcYearsKeptFrom(year);
 
     res.json({ message: 'Keepers saved' });
   } catch (err) {
