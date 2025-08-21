@@ -182,7 +182,13 @@ const FantasyFootballApp = () => {
   };
 
   const calculateCostToKeep = (previousCost, yearsKept) => {
-    if (previousCost === undefined || previousCost === null || previousCost === '') return '';
+    if (
+      previousCost === undefined ||
+      previousCost === null ||
+      previousCost === '' ||
+      yearsKept > 1
+    )
+      return '';
     return Number(previousCost) + 5 * (yearsKept + 1);
   };
 
@@ -512,7 +518,9 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
       .map(team => ({
         roster_id: team.roster_id,
         team_name: team.manager_name || team.team_name,
-        players: team.players.filter(p => p.keep).map(p => p.name)
+        players: team.players
+          .filter(p => p.keep)
+          .map(p => (p.cost_to_keep ? `${p.name} ($${p.cost_to_keep})` : p.name))
       }))
       .filter(team => team.players.length > 0);
   }, [keepers]);
@@ -1334,9 +1342,13 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
               ) : (
                 selectedKeeperRoster && (
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-lg mb-2">{selectedKeeperRoster.team_name}</h3>
-                    {selectedKeeperRoster.manager_name && (
-                      <p className="text-sm text-gray-600 mb-2">{selectedKeeperRoster.manager_name}</p>
+                    <h3 className="font-semibold text-lg mb-2">
+                      {selectedKeeperRoster.manager_name || selectedKeeperRoster.team_name}
+                    </h3>
+                    {selectedKeeperRoster.team_name && selectedKeeperRoster.manager_name && (
+                      <p className="text-sm text-gray-600 mb-2">
+                        {selectedKeeperRoster.team_name}
+                      </p>
                     )}
                     <div className="overflow-x-auto">
                       <table className="min-w-full text-sm">
