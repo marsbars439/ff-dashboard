@@ -30,6 +30,18 @@ db.serialize(() => {
       console.log('✅ Added trade_amount column');
     }
   });
+
+  db.run(`
+    ALTER TABLE keepers ADD COLUMN trade_note TEXT;
+  `, err => {
+    if (err && err.message.includes('duplicate column name')) {
+      console.log('ℹ️  trade_note column already exists');
+    } else if (err) {
+      console.error('❌ Error adding trade_note column:', err.message);
+    } else {
+      console.log('✅ Added trade_note column');
+    }
+  });
 });
 
 db.close(err => {

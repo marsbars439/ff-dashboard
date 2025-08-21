@@ -47,7 +47,7 @@ const FantasyFootballApp = () => {
   const [keepers, setKeepers] = useState([]);
   const [selectedKeeperRosterId, setSelectedKeeperRosterId] = useState(null);
   const [manualTrades, setManualTrades] = useState([]);
-  const [newTrade, setNewTrade] = useState({ from: '', to: '', amount: '', description: '' });
+  const [newTrade, setNewTrade] = useState({ from: '', to: '', amount: '', note: '' });
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
   const [seasonDataPage, setSeasonDataPage] = useState(0);
 
@@ -238,6 +238,7 @@ const FantasyFootballApp = () => {
             trade: savedPlayer ? savedPlayer.trade_from_roster_id != null : false,
             trade_roster_id: savedPlayer ? savedPlayer.trade_from_roster_id : null,
             trade_amount: savedPlayer ? savedPlayer.trade_amount : '',
+            trade_note: savedPlayer ? savedPlayer.trade_note : '',
             locked: savedPlayer ? savedPlayer.trade_from_roster_id != null : false
           };
           if (years_kept > 1) {
@@ -264,6 +265,7 @@ const FantasyFootballApp = () => {
               trade: sp.trade_from_roster_id != null,
               trade_roster_id: sp.trade_from_roster_id,
               trade_amount: sp.trade_amount || '',
+              trade_note: sp.trade_note || '',
               locked: sp.trade_from_roster_id != null
             };
             if (years_kept > 1) {
@@ -289,6 +291,7 @@ const FantasyFootballApp = () => {
               trade: years_kept > 1 ? false : true,
               trade_roster_id: years_kept > 1 ? null : sp.roster_id,
               trade_amount: years_kept > 1 ? '' : sp.trade_amount || '',
+              trade_note: years_kept > 1 ? '' : sp.trade_note || '',
               locked: false
             };
             if (players[existingIdx].cost_to_keep === undefined) {
@@ -361,6 +364,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade = true;
         player.trade_roster_id = defaultTarget;
         player.trade_amount = '';
+        player.trade_note = '';
         // Preserve existing keeper state so it can be restored if the trade is undone
         player.prev_keep = player.keep;
         player.keep = false;
@@ -379,6 +383,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
               trade: true,
               trade_roster_id: rosterId,
               trade_amount: '',
+              trade_note: '',
               locked: true
             });
             targetTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
@@ -396,6 +401,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade = false;
         player.trade_roster_id = null;
         player.trade_amount = '';
+        player.trade_note = '';
         // Restore previous keeper state if it existed
         player.keep = player.prev_keep;
         delete player.prev_keep;
@@ -443,6 +449,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
             trade: true,
             trade_roster_id: rosterId,
             trade_amount: player.trade_amount || '',
+            trade_note: player.trade_note || '',
             locked: true
           });
           newTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
@@ -456,7 +463,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
     });
   };
 
-  const handleTradeAmountChange = (rosterId, playerIndex, value) => {
+const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     setKeepers(prev => {
       const updated = prev.map(team => ({ ...team, players: [...team.players] }));
       const sourceTeam = updated.find(t => t.roster_id === rosterId);
@@ -493,7 +500,8 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
           name: p.name,
           previous_cost: p.previous_cost,
           trade_from_roster_id: p.trade ? p.trade_roster_id : null,
-          trade_amount: p.trade ? (p.trade_amount ? Number(p.trade_amount) : null) : null
+          trade_amount: p.trade ? (p.trade_amount ? Number(p.trade_amount) : null) : null,
+          trade_note: p.trade ? (p.trade_note || null) : null
         }));
       playersByRoster[team.roster_id] = teamPlayers;
     });
@@ -521,7 +529,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
       const res = await fetch(`${API_BASE_URL}/trades/${year}`);
       if (res.ok) {
         const data = await res.json();
-        setManualTrades(data.trades || []);
+        setManualTrades((data.trades || []).map(t => ({ ...t, note: t.description || '' })));
       } else {
         setManualTrades([]);
       }
@@ -542,11 +550,11 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
           from_roster_id: Number(newTrade.from),
           to_roster_id: Number(newTrade.to),
           amount: Number(newTrade.amount),
-          description: newTrade.description
+          description: newTrade.note
         })
       });
       if (res.ok) {
-        setNewTrade({ from: '', to: '', amount: '', description: '' });
+        setNewTrade({ from: '', to: '', amount: '', note: '' });
         fetchManualTrades(selectedKeeperYear);
       }
     } catch (error) {
@@ -576,29 +584,31 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
   }, [keepers]);
 
   const tradeSummary = useMemo(() => {
-    const trades = [];
+    const manual = manualTrades.map(t => ({
+      year: t.year,
+      from: getManagerName(t.from_roster_id),
+      to: getManagerName(t.to_roster_id),
+      amount: t.amount,
+      note: t.note || '',
+      manual: true,
+    }));
+    const keeper = [];
     keepers.forEach(team => {
       team.players.forEach(p => {
         if (p.trade && p.trade_roster_id && p.locked && p.trade_amount) {
-          trades.push({
+          keeper.push({
+            year: selectedKeeperYear,
             from: getManagerName(p.trade_roster_id),
             to: team.manager_name || team.team_name,
-            player: p.name,
-            amount: p.trade_amount
+            amount: p.trade_amount,
+            note: p.trade_note || '',
+            manual: false,
           });
         }
       });
     });
-    manualTrades.forEach(t => {
-      trades.push({
-        from: getManagerName(t.from_roster_id),
-        to: getManagerName(t.to_roster_id),
-        player: t.description || 'cash',
-        amount: t.amount
-      });
-    });
-    return trades;
-  }, [keepers, manualTrades]);
+    return [...manual, ...keeper];
+  }, [keepers, manualTrades, selectedKeeperYear]);
 
   const saveRules = async () => {
     try {
@@ -1393,7 +1403,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
                   <ul className="text-sm list-disc list-inside space-y-1">
                     {tradeSummary.map((trade, idx) => (
                       <li key={idx}>
-                        {trade.from} {trade.amount ? `(+$${trade.amount})` : ''} traded {trade.player} to {trade.to} {trade.amount ? `(-$${trade.amount})` : ''}
+                        {`${trade.year}: ${trade.from} (${trade.manual ? '-$' : '+$'}${trade.amount}) in-season trade to ${trade.to} (${trade.manual ? '+$' : '-$'}${trade.amount})${trade.note ? ` - ${trade.note}` : ''}`}
                       </li>
                     ))}
                   </ul>
@@ -1511,6 +1521,19 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
                                           }
                                           placeholder="$"
                                           className="border border-gray-300 rounded px-1 py-0.5 text-xs w-20"
+                                        />
+                                        <input
+                                          type="text"
+                                          value={player.trade_note || ''}
+                                          onChange={e =>
+                                            handleTradeNoteChange(
+                                              selectedKeeperRoster.roster_id,
+                                              idx,
+                                              e.target.value
+                                            )
+                                          }
+                                          placeholder="Note"
+                                          className="border border-gray-300 rounded px-1 py-0.5 text-xs w-32"
                                         />
                                       </div>
                                     )}
@@ -1926,9 +1949,9 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
                 />
                 <input
                   type="text"
-                  placeholder="Description"
-                  value={newTrade.description}
-                  onChange={e => setNewTrade({ ...newTrade, description: e.target.value })}
+                  placeholder="Note"
+                  value={newTrade.note}
+                  onChange={e => setNewTrade({ ...newTrade, note: e.target.value })}
                   className="border border-gray-300 rounded-md px-2 py-1 text-sm flex-1"
                 />
                 <button
@@ -1945,7 +1968,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
                   {manualTrades.map(t => (
                     <li key={t.id} className="flex items-center justify-between">
                       <span>
-                        {getManagerName(t.from_roster_id)} (+${t.amount}) to {getManagerName(t.to_roster_id)} (-${t.amount}){t.description ? ` - ${t.description}` : ''}
+                        {getManagerName(t.from_roster_id)} (-${t.amount}) to {getManagerName(t.to_roster_id)} (+${t.amount}){t.note ? ` - ${t.note}` : ''}
                       </span>
                       <button
                         onClick={() => deleteManualTrade(t.id)}
@@ -2243,5 +2266,26 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
     </div>
   );
 };
+
+  const handleTradeNoteChange = (rosterId, playerIndex, value) => {
+    setKeepers(prev => {
+      const updated = prev.map(team => ({ ...team, players: [...team.players] }));
+      const sourceTeam = updated.find(t => t.roster_id === rosterId);
+      const player = sourceTeam.players[playerIndex];
+      if (player.locked || player.years_kept > 1) return prev;
+
+      player.trade_note = value;
+      if (player.trade_roster_id) {
+        const targetTeam = updated.find(t => t.roster_id === player.trade_roster_id);
+        const targetPlayer = targetTeam.players.find(
+          p => p.id === player.id && p.locked && p.trade_roster_id === rosterId
+        );
+        if (targetPlayer) targetPlayer.trade_note = value;
+      }
+
+      saveAllKeepers(updated);
+      return updated;
+    });
+  };
 
 export default FantasyFootballApp;
