@@ -183,13 +183,20 @@ const FantasyFootballApp = () => {
 
   const fetchKeepers = async (year) => {
     try {
-      const [currentRes, savedKeepRes] = await Promise.all([
+      const [currentRes, savedKeepRes, prevKeepRes] = await Promise.all([
         fetch(`${API_BASE_URL}/seasons/${year}/keepers`),
-        fetch(`${API_BASE_URL}/keepers/${year}`)
+        fetch(`${API_BASE_URL}/keepers/${year}`),
+        fetch(`${API_BASE_URL}/keepers/${year - 1}`)
       ]);
 
       const currentData = currentRes.ok ? await currentRes.json() : { rosters: [] };
       const savedKeepers = savedKeepRes.ok ? await savedKeepRes.json() : { keepers: [] };
+      const prevKeepers = prevKeepRes.ok ? await prevKeepRes.json() : { keepers: [] };
+
+      const prevYearsMap = prevKeepers.keepers.reduce((acc, k) => {
+        acc[k.player_id] = (k.years_kept || 0) + 1;
+        return acc;
+      }, {});
 
       const tradedFromMap = savedKeepers.keepers.reduce((acc, k) => {
         if (k.trade_from_roster_id != null && k.trade_from_roster_id !== k.roster_id) {
@@ -210,7 +217,7 @@ const FantasyFootballApp = () => {
             id: p.id,
             name: p.name,
             previous_cost: p.draft_cost || '',
-            years_kept: savedPlayer ? savedPlayer.years_kept : 0,
+            years_kept: prevYearsMap[p.id] || 0,
             keep,
             trade: savedPlayer ? savedPlayer.trade_from_roster_id != null : false,
             trade_roster_id: savedPlayer ? savedPlayer.trade_from_roster_id : null,
@@ -225,7 +232,7 @@ const FantasyFootballApp = () => {
               id: sp.player_id,
               name: sp.player_name,
               previous_cost: sp.previous_cost,
-              years_kept: sp.years_kept,
+              years_kept: prevYearsMap[sp.player_id] || sp.years_kept || 0,
               keep: true,
               trade: sp.trade_from_roster_id != null,
               trade_roster_id: sp.trade_from_roster_id,
@@ -242,7 +249,7 @@ const FantasyFootballApp = () => {
               id: sp.player_id,
               name: sp.player_name,
               previous_cost: sp.previous_cost,
-              years_kept: sp.years_kept,
+              years_kept: prevYearsMap[sp.player_id] || sp.years_kept || 0,
               keep: false,
               trade: true,
               trade_roster_id: sp.roster_id,
