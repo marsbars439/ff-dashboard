@@ -181,6 +181,11 @@ const FantasyFootballApp = () => {
     }
   };
 
+  const calculateCostToKeep = (previousCost, yearsKept) => {
+    if (previousCost === undefined || previousCost === null || previousCost === '') return '';
+    return Number(previousCost) + 5 * (yearsKept + 1);
+  };
+
   const fetchKeepers = async (year) => {
     try {
       const [currentRes, savedKeepRes, prevKeepRes] = await Promise.all([
@@ -212,60 +217,88 @@ const FantasyFootballApp = () => {
         );
         const players = team.players.map(p => {
           const savedPlayer = savedTeam.find(k => k.player_id === p.id);
-          const keep = !!savedPlayer;
-          return {
+          const years_kept = prevYearsMap[p.id] || 0;
+          const previous_cost = p.draft_cost || '';
+          const basePlayer = {
             id: p.id,
             name: p.name,
-            previous_cost: p.draft_cost || '',
-            years_kept: prevYearsMap[p.id] || 0,
-            keep,
+            previous_cost,
+            years_kept,
+            cost_to_keep: calculateCostToKeep(previous_cost, years_kept),
+            keep: !!savedPlayer,
             trade: savedPlayer ? savedPlayer.trade_from_roster_id != null : false,
             trade_roster_id: savedPlayer ? savedPlayer.trade_from_roster_id : null,
             trade_amount: savedPlayer ? savedPlayer.trade_amount : '',
             locked: savedPlayer ? savedPlayer.trade_from_roster_id != null : false
           };
+          if (years_kept > 1) {
+            basePlayer.keep = false;
+            basePlayer.trade = false;
+            basePlayer.trade_roster_id = null;
+            basePlayer.trade_amount = '';
+            basePlayer.locked = false;
+          }
+          return basePlayer;
         });
 
         savedTeam.forEach(sp => {
           if (!players.some(p => p.id === sp.player_id)) {
-            players.push({
+            const years_kept = prevYearsMap[sp.player_id] || sp.years_kept || 0;
+            const previous_cost = sp.previous_cost;
+            const newPlayer = {
               id: sp.player_id,
               name: sp.player_name,
-              previous_cost: sp.previous_cost,
-              years_kept: prevYearsMap[sp.player_id] || sp.years_kept || 0,
+              previous_cost: previous_cost,
+              years_kept,
+              cost_to_keep: calculateCostToKeep(previous_cost, years_kept),
               keep: true,
               trade: sp.trade_from_roster_id != null,
               trade_roster_id: sp.trade_from_roster_id,
               trade_amount: sp.trade_amount || '',
               locked: sp.trade_from_roster_id != null
-            });
+            };
+            if (years_kept > 1) {
+              newPlayer.keep = false;
+              newPlayer.trade = false;
+              newPlayer.trade_roster_id = null;
+              newPlayer.trade_amount = '';
+              newPlayer.locked = false;
+            }
+            players.push(newPlayer);
           }
         });
 
         const tradedAway = tradedFromMap[team.roster_id] || [];
         tradedAway.forEach(sp => {
           const existingIdx = players.findIndex(p => p.id === sp.player_id);
+          const years_kept = prevYearsMap[sp.player_id] || sp.years_kept || 0;
+          const previous_cost = sp.previous_cost;
           if (existingIdx !== -1) {
             players[existingIdx] = {
               ...players[existingIdx],
               keep: false,
-              trade: true,
-              trade_roster_id: sp.roster_id,
-              trade_amount: sp.trade_amount || '',
+              trade: years_kept > 1 ? false : true,
+              trade_roster_id: years_kept > 1 ? null : sp.roster_id,
+              trade_amount: years_kept > 1 ? '' : sp.trade_amount || '',
               locked: false
             };
+            if (players[existingIdx].cost_to_keep === undefined) {
+              players[existingIdx].cost_to_keep = calculateCostToKeep(previous_cost, years_kept);
+            }
           } else {
-            players.push({
+            const newPlayer = {
               id: sp.player_id,
               name: sp.player_name,
-              previous_cost: sp.previous_cost,
-              years_kept: prevYearsMap[sp.player_id] || sp.years_kept || 0,
+              previous_cost: previous_cost,
+              years_kept,
+              cost_to_keep: calculateCostToKeep(previous_cost, years_kept),
               keep: false,
-              trade: true,
-              trade_roster_id: sp.roster_id,
-              trade_amount: sp.trade_amount || '',
+              trade: years_kept > 1 ? false : true,
+              trade_roster_id: years_kept > 1 ? null : sp.roster_id,
+              trade_amount: years_kept > 1 ? '' : sp.trade_amount || '',
               locked: false
-            });
+            };
+            players.push(newPlayer);
           }
         });
 
@@ -294,8 +327,8 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
     const updated = prev.map(team => ({ ...team, players: [...team.players] }));
     const team = updated.find(t => t.roster_id === rosterId);
     const player = team.players[playerIndex];
-    // Prevent keeper changes for any traded players
-    if (player.trade) return prev;
+    // Prevent keeper changes for traded or ineligible players
+    if (player.trade || player.years_kept > 1) return prev;
     const newKeep = !player.keep;
     team.players[playerIndex] = {
       ...player,
@@ -312,7 +345,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
       const updated = prev.map(team => ({ ...team, players: [...team.players] }));
       const sourceTeam = updated.find(t => t.roster_id === rosterId);
       const player = sourceTeam.players[playerIndex];
-      if (player.locked) return prev;
+      if (player.locked || player.years_kept > 1) return prev;
 
       if (!player.trade) {
         const defaultTarget = updated.find(t => t.roster_id !== rosterId)?.roster_id || null;
@@ -331,6 +364,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
               name: player.name,
               previous_cost: player.previous_cost,
               years_kept: player.years_kept,
+              cost_to_keep: player.cost_to_keep,
               // Carry over the keeper state to the receiving team
               keep: player.prev_keep,
               trade: true,
@@ -370,7 +404,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
       const updated = prev.map(team => ({ ...team, players: [...team.players] }));
       const sourceTeam = updated.find(t => t.roster_id === rosterId);
       const player = sourceTeam.players[playerIndex];
-      if (player.locked) return prev;
+      if (player.locked || player.years_kept > 1) return prev;
 
       const oldTarget = player.trade_roster_id;
       const newTarget = Number(value);
@@ -395,6 +429,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
             name: player.name,
             previous_cost: player.previous_cost,
             years_kept: player.years_kept,
+            cost_to_keep: player.cost_to_keep,
             keep: true,
             trade: true,
             trade_roster_id: rosterId,
@@ -417,7 +452,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
       const updated = prev.map(team => ({ ...team, players: [...team.players] }));
       const sourceTeam = updated.find(t => t.roster_id === rosterId);
       const player = sourceTeam.players[playerIndex];
-      if (player.locked) return prev;
+      if (player.locked || player.years_kept > 1) return prev;
 
       player.trade_amount = value;
       if (player.trade_roster_id) {
@@ -1311,6 +1346,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
                             <th className="py-1 px-2">Previous Cost</th>
                             <th className="py-1 px-2"># of Years Kept</th>
                             <th className="py-1 px-2">Trade?</th>
+                            <th className="py-1 px-2">Cost to Keep</th>
                             <th className="py-1 px-2">Keep?</th>
                           </tr>
                         </thead>
@@ -1336,6 +1372,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
                                       type="checkbox"
                                       checked={player.trade || false}
                                       onChange={() => toggleTradeSelection(selectedKeeperRoster.roster_id, idx)}
+                                      disabled={player.years_kept > 1}
                                     />
                                     {player.trade && (
                                       <div className="mt-1 space-y-1">
@@ -1377,12 +1414,13 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
                                   </>
                                 )}
                               </td>
+                              <td className="py-1 px-2">{player.cost_to_keep ? `$${player.cost_to_keep}` : ''}</td>
                               <td className="py-1 px-2">
                                 <input
                                   type="checkbox"
                                   checked={player.keep}
                                   onChange={() => toggleKeeperSelection(selectedKeeperRoster.roster_id, idx)}
-                                  disabled={player.trade}
+                                  disabled={player.trade || player.years_kept > 1}
                                 />
                               </td>
                             </tr>
