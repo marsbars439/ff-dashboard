@@ -213,7 +213,7 @@ const FantasyFootballApp = () => {
         const players = team.players
           .map(p => {
             const prevPlayer = prevMap[p.name];
-            const baseYears = prevPlayer ? prevPlayer.years_kept : 0;
+            const baseYears = prevPlayer ? prevPlayer.years_kept + 1 : 0;
             const savedPlayer = savedTeam.find(k => k.player_name === p.name);
             const keep = !!savedPlayer;
             return {
@@ -231,7 +231,9 @@ const FantasyFootballApp = () => {
 
         savedTeam.forEach(sp => {
           if (!players.some(p => p.name === sp.player_name)) {
-            const baseYears = prevMap[sp.player_name]?.years_kept || 0;
+            const baseYears = prevMap[sp.player_name]
+              ? prevMap[sp.player_name].years_kept + 1
+              : 0;
             players.push({
               name: sp.player_name,
               previous_cost: sp.previous_cost,
@@ -249,7 +251,9 @@ const FantasyFootballApp = () => {
         const tradedAway = tradedFromMap[team.roster_id] || [];
         tradedAway.forEach(sp => {
           if (!players.some(p => p.name === sp.player_name && p.trade_roster_id === sp.roster_id)) {
-            const baseYears = prevMap[sp.player_name]?.years_kept || 0;
+            const baseYears = prevMap[sp.player_name]
+              ? prevMap[sp.player_name].years_kept + 1
+              : 0;
             players.push({
               name: sp.player_name,
               previous_cost: sp.previous_cost,
