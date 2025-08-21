@@ -294,7 +294,8 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
     const updated = prev.map(team => ({ ...team, players: [...team.players] }));
     const team = updated.find(t => t.roster_id === rosterId);
     const player = team.players[playerIndex];
-    if (player.trade && !player.locked) return prev;
+    // Prevent keeper changes for any traded players
+    if (player.trade) return prev;
     const newKeep = !player.keep;
     team.players[playerIndex] = {
       ...player,
@@ -318,6 +319,8 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade = true;
         player.trade_roster_id = defaultTarget;
         player.trade_amount = '';
+        // Preserve existing keeper state so it can be restored if the trade is undone
+        player.prev_keep = player.keep;
         player.keep = false;
 
         if (defaultTarget != null) {
@@ -328,7 +331,8 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
               name: player.name,
               previous_cost: player.previous_cost,
               years_kept: player.years_kept,
-              keep: true,
+              // Carry over the keeper state to the receiving team
+              keep: player.prev_keep,
               trade: true,
               trade_roster_id: rosterId,
               trade_amount: '',
@@ -349,6 +353,9 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade = false;
         player.trade_roster_id = null;
         player.trade_amount = '';
+        // Restore previous keeper state if it existed
+        player.keep = player.prev_keep;
+        delete player.prev_keep;
       }
 
       sourceTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
@@ -1375,7 +1382,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
                                   type="checkbox"
                                   checked={player.keep}
                                   onChange={() => toggleKeeperSelection(selectedKeeperRoster.roster_id, idx)}
-                                  disabled={player.trade && !player.locked}
+                                  disabled={player.trade}
                                 />
                               </td>
                             </tr>
