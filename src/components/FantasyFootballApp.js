@@ -281,8 +281,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
     const newKeep = !player.keep;
     team.players[playerIndex] = {
       ...player,
-      keep: newKeep,
-      years_kept: 0
+      keep: newKeep
     };
     team.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
     saveAllKeepers(updated);
@@ -303,7 +302,6 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade_roster_id = defaultTarget;
         player.trade_amount = '';
         player.keep = false;
-        player.years_kept = 0;
 
         if (defaultTarget != null) {
           const targetTeam = updated.find(t => t.roster_id === defaultTarget);
@@ -312,7 +310,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
               id: player.id,
               name: player.name,
               previous_cost: player.previous_cost,
-              years_kept: 0,
+              years_kept: player.years_kept,
               keep: true,
               trade: true,
               trade_roster_id: rosterId,
@@ -334,7 +332,6 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         player.trade = false;
         player.trade_roster_id = null;
         player.trade_amount = '';
-        player.years_kept = 0;
       }
 
       sourceTeam.players.sort((a, b) => (b.previous_cost || 0) - (a.previous_cost || 0));
@@ -373,7 +370,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
             id: player.id,
             name: player.name,
             previous_cost: player.previous_cost,
-            years_kept: 0,
+            years_kept: player.years_kept,
             keep: true,
             trade: true,
             trade_roster_id: rosterId,
