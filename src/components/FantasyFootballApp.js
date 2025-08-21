@@ -1425,8 +1425,8 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                     {tradeSummary.map((trade, idx) => (
                       <li key={idx}>
                         {trade.manual
-                          ? `${trade.year}: ${trade.from} (-$${trade.amount}) in-season trade to ${trade.to} (+$${trade.amount})${trade.note ? ` - ${trade.note}` : ''}`
-                          : `${trade.year}: ${trade.to} (-$${trade.amount}) buys ${trade.player} from ${trade.from} (+$${trade.amount})${trade.note ? ` - ${trade.note}` : ''}`}
+                          ? `${trade.from} (-$${trade.amount}) in-season trade to ${trade.to} (+$${trade.amount})${trade.note ? ` - ${trade.note}` : ''}`
+                          : `${trade.to} (-$${trade.amount}) buys ${trade.player} from ${trade.from} (+$${trade.amount})${trade.note ? ` - ${trade.note}` : ''}`}
                       </li>
                     ))}
                   </ul>
