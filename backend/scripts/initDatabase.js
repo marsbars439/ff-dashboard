@@ -124,6 +124,7 @@ db.serialize(() => {
       years_kept INTEGER DEFAULT 0,
       trade_from_roster_id INTEGER,
       trade_amount REAL,
+      trade_note TEXT,
       PRIMARY KEY (year, roster_id, player_id)
     )
   `, (err) => {
@@ -157,6 +158,18 @@ db.serialize(() => {
       console.error('❌ Error adding trade_amount column:', err.message);
     } else {
       console.log('✅ Added trade_amount column');
+    }
+  });
+
+  db.run(`
+    ALTER TABLE keepers ADD COLUMN trade_note TEXT;
+  `, (err) => {
+    if (err && err.message.includes('duplicate column name')) {
+      console.log('ℹ️  trade_note column already exists');
+    } else if (err) {
+      console.error('❌ Error adding trade_note column:', err.message);
+    } else {
+      console.log('✅ Added trade_note column');
     }
   });
 

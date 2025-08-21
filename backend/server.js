@@ -30,6 +30,7 @@ db.serialize(() => {
       years_kept INTEGER DEFAULT 0,
       trade_from_roster_id INTEGER,
       trade_amount REAL,
+      trade_note TEXT,
       PRIMARY KEY (year, roster_id, player_id)
     )
   `);
@@ -49,6 +50,15 @@ db.serialize(() => {
     err => {
       if (err && !err.message.includes('duplicate column name')) {
         console.error('Error adding trade_amount column:', err.message);
+      }
+    }
+  );
+
+  db.run(
+    `ALTER TABLE keepers ADD COLUMN trade_note TEXT`,
+    err => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Error adding trade_note column:', err.message);
       }
     }
   );
@@ -261,7 +271,7 @@ app.get('/api/seasons/:year/keepers', (req, res) => {
 app.get('/api/keepers/:year', (req, res) => {
   const year = parseInt(req.params.year);
   db.all(
-    'SELECT roster_id, player_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount FROM keepers WHERE year = ?',
+    'SELECT roster_id, player_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount, trade_note FROM keepers WHERE year = ?',
     [year],
     (err, rows) => {
       if (err) {
@@ -290,7 +300,7 @@ app.post('/api/keepers/:year/:rosterId', async (req, res) => {
       const yearsKept = prev ? prev.years_kept + 1 : 0;
 
       await runAsync(
-        'INSERT INTO keepers (year, roster_id, player_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO keepers (year, roster_id, player_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount, trade_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           year,
           rosterId,
@@ -300,6 +310,7 @@ app.post('/api/keepers/:year/:rosterId', async (req, res) => {
           yearsKept,
           p.trade_from_roster_id || null,
           p.trade_amount || null,
+          p.trade_note || null,
         ]
       );
     }
