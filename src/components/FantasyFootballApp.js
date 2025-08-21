@@ -378,8 +378,8 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
               previous_cost: player.previous_cost,
               years_kept: player.years_kept,
               cost_to_keep: player.cost_to_keep,
-              // Carry over the keeper state to the receiving team
-              keep: player.prev_keep,
+              // New team intends to keep the traded player by default
+              keep: true,
               trade: true,
               trade_roster_id: rosterId,
               trade_amount: '',
@@ -539,7 +539,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
           throw new Error(err.error || 'Failed to save');
         }
       }
-      await fetchKeepers(selectedKeeperYear);
     } catch (error) {
       console.error('Error saving keepers:', error);
     }
@@ -621,6 +620,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
             year: selectedKeeperYear,
             from: getManagerName(p.trade_roster_id),
             to: team.manager_name || team.team_name,
+            player: p.name,
             amount: p.trade_amount,
             note: p.trade_note || '',
             manual: false,
@@ -1424,7 +1424,9 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   <ul className="text-sm list-disc list-inside space-y-1">
                     {tradeSummary.map((trade, idx) => (
                       <li key={idx}>
-                        {`${trade.year}: ${trade.from} (${trade.manual ? '-$' : '+$'}${trade.amount}) in-season trade to ${trade.to} (${trade.manual ? '+$' : '-$'}${trade.amount})${trade.note ? ` - ${trade.note}` : ''}`}
+                        {trade.manual
+                          ? `${trade.year}: ${trade.from} (-$${trade.amount}) in-season trade to ${trade.to} (+$${trade.amount})${trade.note ? ` - ${trade.note}` : ''}`
+                          : `${trade.year}: ${trade.to} (-$${trade.amount}) buys ${trade.player} from ${trade.from} (+$${trade.amount})${trade.note ? ` - ${trade.note}` : ''}`}
                       </li>
                     ))}
                   </ul>
