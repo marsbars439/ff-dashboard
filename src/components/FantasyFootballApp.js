@@ -529,7 +529,7 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
     const trades = [];
     keepers.forEach(team => {
       team.players.forEach(p => {
-        if (p.trade && p.trade_roster_id && p.locked) {
+        if (p.trade && p.trade_roster_id && p.locked && p.trade_amount) {
           trades.push({
             from: getManagerName(p.trade_roster_id),
             to: team.manager_name || team.team_name,
@@ -1312,38 +1312,34 @@ const toggleKeeperSelection = (rosterId, playerIndex) => {
         )}
         {activeTab === 'keepers' && (
           <div className="space-y-4 sm:space-y-6">
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold mb-4">Keepers for the {selectedKeeperYear + 1} season</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-semibold mb-2">Keepers Summary</h4>
-                  {keeperSummary.length === 0 ? (
-                    <p className="text-gray-500 text-sm">No keepers selected.</p>
-                  ) : (
-                    <ul className="text-sm list-disc list-inside space-y-1">
-                      {keeperSummary.map(team => (
-                        <li key={team.roster_id}>
-                          <strong>{team.team_name}:</strong> {team.players.join(', ')}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Trades</h4>
-                  {tradeSummary.length === 0 ? (
-                    <p className="text-gray-500 text-sm">No trades recorded.</p>
-                  ) : (
-                    <ul className="text-sm list-disc list-inside space-y-1">
-                      {tradeSummary.map((trade, idx) => (
-                        <li key={idx}>
-                          {trade.from} traded {trade.player}
-                          {trade.amount ? ` ($${trade.amount})` : ''} to {trade.to}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold mb-4">Keepers for the {selectedKeeperYear + 1} season</h3>
+                {keeperSummary.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No keepers selected.</p>
+                ) : (
+                  <ul className="text-sm list-disc list-inside space-y-1">
+                    {keeperSummary.map(team => (
+                      <li key={team.roster_id}>
+                        <strong>{team.team_name}:</strong> {team.players.join(', ')}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold mb-4">Trades involving {selectedKeeperYear + 1} draft money</h3>
+                {tradeSummary.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No trades recorded.</p>
+                ) : (
+                  <ul className="text-sm list-disc list-inside space-y-1">
+                    {tradeSummary.map((trade, idx) => (
+                      <li key={idx}>
+                        {trade.from} {trade.amount ? `(+$${trade.amount})` : ''} traded {trade.player} to {trade.to} {trade.amount ? `(-$${trade.amount})` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
