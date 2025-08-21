@@ -601,7 +601,8 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
           .filter(p => p.keep)
           .map(p => (p.cost_to_keep ? `${p.name} ($${p.cost_to_keep})` : p.name))
       }))
-      .filter(team => team.players.length > 0);
+      .filter(team => team.players.length > 0)
+      .sort((a, b) => a.team_name.localeCompare(b.team_name));
   }, [keepers]);
 
   const tradeSummary = useMemo(() => {
@@ -1517,11 +1518,17 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                     onChange={e => setSelectedKeeperRosterId(Number(e.target.value))}
                     className="border border-gray-300 rounded-md px-2 py-1 text-sm"
                   >
-                    {keepers.map(team => (
-                      <option key={team.roster_id} value={team.roster_id}>
-                        {team.manager_name || team.team_name}
-                      </option>
-                    ))}
+                    {[...keepers]
+                      .sort((a, b) =>
+                        (a.manager_name || a.team_name).localeCompare(
+                          b.manager_name || b.team_name
+                        )
+                      )
+                      .map(team => (
+                        <option key={team.roster_id} value={team.roster_id}>
+                          {team.manager_name || team.team_name}
+                        </option>
+                      ))}
                   </select>
                 )}
               </div>
@@ -1590,6 +1597,11 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                                           <option value="">Select manager</option>
                                           {keepers
                                             .filter(t => t.roster_id !== selectedKeeperRoster.roster_id)
+                                            .sort((a, b) =>
+                                              (a.manager_name || a.team_name).localeCompare(
+                                                b.manager_name || b.team_name
+                                              )
+                                            )
                                             .map(t => (
                                               <option key={t.roster_id} value={t.roster_id}>
                                                 {t.manager_name || t.team_name}
@@ -1909,11 +1921,13 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                     className="w-full appearance-none bg-white border border-gray-300 rounded-lg px-4 py-3 pr-10 text-gray-700 leading-tight focus:outline-none focus:border-blue-500 text-sm sm:text-base"
                   >
                     <option value="">Select a manager to view detailed stats</option>
-                    {Object.entries(allRecords).map(([nameId, manager]) => (
-                      <option key={nameId} value={nameId}>
-                        {manager.name} {!manager.active ? '(Inactive)' : ''}
-                      </option>
-                    ))}
+                    {Object.entries(allRecords)
+                      .sort((a, b) => a[1].name.localeCompare(b[1].name))
+                      .map(([nameId, manager]) => (
+                        <option key={nameId} value={nameId}>
+                          {manager.name} {!manager.active ? '(Inactive)' : ''}
+                        </option>
+                      ))}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
                 </div>
@@ -2009,11 +2023,17 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   className="border border-gray-300 rounded-md px-2 py-1 text-sm flex-1"
                 >
                   <option value="">From Team</option>
-                  {keepers.map(team => (
-                    <option key={team.roster_id} value={team.roster_id}>
-                      {team.manager_name || team.team_name}
-                    </option>
-                  ))}
+                  {[...keepers]
+                    .sort((a, b) =>
+                      (a.manager_name || a.team_name).localeCompare(
+                        b.manager_name || b.team_name
+                      )
+                    )
+                    .map(team => (
+                      <option key={team.roster_id} value={team.roster_id}>
+                        {team.manager_name || team.team_name}
+                      </option>
+                    ))}
                 </select>
                 <select
                   value={newTrade.to}
@@ -2021,11 +2041,17 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   className="border border-gray-300 rounded-md px-2 py-1 text-sm flex-1"
                 >
                   <option value="">To Team</option>
-                  {keepers.map(team => (
-                    <option key={team.roster_id} value={team.roster_id}>
-                      {team.manager_name || team.team_name}
-                    </option>
-                  ))}
+                  {[...keepers]
+                    .sort((a, b) =>
+                      (a.manager_name || a.team_name).localeCompare(
+                        b.manager_name || b.team_name
+                      )
+                    )
+                    .map(team => (
+                      <option key={team.roster_id} value={team.roster_id}>
+                        {team.manager_name || team.team_name}
+                      </option>
+                    ))}
                 </select>
                 <input
                   type="number"
