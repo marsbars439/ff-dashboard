@@ -24,12 +24,13 @@ db.serialize(() => {
     CREATE TABLE IF NOT EXISTS keepers (
       year INTEGER,
       roster_id INTEGER,
+      player_id TEXT,
       player_name TEXT,
       previous_cost REAL,
       years_kept INTEGER DEFAULT 0,
       trade_from_roster_id INTEGER,
       trade_amount REAL,
-      PRIMARY KEY (year, roster_id, player_name)
+      PRIMARY KEY (year, roster_id, player_id)
     )
   `);
 
@@ -51,6 +52,21 @@ db.serialize(() => {
       }
     }
   );
+
+  // Ensure player_id column exists for legacy databases
+  db.run(
+    `ALTER TABLE keepers ADD COLUMN player_id TEXT`,
+    err => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Error adding player_id column:', err.message);
+      }
+    }
+  );
+
+  // Index to speed up lookup by year and player
+  db.run(
+    'CREATE INDEX IF NOT EXISTS idx_keepers_year_player ON keepers(year, player_id)'
+  );
 });
 
 // Helper functions for async DB operations
@@ -59,6 +75,14 @@ const runAsync = (sql, params = []) =>
     db.run(sql, params, function (err) {
       if (err) reject(err);
       else resolve(this);
+    });
+  });
+
+const getAsync = (sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
     });
   });
 
@@ -225,7 +249,7 @@ app.get('/api/seasons/:year/keepers', (req, res) => {
 app.get('/api/keepers/:year', (req, res) => {
   const year = parseInt(req.params.year);
   db.all(
-    'SELECT roster_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount FROM keepers WHERE year = ?',
+    'SELECT roster_id, player_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount FROM keepers WHERE year = ?',
     [year],
     (err, rows) => {
       if (err) {
@@ -247,9 +271,24 @@ app.post('/api/keepers/:year/:rosterId', async (req, res) => {
     await runAsync('DELETE FROM keepers WHERE year = ? AND roster_id = ?', [year, rosterId]);
 
     for (const p of players) {
+      const prev = await getAsync(
+        'SELECT years_kept FROM keepers WHERE year = ? AND player_id = ?',
+        [year - 1, p.player_id]
+      );
+      const yearsKept = prev ? prev.years_kept + 1 : 0;
+
       await runAsync(
-        'INSERT INTO keepers (year, roster_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [year, rosterId, p.name, p.previous_cost, 0, p.trade_from_roster_id || null, p.trade_amount || null]
+        'INSERT INTO keepers (year, roster_id, player_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          year,
+          rosterId,
+          p.player_id,
+          p.name,
+          p.previous_cost,
+          yearsKept,
+          p.trade_from_roster_id || null,
+          p.trade_amount || null,
+        ]
       );
     }
 
