@@ -1266,14 +1266,14 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 Seasons
               </button>
               <button
-                onClick={() => setActiveTab('keepers')}
+                onClick={() => setActiveTab('preseason')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'keepers'
+                  activeTab === 'preseason'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Keepers
+                Preseason
               </button>
               <button
                 onClick={() => setActiveTab('rules')}
@@ -1421,8 +1421,21 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
             )}
           </div>
         )}
-        {activeTab === 'keepers' && (
+        {activeTab === 'preseason' && (
           <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-end">
+              <select
+                value={selectedKeeperYear || ''}
+                onChange={e => setSelectedKeeperYear(Number(e.target.value))}
+                className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+              >
+                {availableYears.map(year => (
+                  <option key={year} value={year}>
+                    {`${year} Rosters / ${year + 1} Draft`}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-0">
@@ -1498,30 +1511,19 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">{selectedKeeperYear} Rosters</h2>
-                <div className="flex flex-col sm:flex-row gap-2">
+                {keepers.length > 0 && (
                   <select
-                    value={selectedKeeperYear || ''}
-                    onChange={e => setSelectedKeeperYear(Number(e.target.value))}
+                    value={selectedKeeperRosterId || ''}
+                    onChange={e => setSelectedKeeperRosterId(Number(e.target.value))}
                     className="border border-gray-300 rounded-md px-2 py-1 text-sm"
                   >
-                    {availableYears.map(year => (
-                      <option key={year} value={year}>{year}</option>
+                    {keepers.map(team => (
+                      <option key={team.roster_id} value={team.roster_id}>
+                        {team.manager_name || team.team_name}
+                      </option>
                     ))}
                   </select>
-                  {keepers.length > 0 && (
-                    <select
-                      value={selectedKeeperRosterId || ''}
-                      onChange={e => setSelectedKeeperRosterId(Number(e.target.value))}
-                      className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                    >
-                      {keepers.map(team => (
-                        <option key={team.roster_id} value={team.roster_id}>
-                          {team.manager_name || team.team_name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+                )}
               </div>
               {keepers.length === 0 ? (
                 <p className="text-gray-500">No roster data available for this season.</p>
