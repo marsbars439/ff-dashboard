@@ -1122,12 +1122,14 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
   };
 
   const weeklyScores = useMemo(() => {
-    return seasonMatchups.flatMap(week =>
-      week.matchups.flatMap(m => [
-        { manager: m.home.manager_name, points: m.home.points, week: week.week },
-        { manager: m.away.manager_name, points: m.away.points, week: week.week }
-      ])
-    );
+    return seasonMatchups
+      .flatMap(week =>
+        week.matchups.flatMap(m => [
+          { manager: m.home.manager_name, points: m.home.points, week: week.week },
+          { manager: m.away.manager_name, points: m.away.points, week: week.week }
+        ])
+      )
+      .filter(score => score.points > 0);
   }, [seasonMatchups]);
 
   const topWeeklyScores = [...weeklyScores].sort((a, b) => b.points - a.points).slice(0, 5);
