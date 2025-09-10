@@ -13,6 +13,10 @@ function buildSummaryPrompt(data) {
   const d = typeof data === 'object' && data !== null ? data : {};
   const sections = [];
 
+  if (typeof d.currentWeek === 'number') {
+    sections.push(`Current week: ${d.currentWeek}`);
+  }
+
   // Managers and win/loss records
   const managerRecords = [];
   const managers = new Set();
@@ -74,13 +78,14 @@ function buildSummaryPrompt(data) {
     : [];
   const matchupLines = [];
   matchups.forEach(m => {
+    const weekLabel = m.week ? `W${m.week} ` : '';
     if (m.home && m.away) {
       matchupLines.push(
-        `${m.home.manager_name} vs ${m.away.manager_name} (${m.home.points}-${m.away.points})`
+        `${weekLabel}${m.home.manager_name} vs ${m.away.manager_name} (${m.home.points}-${m.away.points})`
       );
     } else if (m.team1 && m.team2) {
       matchupLines.push(
-        `${m.team1.manager_name} vs ${m.team2.manager_name} (${m.team1.points}-${m.team2.points})`
+        `${weekLabel}${m.team1.manager_name} vs ${m.team2.manager_name} (${m.team1.points}-${m.team2.points})`
       );
     }
   });
@@ -97,7 +102,7 @@ function buildSummaryPrompt(data) {
   const intro = variants[d.type] ||
     'Surface insights about manager performance, medals, win/loss records, roster highlights, and matchups.';
 
-  return `${intro}\n\n${sections.join('\n')}`;
+  return `${intro}\n\n${sections.join('\n')}\n\nFormat the response as concise bullet points.`;
 }
 
 /**

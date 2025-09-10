@@ -48,8 +48,18 @@ const AISummary = ({ data }) => {
   if (!summary) {
     return null;
   }
+  const lines = summary
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line);
 
-  return <p>{summary}</p>;
+  return (
+    <ul className="list-disc list-inside space-y-1">
+      {lines.map((line, idx) => (
+        <li key={idx}>{line.replace(/^[-*]\s*/, '')}</li>
+      ))}
+    </ul>
+  );
 };
 
 export default AISummary;
