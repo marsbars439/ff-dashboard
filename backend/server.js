@@ -13,9 +13,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Rate limiter for summary endpoint
+const summaryRateLimitWindowMs =
+  parseInt(process.env.SUMMARY_RATE_LIMIT_WINDOW_MS, 10) || 60 * 1000;
+const summaryRateLimitMax =
+  parseInt(process.env.SUMMARY_RATE_LIMIT_MAX, 10) || 20;
+
 const summarizeLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
+  windowMs: summaryRateLimitWindowMs,
+  max: summaryRateLimitMax,
   message: 'Too many requests, please try again later.'
 });
 

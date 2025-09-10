@@ -21,6 +21,7 @@ A comprehensive web application for tracking fantasy football league records, st
   - Champion plaque engraving instructions
 
 - **LLM Summaries**: Generate AI-based summaries via `POST /api/summarize` (requires `OPENAI_API_KEY` in `backend/.env`)
+- **Rate Limiting**: Summary endpoint allows 20 requests per minute by default and can be tuned with `SUMMARY_RATE_LIMIT_MAX` and `SUMMARY_RATE_LIMIT_WINDOW_MS` variables
 
 ## Quick Start
 

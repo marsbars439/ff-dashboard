@@ -14,6 +14,8 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - FAST_REFRESH=true
+      - SUMMARY_RATE_LIMIT_MAX=${SUMMARY_RATE_LIMIT_MAX:-20}
+      - SUMMARY_RATE_LIMIT_WINDOW_MS=${SUMMARY_RATE_LIMIT_WINDOW_MS:-60000}
     networks:
       - fantasy-dev-network
     stdin_open: true
