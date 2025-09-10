@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import SleeperAdmin from './SleeperAdmin';
 import PlayoffBracket from './PlayoffBracket';
+import AISummary from './AISummary';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -1135,36 +1136,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
   const topWeeklyScores = [...weeklyScores].sort((a, b) => b.points - a.points).slice(0, 5);
   const bottomWeeklyScores = [...weeklyScores].sort((a, b) => a.points - b.points).slice(0, 5);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-24 w-24 sm:h-32 sm:w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-sm sm:text-base">Loading The League Dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-        <div className="text-center max-w-md w-full">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            <p className="font-bold">Error</p>
-            <p className="text-sm">{error}</p>
-            <button 
-              onClick={fetchData}
-              className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const allRecords = calculateAllRecords();
   const activeRecords = Object.values(allRecords).filter(r => r.active);
   const inactiveRecords = Object.values(allRecords).filter(r => !r.active);
@@ -1203,7 +1174,84 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       if (b.chumpionships !== a.chumpionships) return b.chumpionships - a.chumpionships;
       return a.seasons - b.seasons; // Fewer seasons = worse ranking when tied
     });
-  
+
+  const recordsSummaryData = useMemo(
+    () => ({
+      currentChampion,
+      currentChumpion,
+      medalRankings,
+      chumpionRankings,
+      activeRecords,
+      inactiveRecords
+    }),
+    [
+      currentChampion,
+      currentChumpion,
+      medalRankings,
+      chumpionRankings,
+      activeRecords,
+      inactiveRecords
+    ]
+  );
+
+  const availableYears = [...new Set(teamSeasons.map(s => s.year))].sort((a, b) => b - a);
+  const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
+  const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
+  const thirdPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 3);
+
+  const seasonSummaryData = useMemo(
+    () => ({
+      year: selectedSeasonYear,
+      champion,
+      runnerUp,
+      thirdPlace,
+      teams: teamSeasons.filter(s => s.year === selectedSeasonYear),
+      topWeeklyScores,
+      bottomWeeklyScores
+    }),
+    [
+      selectedSeasonYear,
+      champion,
+      runnerUp,
+      thirdPlace,
+      teamSeasons,
+      topWeeklyScores,
+      bottomWeeklyScores
+    ]
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-24 w-24 sm:h-32 sm:w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-sm sm:text-base">Loading The League Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+        <div className="text-center max-w-md w-full">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <p className="font-bold">Error</p>
+            <p className="text-sm">{error}</p>
+            <button
+              onClick={fetchData}
+              className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const selectedKeeperRoster = keepers.find(team => team.roster_id === selectedKeeperRosterId) || null;
+
   const winPctRankings = [
     ...activeRecords.sort((a, b) => b.winPct - a.winPct),
     ...inactiveRecords.sort((a, b) => b.winPct - a.winPct)
@@ -1213,12 +1261,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     ...activeRecords.sort((a, b) => b.pointsPerGame - a.pointsPerGame),
     ...inactiveRecords.sort((a, b) => b.pointsPerGame - a.pointsPerGame)
   ];
-
-  const availableYears = [...new Set(teamSeasons.map(s => s.year))].sort((a, b) => b - a);
-  const selectedKeeperRoster = keepers.find(team => team.roster_id === selectedKeeperRosterId) || null;
-  const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
-  const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
-  const thirdPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 3);
 
   const seasonDataYears = availableYears;
   const currentSeasonDataYear = seasonDataYears[seasonDataPage] || null;
@@ -1306,6 +1348,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {activeTab === 'seasons' && (
           <div className="space-y-4 sm:space-y-6">
+            <AISummary data={seasonSummaryData} />
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Season {selectedSeasonYear}</h2>
@@ -1663,6 +1706,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         )}
         {activeTab === 'records' && (
           <div className="space-y-6 sm:space-y-8">
+            <AISummary data={recordsSummaryData} />
             {/* Champion and Chumpion Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Champion Card */}
