@@ -15,7 +15,9 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies first (without building SQLite3 yet)
-RUN npm ci --only=production
+# Use `npm install` instead of `npm ci` to avoid strict lockfile checks
+# during multi-architecture builds where the lock file may be out of date.
+RUN npm install --omit=dev
 
 # Copy source code
 COPY . .
