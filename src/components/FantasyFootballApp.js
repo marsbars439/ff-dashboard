@@ -1177,6 +1177,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
 
   const recordsSummaryData = useMemo(
     () => ({
+      type: 'records',
       currentChampion,
       currentChumpion,
       medalRankings,
@@ -1201,6 +1202,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
 
   const seasonSummaryData = useMemo(
     () => ({
+      type: 'season',
       year: selectedSeasonYear,
       champion,
       runnerUp,
