@@ -2010,10 +2010,10 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
               API_BASE_URL={API_BASE_URL}
               onDataUpdate={fetchData}  // This will refresh your data after sync
             />
-            {/* Manual Trades Section */}
+            {/* Record a Trade Section */}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Manual Trades</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Record a Trade</h3>
                 <select
                   value={selectedKeeperYear || ''}
                   onChange={e => setSelectedKeeperYear(Number(e.target.value))}
@@ -2106,7 +2106,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                 <Upload className="w-5 h-5 text-blue-500" />
-                <span>Data Management</span>
+                <span>Data Upload</span>
               </h3>
               
               <div className="space-y-4">
@@ -2158,7 +2158,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center space-x-2">
                   <Users className="w-5 h-5 text-blue-500" />
-                  <span>Manager Data</span>
+                  <span>Manager IDs</span>
                 </h3>
               </div>
               

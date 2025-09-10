@@ -1025,7 +1025,7 @@ const FantasyFootballApp = () => {
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
                 <Upload className="w-5 h-5 text-blue-500" />
-                <span>Data Management</span>
+                <span>Data Upload</span>
               </h3>
               
               <div className="space-y-4">
@@ -1077,7 +1077,7 @@ const FantasyFootballApp = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center space-x-2">
                   <Users className="w-5 h-5 text-blue-500" />
-                  <span>Manager Data</span>
+                  <span>Manager IDs</span>
                 </h3>
               </div>
               

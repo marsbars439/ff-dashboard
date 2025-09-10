@@ -271,6 +271,11 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
           Enter Sleeper league IDs for each year to sync data automatically.
           Manual fields (dues, payouts, dues_chumpion) will be preserved during sync.
         </div>
+      </div>
+
+      {/* AI Summary Config */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <h4 className="text-lg font-semibold mb-4">AI Summary Config</h4>
         <button
           onClick={refreshSummary}
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -280,10 +285,10 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
         </button>
       </div>
 
-      {/* League Settings Table */}
+      {/* League ID History */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="p-6">
-          <h4 className="text-lg font-semibold mb-4">League Configuration</h4>
+          <h4 className="text-lg font-semibold mb-4">League ID History</h4>
           
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -384,10 +389,10 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
       </div>
     </div>
 
-    {/* Manager Sleeper ID mappings */}
+    {/* Manager ID Aliases mappings */}
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       <div className="p-6">
-        <h4 className="text-lg font-semibold mb-4">Manager Sleeper IDs</h4>
+        <h4 className="text-lg font-semibold mb-4">Manager ID Aliases</h4>
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <select
             className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
