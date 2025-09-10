@@ -1180,35 +1180,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
   const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
   const thirdPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 3);
 
-  const seasonSummaryData = useMemo(
-    () => ({
-      type: 'season',
-      year: selectedSeasonYear,
-      champion,
-      runnerUp,
-      thirdPlace,
-      teams: teamSeasons.filter(s => s.year === selectedSeasonYear),
-      topWeeklyScores,
-      bottomWeeklyScores,
-      matchups: seasonMatchups.flatMap(week =>
-        week.matchups.map(m => ({ ...m, week: week.week }))
-      ),
-      currentWeek:
-        seasonMatchups.length > 0
-          ? Math.max(...seasonMatchups.map(w => w.week))
-          : null
-    }),
-    [
-      selectedSeasonYear,
-      champion,
-      runnerUp,
-      thirdPlace,
-      teamSeasons,
-      topWeeklyScores,
-      bottomWeeklyScores,
-      seasonMatchups
-    ]
-  );
 
   if (loading) {
     return (
@@ -1339,7 +1310,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         {activeTab === 'seasons' && (
           <div className="space-y-4 sm:space-y-6">
             {selectedSeasonYear === mostRecentYear && (
-              <AISummary data={seasonSummaryData} />
+              <AISummary />
             )}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">

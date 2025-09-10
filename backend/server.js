@@ -6,7 +6,9 @@ const XLSX = require('xlsx');
 const path = require('path');
 const sleeperService = require('./services/sleeperService');
 const summaryService = require('./services/summaryService');
+const weeklySummaryService = require('./services/weeklySummaryService');
 const rateLimit = require('express-rate-limit');
+const cron = require('node-cron');
 require('dotenv').config();
 
 const app = express();
@@ -103,6 +105,15 @@ db.serialize(() => {
       description TEXT
     )
   `);
+
+  // Table for cached weekly AI summaries
+  db.run(`
+    CREATE TABLE IF NOT EXISTS summaries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      summary TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 });
 
 // Helper functions for async DB operations
@@ -121,6 +132,12 @@ const getAsync = (sql, params = []) =>
       else resolve(row);
     });
   });
+
+const refreshCachedSummary = async () => {
+  const { summary } = await weeklySummaryService.generateWeeklySummary(db);
+  await runAsync('INSERT INTO summaries (summary) VALUES (?)', [summary]);
+  return summary;
+};
 
 
 // Configure multer for file uploads
@@ -1156,6 +1173,26 @@ app.post('/api/summarize', summarizeLimiter, async (req, res) => {
   }
 });
 
+// Get cached weekly summary
+app.get('/api/summary', async (req, res) => {
+  try {
+    const row = await getAsync('SELECT summary, created_at FROM summaries ORDER BY created_at DESC LIMIT 1');
+    res.json({ summary: row ? row.summary : '', updated: row ? row.created_at : null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Refresh summary manually
+app.post('/api/summary/refresh', async (req, res) => {
+  try {
+    const summary = await refreshCachedSummary();
+    res.json({ summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -1165,6 +1202,13 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`The League Dashboard API running on port ${PORT}`);
 });
+
+// Schedule weekly summary generation every Tuesday at 5AM ET
+cron.schedule('0 5 * * 2', () => {
+  refreshCachedSummary().catch(err =>
+    console.error('Failed to refresh weekly summary:', err.message)
+  );
+}, { timezone: 'America/New_York' });
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {
