@@ -1175,26 +1175,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       return a.seasons - b.seasons; // Fewer seasons = worse ranking when tied
     });
 
-  const recordsSummaryData = useMemo(
-    () => ({
-      type: 'records',
-      currentChampion,
-      currentChumpion,
-      medalRankings,
-      chumpionRankings,
-      activeRecords,
-      inactiveRecords
-    }),
-    [
-      currentChampion,
-      currentChumpion,
-      medalRankings,
-      chumpionRankings,
-      activeRecords,
-      inactiveRecords
-    ]
-  );
-
   const availableYears = [...new Set(teamSeasons.map(s => s.year))].sort((a, b) => b - a);
   const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
   const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
@@ -1209,7 +1189,14 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       thirdPlace,
       teams: teamSeasons.filter(s => s.year === selectedSeasonYear),
       topWeeklyScores,
-      bottomWeeklyScores
+      bottomWeeklyScores,
+      matchups: seasonMatchups.flatMap(week =>
+        week.matchups.map(m => ({ ...m, week: week.week }))
+      ),
+      currentWeek:
+        seasonMatchups.length > 0
+          ? Math.max(...seasonMatchups.map(w => w.week))
+          : null
     }),
     [
       selectedSeasonYear,
@@ -1218,7 +1205,8 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       thirdPlace,
       teamSeasons,
       topWeeklyScores,
-      bottomWeeklyScores
+      bottomWeeklyScores,
+      seasonMatchups
     ]
   );
 
@@ -1350,7 +1338,9 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {activeTab === 'seasons' && (
           <div className="space-y-4 sm:space-y-6">
-            <AISummary data={seasonSummaryData} />
+            {selectedSeasonYear === mostRecentYear && (
+              <AISummary data={seasonSummaryData} />
+            )}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Season {selectedSeasonYear}</h2>
@@ -1708,7 +1698,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         )}
         {activeTab === 'records' && (
           <div className="space-y-6 sm:space-y-8">
-            <AISummary data={recordsSummaryData} />
             {/* Champion and Chumpion Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Champion Card */}
