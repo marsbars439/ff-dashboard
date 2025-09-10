@@ -1136,36 +1136,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
   const topWeeklyScores = [...weeklyScores].sort((a, b) => b.points - a.points).slice(0, 5);
   const bottomWeeklyScores = [...weeklyScores].sort((a, b) => a.points - b.points).slice(0, 5);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-24 w-24 sm:h-32 sm:w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-sm sm:text-base">Loading The League Dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-        <div className="text-center max-w-md w-full">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            <p className="font-bold">Error</p>
-            <p className="text-sm">{error}</p>
-            <button 
-              onClick={fetchData}
-              className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const allRecords = calculateAllRecords();
   const activeRecords = Object.values(allRecords).filter(r => r.active);
   const inactiveRecords = Object.values(allRecords).filter(r => !r.active);
@@ -1223,19 +1193,8 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       inactiveRecords
     ]
   );
-  
-  const winPctRankings = [
-    ...activeRecords.sort((a, b) => b.winPct - a.winPct),
-    ...inactiveRecords.sort((a, b) => b.winPct - a.winPct)
-  ];
-
-  const ppgRankings = [
-    ...activeRecords.sort((a, b) => b.pointsPerGame - a.pointsPerGame),
-    ...inactiveRecords.sort((a, b) => b.pointsPerGame - a.pointsPerGame)
-  ];
 
   const availableYears = [...new Set(teamSeasons.map(s => s.year))].sort((a, b) => b - a);
-  const selectedKeeperRoster = keepers.find(team => team.roster_id === selectedKeeperRosterId) || null;
   const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
   const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
   const thirdPlace = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 3);
@@ -1260,6 +1219,48 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       bottomWeeklyScores
     ]
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-24 w-24 sm:h-32 sm:w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-sm sm:text-base">Loading The League Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+        <div className="text-center max-w-md w-full">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <p className="font-bold">Error</p>
+            <p className="text-sm">{error}</p>
+            <button
+              onClick={fetchData}
+              className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const selectedKeeperRoster = keepers.find(team => team.roster_id === selectedKeeperRosterId) || null;
+
+  const winPctRankings = [
+    ...activeRecords.sort((a, b) => b.winPct - a.winPct),
+    ...inactiveRecords.sort((a, b) => b.winPct - a.winPct)
+  ];
+
+  const ppgRankings = [
+    ...activeRecords.sort((a, b) => b.pointsPerGame - a.pointsPerGame),
+    ...inactiveRecords.sort((a, b) => b.pointsPerGame - a.pointsPerGame)
+  ];
 
   const seasonDataYears = availableYears;
   const currentSeasonDataYear = seasonDataYears[seasonDataPage] || null;
