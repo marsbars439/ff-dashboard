@@ -5,10 +5,19 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const path = require('path');
 const sleeperService = require('./services/sleeperService');
+const summaryService = require('./services/summaryService');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Rate limiter for summary endpoint
+const summarizeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: 'Too many requests, please try again later.'
+});
 
 // Middleware
 app.use(cors());
@@ -1130,6 +1139,16 @@ app.get('/api/stats', (req, res) => {
   }).catch(err => {
     res.status(500).json({ error: err.message });
   });
+});
+
+// Generate summary using LLM
+app.post('/api/summarize', summarizeLimiter, async (req, res) => {
+  try {
+    const summary = await summaryService.generateSummary(req.body);
+    res.json({ summary });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Health check

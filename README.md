@@ -20,6 +20,8 @@ A comprehensive web application for tracking fantasy football league records, st
   - Playoff format
   - Champion plaque engraving instructions
 
+- **LLM Summaries**: Generate AI-based summaries via `POST /api/summarize` (requires `OPENAI_API_KEY` in `backend/.env`)
+
 ## Quick Start
 
 ### Using Pre-built Docker Images (Recommended)
