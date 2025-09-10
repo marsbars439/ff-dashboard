@@ -10,6 +10,7 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [message, setMessage] = useState(null);
+  const [refreshingSummary, setRefreshingSummary] = useState(false);
   const [managerMappings, setManagerMappings] = useState([]);
   const [managers, setManagers] = useState([]);
   const [newMapping, setNewMapping] = useState({ name_id: '', season: '', sleeper_user_id: '' });
@@ -70,6 +71,25 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
       setManagerMappings(data.mappings || []);
     } catch (error) {
       console.error('Error fetching mappings:', error);
+    }
+  };
+
+  const refreshSummary = async () => {
+    setRefreshingSummary(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/summary/refresh`, { method: 'POST' });
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Summary refreshed' });
+        if (onDataUpdate) onDataUpdate();
+      } else {
+        const err = await response.json();
+        setMessage({ type: 'error', text: err.error || 'Failed to refresh summary' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to refresh summary' });
+    } finally {
+      setRefreshingSummary(false);
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -248,9 +268,16 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
         )}
 
         <div className="text-sm text-gray-600 mb-4">
-          Enter Sleeper league IDs for each year to sync data automatically. 
+          Enter Sleeper league IDs for each year to sync data automatically.
           Manual fields (dues, payouts, dues_chumpion) will be preserved during sync.
         </div>
+        <button
+          onClick={refreshSummary}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          disabled={refreshingSummary}
+        >
+          {refreshingSummary ? 'Refreshing...' : 'Refresh AI Summary'}
+        </button>
       </div>
 
       {/* League Settings Table */}
