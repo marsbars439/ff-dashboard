@@ -12,11 +12,13 @@ REPO_NAME="ff-dashboard"
 IMAGE_TAG="${2:-latest}"
 CONTAINER_NAME="ff-dashboard"
 PORT="${3:-3000}"
+SUMMARY_RATE_LIMIT_MAX="${4:-20}"
 
 echo "🚀 Deploying FF Dashboard"
 echo "   Registry: $REGISTRY"
 echo "   Image: $USERNAME/$REPO_NAME:$IMAGE_TAG"
 echo "   Port: $PORT"
+echo "   Summary rate limit max: $SUMMARY_RATE_LIMIT_MAX"
 echo ""
 
 # Function to check if container exists
@@ -50,6 +52,7 @@ docker run -d \
     --restart unless-stopped \
     -p $PORT:3000 \
     -e NODE_ENV=production \
+    -e SUMMARY_RATE_LIMIT_MAX=$SUMMARY_RATE_LIMIT_MAX \
     $REGISTRY/$USERNAME/$REPO_NAME:$IMAGE_TAG
 
 # Check if container started successfully

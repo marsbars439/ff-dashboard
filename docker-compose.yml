@@ -6,6 +6,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - SUMMARY_RATE_LIMIT_MAX=${SUMMARY_RATE_LIMIT_MAX:-20}
+      - SUMMARY_RATE_LIMIT_WINDOW_MS=${SUMMARY_RATE_LIMIT_WINDOW_MS:-60000}
     volumes:
       - ff-data:/app/data
     restart: unless-stopped
