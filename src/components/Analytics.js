@@ -3,6 +3,19 @@ import { BarChart3, ArrowLeft } from 'lucide-react';
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
+function normalizeName(name = '') {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function createKey(name, team, position) {
+  return `${normalizeName(name)}|${(team || '').toLowerCase()}|${(position || '').toLowerCase()}`;
+}
+
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -60,22 +73,22 @@ const Analytics = ({ onBack }) => {
         const draftCostMap = {};
         rosters.forEach(r => {
           (r.players || []).forEach(p => {
-            const nameLower = (p.name || '').toLowerCase();
-            rosterMap[nameLower] = r.manager_name;
+            const key = createKey(p.name, p.team, p.position);
+            rosterMap[key] = r.manager_name;
             if (p.draft_cost) {
-              draftCostMap[nameLower] = Number(p.draft_cost);
+              draftCostMap[key] = Number(p.draft_cost);
             }
           });
         });
 
         const allPlayers = rankings.map(p => {
-          const nameLower = (p.player_name || '').toLowerCase();
           const teamVal = p.team || '';
           const positionVal = p.position || '';
-          const managerVal = rosterMap[nameLower] || '';
-          const draftCost = draftCostMap[nameLower] || 0;
+          const key = createKey(p.player_name, teamVal, positionVal);
+          const managerVal = rosterMap[key] || '';
+          const draftCost = draftCostMap[key] || 0;
           return {
-            id: `${nameLower}-${teamVal}-${positionVal}`,
+            id: key,
             name: p.player_name,
             team: teamVal,
             position: positionVal,
@@ -84,7 +97,7 @@ const Analytics = ({ onBack }) => {
             projPts: p.proj_pts || 0,
             sosSeason: p.sos_season || 0,
             sosPlayoffs: p.sos_playoffs || 0,
-            nameLower,
+            nameLower: normalizeName(p.player_name),
             teamLower: teamVal.toLowerCase(),
             positionLower: positionVal.toLowerCase(),
             managerLower: managerVal.toLowerCase()

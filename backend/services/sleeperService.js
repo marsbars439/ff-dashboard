@@ -555,6 +555,8 @@ class SleeperService {
             return {
               id: pid,
               name,
+              team: p.team || '',
+              position: p.position || '',
               draft_cost: playerCosts[pid] || ''
             };
           });
