@@ -56,24 +56,32 @@ const Analytics = ({ onBack }) => {
           });
         });
 
-        const allPlayers = Object.entries(playerRes).map(([id, p]) => {
-          const name = p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim();
-          const nameVal = name || id;
-          const teamVal = p.team || '';
-          const positionVal = p.position || '';
-          const managerVal = rosterMap[id] || '';
-          return {
-            id,
-            name: nameVal,
-            team: teamVal,
-            position: positionVal,
-            manager: managerVal,
-            nameLower: nameVal.toLowerCase(),
-            teamLower: teamVal.toLowerCase(),
-            positionLower: positionVal.toLowerCase(),
-            managerLower: managerVal.toLowerCase()
-          };
-        });
+        const allowedPositions = ['QB', 'WR', 'RB', 'TE', 'DEF'];
+        const allPlayers = Object.entries(playerRes)
+          .filter(([_, p]) => {
+            const pos = p.position || '';
+            return pos
+              .split(',')
+              .some(position => allowedPositions.includes(position.trim()));
+          })
+          .map(([id, p]) => {
+            const name = p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim();
+            const nameVal = name || id;
+            const teamVal = p.team || '';
+            const positionVal = p.position || '';
+            const managerVal = rosterMap[id] || '';
+            return {
+              id,
+              name: nameVal,
+              team: teamVal,
+              position: positionVal,
+              manager: managerVal,
+              nameLower: nameVal.toLowerCase(),
+              teamLower: teamVal.toLowerCase(),
+              positionLower: positionVal.toLowerCase(),
+              managerLower: managerVal.toLowerCase()
+            };
+          });
 
         setPlayers(allPlayers);
       } catch (e) {
