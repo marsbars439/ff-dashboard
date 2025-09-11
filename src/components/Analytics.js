@@ -68,42 +68,59 @@ const Analytics = ({ onBack }) => {
         ? rosterRes
         : rosterRes.rosters || [];
 
-      const rosterMap = {};
-      const draftCostMap = {};
+      const playerMap = {};
+
+      // Seed player map with roster data so players show even if rankings fail
       rosters.forEach(r => {
         (r.players || []).forEach(p => {
-          const key = createKey(p.name, p.team, p.position);
-          rosterMap[key] = r.manager_name;
-          if (p.draft_cost) {
-            draftCostMap[key] = Number(p.draft_cost);
-          }
+          const teamVal = p.team || '';
+          const positionVal = p.position || '';
+          const key = createKey(p.name, teamVal, positionVal);
+          playerMap[key] = {
+            id: key,
+            name: p.name,
+            team: teamVal,
+            position: positionVal,
+            manager: r.manager_name,
+            draftCost: p.draft_cost ? Number(p.draft_cost) : 0,
+            projPts: 0,
+            sosSeason: 0,
+            sosPlayoffs: 0,
+            nameLower: normalizeName(p.name),
+            teamLower: teamVal.toLowerCase(),
+            positionLower: positionVal.toLowerCase(),
+            managerLower: (r.manager_name || '').toLowerCase()
+          };
         });
       });
 
-      const allPlayers = rankings.map(p => {
+      // Merge in rankings data
+      rankings.forEach(p => {
         const teamVal = p.team || '';
         const positionVal = p.position || '';
         const key = createKey(p.player_name, teamVal, positionVal);
-        const managerVal = rosterMap[key] || '';
-        const draftCost = draftCostMap[key] || 0;
-        return {
+        const existing = playerMap[key] || {
           id: key,
           name: p.player_name,
           team: teamVal,
           position: positionVal,
-          manager: managerVal,
-          draftCost,
-          projPts: p.proj_pts || 0,
-          sosSeason: p.sos_season || 0,
-          sosPlayoffs: p.sos_playoffs || 0,
+          manager: '',
+          draftCost: 0,
+          projPts: 0,
+          sosSeason: 0,
+          sosPlayoffs: 0,
           nameLower: normalizeName(p.player_name),
           teamLower: teamVal.toLowerCase(),
           positionLower: positionVal.toLowerCase(),
-          managerLower: managerVal.toLowerCase()
+          managerLower: ''
         };
+        existing.projPts = p.proj_pts || 0;
+        existing.sosSeason = p.sos_season || 0;
+        existing.sosPlayoffs = p.sos_playoffs || 0;
+        playerMap[key] = existing;
       });
 
-      setPlayers(allPlayers);
+      setPlayers(Object.values(playerMap));
     } catch (e) {
       console.error('Failed to load rankings:', e);
     }
@@ -208,7 +225,7 @@ const Analytics = ({ onBack }) => {
           onClick={refreshRankings}
           className="mb-4 flex items-center bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
         >
-          <RefreshCw className="w-4 h-4 mr-2" /> Pull ROS Rankings from Sleeper
+          <RefreshCw className="w-4 h-4 mr-2" /> Pull ROS Rankings from FantasyPros
         </button>
         <input
           type="text"
