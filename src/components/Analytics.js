@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart3, ArrowLeft } from 'lucide-react';
-import { FixedSizeList as List } from 'react-window';
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
@@ -144,37 +143,22 @@ const Analytics = ({ onBack }) => {
     }
   };
 
-  const Row = ({ index, style, data }) => {
-    const p = data[index];
-    return (
-      <tr
-        style={{ ...style, display: 'table', tableLayout: 'fixed', width: '100%' }}
-        className="divide-y divide-gray-200"
-      >
-        <td className="px-3 py-2 whitespace-nowrap">{p.name}</td>
-        <td className="px-3 py-2 whitespace-nowrap">{p.team}</td>
-        <td className="px-3 py-2 whitespace-nowrap">{p.position}</td>
-        <td className="px-3 py-2 whitespace-nowrap">{p.manager || ''}</td>
-        <td className="px-3 py-2 whitespace-nowrap text-right">{p.draftCost ? `$${p.draftCost}` : ''}</td>
-        <td className="px-3 py-2 whitespace-nowrap text-right">{p.points}</td>
-        <td className="px-3 py-2 whitespace-nowrap text-right">{p.passYds}</td>
-        <td className="px-3 py-2 whitespace-nowrap text-right">{p.passTds}</td>
-        <td className="px-3 py-2 whitespace-nowrap text-right">{p.rushYds}</td>
-        <td className="px-3 py-2 whitespace-nowrap text-right">{p.rushTds}</td>
-        <td className="px-3 py-2 whitespace-nowrap text-right">{p.recYds}</td>
-        <td className="px-3 py-2 whitespace-nowrap text-right">{p.recTds}</td>
-      </tr>
-    );
-  };
-
-  const TBody = React.forwardRef(({ style, ...rest }, ref) => (
-    <tbody
-      ref={ref}
-      className="divide-y divide-gray-200"
-      style={{ ...style, display: 'block' }}
-      {...rest}
-    />
-  ));
+  const renderRow = p => (
+    <tr key={p.id} className="divide-y divide-gray-200">
+      <td className="px-3 py-2 whitespace-nowrap">{p.name}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{p.team}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{p.position}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{p.manager || ''}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.draftCost ? `$${p.draftCost}` : ''}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.points}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.passYds}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.passTds}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.rushYds}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.rushTds}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.recYds}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.recTds}</td>
+    </tr>
+  );
 
   if (!authorized) {
     return (
@@ -240,16 +224,9 @@ const Analytics = ({ onBack }) => {
                 <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('recTds')}>Rec TDs</th>
               </tr>
             </thead>
-            <List
-              height={400}
-              itemCount={sortedPlayers.length}
-              itemSize={40}
-              width={"100%"}
-              itemData={sortedPlayers}
-              outerElementType={TBody}
-            >
-              {Row}
-            </List>
+            <tbody className="divide-y divide-gray-200">
+              {sortedPlayers.map(renderRow)}
+            </tbody>
           </table>
         </div>
       </div>
