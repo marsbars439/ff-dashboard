@@ -12,6 +12,7 @@ import {
   BookOpen,
   Users,
   Zap,
+  Settings,
   Edit3,
   Save,
   X,
@@ -23,6 +24,7 @@ import {
 import SleeperAdmin from './SleeperAdmin';
 import PlayoffBracket from './PlayoffBracket';
 import AISummary from './AISummary';
+import CollapsibleSection from './CollapsibleSection';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -2003,27 +2005,37 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
           </div>
         )}
 
+        
         {activeTab === 'admin' && (
           <div className="space-y-6 sm:space-y-8">
-            {/* Add the Sleeper Admin component */}
-            <SleeperAdmin
-              API_BASE_URL={API_BASE_URL}
-              onDataUpdate={fetchData}  // This will refresh your data after sync
-            />
-            {/* Record a Trade Section */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Record a Trade</h3>
+            <CollapsibleSection
+              title={
+                <div className="flex items-center space-x-2">
+                  <Settings className="w-5 h-5 text-blue-500" />
+                  <span>Sleeper Admin</span>
+                </div>
+              }
+            >
+              <SleeperAdmin
+                API_BASE_URL={API_BASE_URL}
+                onDataUpdate={fetchData}  // This will refresh your data after sync
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Record a Trade"
+              headerRight={
                 <select
                   value={selectedKeeperYear || ''}
                   onChange={e => setSelectedKeeperYear(Number(e.target.value))}
-                  className="border border-gray-300 rounded-md px-2 py-1 text-sm mt-2 sm:mt-0"
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
                 >
                   {availableYears.map(year => (
                     <option key={year} value={year}>{year}</option>
                   ))}
                 </select>
-              </div>
+              }
+            >
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
                 <select
                   value={newTrade.from}
@@ -2101,14 +2113,16 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   ))}
                 </ul>
               )}
-            </div>
-            {/* Excel Upload Section */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
-                <Upload className="w-5 h-5 text-blue-500" />
-                <span>Data Upload</span>
-              </h3>
-              
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title={
+                <div className="flex items-center space-x-2">
+                  <Upload className="w-5 h-5 text-blue-500" />
+                  <span>Data Upload</span>
+                </div>
+              }
+            >
               <div className="space-y-4">
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6">
                   <div className="text-center">
@@ -2133,7 +2147,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                     </div>
                   </div>
                 </div>
-                
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
                     <p className="text-xs sm:text-sm font-medium text-gray-600">Total Managers</p>
@@ -2151,17 +2164,16 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   </div>
                 </div>
               </div>
-            </div>
+            </CollapsibleSection>
 
-            {/* Manager Data Table - Display Only */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center space-x-2">
+            <CollapsibleSection
+              title={
+                <div className="flex items-center space-x-2">
                   <Users className="w-5 h-5 text-blue-500" />
                   <span>Manager IDs</span>
-                </h3>
-              </div>
-              
+                </div>
+              }
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -2175,8 +2187,8 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   </thead>
                   <tbody>
                     {managers.sort((a, b) => {
-                      if (a.active !== b.active) return b.active - a.active; // Active first
-                      return a.full_name.localeCompare(b.full_name); // Then alphabetical
+                      if (a.active !== b.active) return b.active - a.active;
+                      return a.full_name.localeCompare(b.full_name);
                     }).map((manager) => (
                       <tr key={manager.id} className="border-b hover:bg-gray-50">
                         <td className="p-2">
@@ -2207,21 +2219,26 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </CollapsibleSection>
 
-            {/* Season Data Table - Limited Editing */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center space-x-2">
+            <CollapsibleSection
+              title={
+                <div className="flex items-center space-x-2">
                   <Edit3 className="w-5 h-5 text-green-500" />
                   <span>Season Data</span>
-                </h3>
-                {seasonDataYears.length > 0 && (
+                </div>
+              }
+              headerRight={
+                seasonDataYears.length > 0 && (
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={handlePrevSeasonData}
                       disabled={seasonDataPage >= seasonDataYears.length - 1}
-                      className={`p-1 rounded ${seasonDataPage >= seasonDataYears.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:text-gray-900'}`}
+                      className={`p-1 rounded ${
+                        seasonDataPage >= seasonDataYears.length - 1
+                          ? 'text-gray-300'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
@@ -2229,14 +2246,18 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                     <button
                       onClick={handleNextSeasonData}
                       disabled={seasonDataPage === 0}
-                      className={`p-1 rounded ${seasonDataPage === 0 ? 'text-gray-300' : 'text-gray-600 hover:text-gray-900'}`}
+                      className={`p-1 rounded ${
+                        seasonDataPage === 0
+                          ? 'text-gray-300'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
-                )}
-              </div>
-              
+                )
+              }
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -2322,8 +2343,8 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                             <td className="p-2">{season.wins}-{season.losses}</td>
                             <td className="p-2">{season.points_for}</td>
                             <td className="p-2">{season.points_against}</td>
-                            <td className="p-2">{season.regular_season_rank || '-'}</td>
-                            <td className="p-2">{season.playoff_finish || '-'}</td>
+                            <td className="p-2">{season.regular_season_rank || '-'} </td>
+                            <td className="p-2">{season.playoff_finish || '-'} </td>
                             <td className="p-2 bg-yellow-50">${season.dues}</td>
                             <td className="p-2 bg-yellow-50">${season.payout}</td>
                             <td className="p-2 bg-yellow-50">${season.dues_chumpion || 0}</td>
@@ -2343,15 +2364,16 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </CollapsibleSection>
 
-            {/* Rules Editor Section */}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
-                <FileText className="w-5 h-5 text-purple-500" />
-                <span>Edit League Rules</span>
-              </h3>
-              
+            <CollapsibleSection
+              title={
+                <div className="flex items-center space-x-2">
+                  <FileText className="w-5 h-5 text-purple-500" />
+                  <span>Edit League Rules</span>
+                </div>
+              }
+            >
               <div className="space-y-4">
                 <textarea
                   value={rulesContent}
@@ -2368,7 +2390,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   </button>
                 </div>
               </div>
-            </div>
+            </CollapsibleSection>
           </div>
         )}
 
