@@ -42,6 +42,8 @@ const Analytics = ({ onBack }) => {
   const [sortDir, setSortDir] = useState('asc');
   const password = process.env.REACT_APP_ANALYTICS_PASSWORD || 'admin';
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+  const [refreshMessage, setRefreshMessage] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -133,11 +135,21 @@ const Analytics = ({ onBack }) => {
   }, [authorized, loadData]);
 
   const refreshRankings = async () => {
+    setRefreshing(true);
+    setRefreshMessage('Requesting ROS rankings refresh...');
     try {
-      await fetch(`${API_BASE_URL}/ros-rankings/refresh`, { method: 'POST' });
+      const res = await fetch(`${API_BASE_URL}/ros-rankings/refresh`, { method: 'POST' });
+      if (!res.ok) {
+        throw new Error('Refresh request failed');
+      }
+      setRefreshMessage('Loading updated rankings...');
       await loadData();
+      setRefreshMessage('ROS rankings refreshed successfully.');
     } catch (e) {
       console.error('Failed to refresh ROS rankings:', e);
+      setRefreshMessage('Failed to refresh ROS rankings.');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -223,10 +235,14 @@ const Analytics = ({ onBack }) => {
         </div>
         <button
           onClick={refreshRankings}
-          className="mb-4 flex items-center bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+          disabled={refreshing}
+          className="mb-2 flex items-center bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded"
         >
           <RefreshCw className="w-4 h-4 mr-2" /> Pull ROS Rankings from FantasyPros
         </button>
+        {refreshMessage && (
+          <div className="mb-4 text-sm text-gray-700">{refreshMessage}</div>
+        )}
         <input
           type="text"
           placeholder="Search players"
