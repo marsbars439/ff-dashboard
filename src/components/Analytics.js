@@ -74,7 +74,12 @@ const Analytics = ({ onBack }) => {
             const teamVal = p.team || '';
             const positionVal = p.position || '';
             const managerVal = rosterMap[id] || '';
-            const stats = statsRes[id] || {};
+            // Sleeper's stats endpoint nests actual statistics under a `stats` key
+            // so we need to account for that structure when mapping to our player
+            // objects. Previously we attempted to read values directly from
+            // `statsRes[id]`, which resulted in all statistic fields resolving to
+            // undefined and therefore rendering as 0 in the analytics table.
+            const stats = (statsRes[id] && statsRes[id].stats) ? statsRes[id].stats : statsRes[id] || {};
             const pts = stats.pts_ppr || stats.pts_half_ppr || stats.pts_std || 0;
             const passYds = stats.pass_yd || 0;
             const passTds = stats.pass_td || 0;
