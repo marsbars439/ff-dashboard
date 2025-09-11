@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { BarChart3, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { BarChart3, ArrowLeft, RefreshCw } from 'lucide-react';
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
@@ -52,68 +52,77 @@ const Analytics = ({ onBack }) => {
     }
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const year = new Date().getFullYear();
-      try {
-        const [rankingRes, rosterRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/ros-rankings`).then(r => r.json()),
-          fetch(`${API_BASE_URL}/seasons/${year}/keepers`).then(r => r.json())
-        ]);
+  const loadData = useCallback(async () => {
+    const year = new Date().getFullYear();
+    try {
+      const [rankingRes, rosterRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/ros-rankings`).then(r => r.json()),
+        fetch(`${API_BASE_URL}/seasons/${year}/keepers`).then(r => r.json())
+      ]);
 
-        // Support both array and object API responses
-        const rankings = Array.isArray(rankingRes)
-          ? rankingRes
-          : rankingRes.rankings || [];
-        const rosters = Array.isArray(rosterRes)
-          ? rosterRes
-          : rosterRes.rosters || [];
+      // Support both array and object API responses
+      const rankings = Array.isArray(rankingRes)
+        ? rankingRes
+        : rankingRes.rankings || [];
+      const rosters = Array.isArray(rosterRes)
+        ? rosterRes
+        : rosterRes.rosters || [];
 
-        const rosterMap = {};
-        const draftCostMap = {};
-        rosters.forEach(r => {
-          (r.players || []).forEach(p => {
-            const key = createKey(p.name, p.team, p.position);
-            rosterMap[key] = r.manager_name;
-            if (p.draft_cost) {
-              draftCostMap[key] = Number(p.draft_cost);
-            }
-          });
+      const rosterMap = {};
+      const draftCostMap = {};
+      rosters.forEach(r => {
+        (r.players || []).forEach(p => {
+          const key = createKey(p.name, p.team, p.position);
+          rosterMap[key] = r.manager_name;
+          if (p.draft_cost) {
+            draftCostMap[key] = Number(p.draft_cost);
+          }
         });
+      });
 
-        const allPlayers = rankings.map(p => {
-          const teamVal = p.team || '';
-          const positionVal = p.position || '';
-          const key = createKey(p.player_name, teamVal, positionVal);
-          const managerVal = rosterMap[key] || '';
-          const draftCost = draftCostMap[key] || 0;
-          return {
-            id: key,
-            name: p.player_name,
-            team: teamVal,
-            position: positionVal,
-            manager: managerVal,
-            draftCost,
-            projPts: p.proj_pts || 0,
-            sosSeason: p.sos_season || 0,
-            sosPlayoffs: p.sos_playoffs || 0,
-            nameLower: normalizeName(p.player_name),
-            teamLower: teamVal.toLowerCase(),
-            positionLower: positionVal.toLowerCase(),
-            managerLower: managerVal.toLowerCase()
-          };
-        });
+      const allPlayers = rankings.map(p => {
+        const teamVal = p.team || '';
+        const positionVal = p.position || '';
+        const key = createKey(p.player_name, teamVal, positionVal);
+        const managerVal = rosterMap[key] || '';
+        const draftCost = draftCostMap[key] || 0;
+        return {
+          id: key,
+          name: p.player_name,
+          team: teamVal,
+          position: positionVal,
+          manager: managerVal,
+          draftCost,
+          projPts: p.proj_pts || 0,
+          sosSeason: p.sos_season || 0,
+          sosPlayoffs: p.sos_playoffs || 0,
+          nameLower: normalizeName(p.player_name),
+          teamLower: teamVal.toLowerCase(),
+          positionLower: positionVal.toLowerCase(),
+          managerLower: managerVal.toLowerCase()
+        };
+      });
 
-        setPlayers(allPlayers);
-      } catch (e) {
-        console.error('Failed to load rankings:', e);
-      }
-    };
-
-    if (authorized) {
-      fetchData();
+      setPlayers(allPlayers);
+    } catch (e) {
+      console.error('Failed to load rankings:', e);
     }
-  }, [authorized, API_BASE_URL]);
+  }, [API_BASE_URL]);
+
+  useEffect(() => {
+    if (authorized) {
+      loadData();
+    }
+  }, [authorized, loadData]);
+
+  const refreshRankings = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/ros-rankings/refresh`, { method: 'POST' });
+      await loadData();
+    } catch (e) {
+      console.error('Failed to refresh ROS rankings:', e);
+    }
+  };
 
   const sortedPlayers = useMemo(() => {
     const searchLower = debouncedSearch.toLowerCase();
@@ -195,6 +204,12 @@ const Analytics = ({ onBack }) => {
           <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Analytics</h2>
         </div>
+        <button
+          onClick={refreshRankings}
+          className="mb-4 flex items-center bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        >
+          <RefreshCw className="w-4 h-4 mr-2" /> Pull ROS Rankings from Sleeper
+        </button>
         <input
           type="text"
           placeholder="Search players"
