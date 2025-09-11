@@ -14,12 +14,12 @@ import {
   Zap,
   Settings,
   Edit3,
+  ArrowLeftRight,
   Save,
   X,
   Trash2,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight
+  
 } from 'lucide-react';
 import SleeperAdmin from './SleeperAdmin';
 import PlayoffBracket from './PlayoffBracket';
@@ -1234,16 +1234,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         .sort((a, b) => (a.regular_season_rank || 99) - (b.regular_season_rank || 99))
     : [];
 
-  const handlePrevSeasonData = () => {
-    setEditingRow(null);
-    setSeasonDataPage(prev => Math.min(prev + 1, seasonDataYears.length - 1));
-  };
-
-  const handleNextSeasonData = () => {
-    setEditingRow(null);
-    setSeasonDataPage(prev => Math.max(prev - 1, 0));
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="bg-white shadow-lg">
@@ -2009,10 +1999,19 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         
         {activeTab === 'admin' && (
           <div className="space-y-6 sm:space-y-8">
-            <AISummaryConfig
-              API_BASE_URL={API_BASE_URL}
-              onDataUpdate={fetchData}
-            />
+            <CollapsibleSection
+              title={
+                <div className="flex items-center space-x-2">
+                  <Zap className="w-5 h-5 text-purple-500" />
+                  <span>AI Summary Config</span>
+                </div>
+              }
+            >
+              <AISummaryConfig
+                API_BASE_URL={API_BASE_URL}
+                onDataUpdate={fetchData}
+              />
+            </CollapsibleSection>
 
             <CollapsibleSection
               title={
@@ -2029,19 +2028,26 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
             </CollapsibleSection>
 
             <CollapsibleSection
-              title="Record a Trade"
-              headerRight={
-                <select
-                  value={selectedKeeperYear || ''}
-                  onChange={e => setSelectedKeeperYear(Number(e.target.value))}
-                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                >
-                  {availableYears.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
+              title={
+                <div className="flex items-center space-x-2">
+                  <ArrowLeftRight className="w-5 h-5 text-blue-500" />
+                  <span>Record a Trade</span>
+                </div>
               }
             >
+              {availableYears.length > 0 && (
+                <div className="mb-4">
+                  <select
+                    value={selectedKeeperYear || ''}
+                    onChange={e => setSelectedKeeperYear(Number(e.target.value))}
+                    className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  >
+                    {availableYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
                 <select
                   value={newTrade.from}
@@ -2234,36 +2240,25 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   <span>Season Data</span>
                 </div>
               }
-              headerRight={
-                seasonDataYears.length > 0 && (
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={handlePrevSeasonData}
-                      disabled={seasonDataPage >= seasonDataYears.length - 1}
-                      className={`p-1 rounded ${
-                        seasonDataPage >= seasonDataYears.length - 1
-                          ? 'text-gray-300'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="font-medium">{currentSeasonDataYear}</span>
-                    <button
-                      onClick={handleNextSeasonData}
-                      disabled={seasonDataPage === 0}
-                      className={`p-1 rounded ${
-                        seasonDataPage === 0
-                          ? 'text-gray-300'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                )
-              }
             >
+              {seasonDataYears.length > 0 && (
+                <div className="mb-4">
+                  <select
+                    value={currentSeasonDataYear}
+                    onChange={e => {
+                      setEditingRow(null);
+                      setSeasonDataPage(
+                        seasonDataYears.indexOf(Number(e.target.value))
+                      );
+                    }}
+                    className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  >
+                    {seasonDataYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
