@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart3, ArrowLeft } from 'lucide-react';
 
+const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
+
 const Analytics = ({ onBack }) => {
   const [authorized, setAuthorized] = useState(false);
   const [input, setInput] = useState('');
   const [players, setPlayers] = useState([]);
   const [search, setSearch] = useState('');
-  const [sortField, setSortField] = useState('name');
+  const [sortField, setSortField] = useState('nameLower');
   const [sortDir, setSortDir] = useState('asc');
   const password = process.env.REACT_APP_ANALYTICS_PASSWORD || 'admin';
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -38,12 +40,20 @@ const Analytics = ({ onBack }) => {
 
         const allPlayers = Object.entries(playerRes).map(([id, p]) => {
           const name = p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim();
+          const nameVal = name || id;
+          const teamVal = p.team || '';
+          const positionVal = p.position || '';
+          const managerVal = rosterMap[id] || '';
           return {
             id,
-            name: name || id,
-            team: p.team || '',
-            position: p.position || '',
-            manager: rosterMap[id] || ''
+            name: nameVal,
+            team: teamVal,
+            position: positionVal,
+            manager: managerVal,
+            nameLower: nameVal.toLowerCase(),
+            teamLower: teamVal.toLowerCase(),
+            positionLower: positionVal.toLowerCase(),
+            managerLower: managerVal.toLowerCase()
           };
         });
 
@@ -59,24 +69,23 @@ const Analytics = ({ onBack }) => {
   }, [authorized, API_BASE_URL]);
 
   const sortedPlayers = useMemo(() => {
+    const searchLower = search.toLowerCase();
     const filtered = players.filter(p =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.manager.toLowerCase().includes(search.toLowerCase())
+      p.nameLower.includes(searchLower) || p.managerLower.includes(searchLower)
     );
-    return filtered.sort((a, b) => {
-      const valA = (a[sortField] || '').toLowerCase();
-      const valB = (b[sortField] || '').toLowerCase();
-      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
+    return filtered.sort((a, b) =>
+      sortDir === 'asc'
+        ? collator.compare(a[sortField], b[sortField])
+        : collator.compare(b[sortField], a[sortField])
+    );
   }, [players, search, sortField, sortDir]);
 
   const handleSort = field => {
-    if (field === sortField) {
+    const lowerField = `${field}Lower`;
+    if (lowerField === sortField) {
       setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortField(field);
+      setSortField(lowerField);
       setSortDir('asc');
     }
   };
