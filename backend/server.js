@@ -95,6 +95,20 @@ db.serialize(() => {
     'CREATE INDEX IF NOT EXISTS idx_keepers_year_player ON keepers(year, player_id)'
   );
 
+  // Table for rest-of-season rankings
+  db.run(`
+    CREATE TABLE IF NOT EXISTS ros_rankings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_name TEXT NOT NULL,
+      team TEXT,
+      position TEXT,
+      proj_pts REAL,
+      sos_season INTEGER,
+      sos_playoffs INTEGER,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Table for manually entered trades not tied to keepers
   db.run(`
     CREATE TABLE IF NOT EXISTS manual_trades (
