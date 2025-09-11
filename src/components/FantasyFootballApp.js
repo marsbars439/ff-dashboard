@@ -2042,7 +2042,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                     className="border border-gray-300 rounded-md px-2 py-1 text-sm"
                   >
                     {availableYears.map(year => (
-                      <option key={year} value={year}>{year}</option>
+                      <option key={year} value={year}>{`${year} (${year + 1} Draft)`}</option>
                     ))}
                   </select>
                 </div>
