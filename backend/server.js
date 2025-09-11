@@ -7,6 +7,7 @@ const path = require('path');
 const sleeperService = require('./services/sleeperService');
 const summaryService = require('./services/summaryService');
 const weeklySummaryService = require('./services/weeklySummaryService');
+const fantasyProsService = require('./services/fantasyProsService');
 const rateLimit = require('express-rate-limit');
 const cron = require('node-cron');
 require('dotenv').config();
@@ -133,10 +134,35 @@ const getAsync = (sql, params = []) =>
     });
   });
 
+const allAsync = (sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+
 const refreshCachedSummary = async () => {
   const { summary } = await weeklySummaryService.generateWeeklySummary(db);
   await runAsync('INSERT INTO summaries (summary) VALUES (?)', [summary]);
   return summary;
+};
+
+const refreshRosRankings = async () => {
+  try {
+    const rankings = await fantasyProsService.scrapeRosRankings();
+    await runAsync('DELETE FROM ros_rankings');
+    const stmt = db.prepare(
+      'INSERT INTO ros_rankings (player_name, team, position, proj_pts, sos_season, sos_playoffs) VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    rankings.forEach(p => {
+      stmt.run(p.player_name, p.team, p.position, p.proj_pts, p.sos_season, p.sos_playoffs);
+    });
+    stmt.finalize();
+    console.log(`Updated ROS rankings: ${rankings.length} players`);
+  } catch (err) {
+    console.error('Failed to refresh ROS rankings:', err.message);
+  }
 };
 
 
@@ -155,6 +181,18 @@ app.get('/api/managers', (req, res) => {
     }
     res.json({ managers: rows });
   });
+});
+
+// Get ROS rankings
+app.get('/api/ros-rankings', async (req, res) => {
+  try {
+    const rows = await allAsync(
+      'SELECT player_name, team, position, proj_pts, sos_season, sos_playoffs FROM ros_rankings ORDER BY player_name'
+    );
+    res.json({ rankings: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Get all team seasons
@@ -1202,6 +1240,16 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`The League Dashboard API running on port ${PORT}`);
 });
+
+// Initial fetch of ROS rankings
+refreshRosRankings().catch(err =>
+  console.error('Initial ROS rankings refresh failed:', err.message)
+);
+
+// Schedule ROS rankings refresh daily at 3AM ET
+cron.schedule('0 3 * * *', () => {
+  refreshRosRankings();
+}, { timezone: 'America/New_York' });
 
 // Schedule weekly summary generation every Tuesday at 5AM ET
 cron.schedule('0 5 * * 2', () => {

@@ -135,6 +135,27 @@ db.serialize(() => {
     }
   });
 
+  // Create ros_rankings table
+  console.log('📊 Creating ros_rankings table...');
+  db.run(`
+    CREATE TABLE IF NOT EXISTS ros_rankings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_name TEXT NOT NULL,
+      team TEXT,
+      position TEXT,
+      proj_pts REAL,
+      sos_season INTEGER,
+      sos_playoffs INTEGER,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `, (err) => {
+    if (err) {
+      console.error('❌ Error creating ros_rankings table:', err.message);
+    } else {
+      console.log('✅ Ros_rankings table created successfully');
+    }
+  });
+
   // Add trade columns if they don't exist (for existing databases)
   console.log('🔧 Checking for keeper trade columns...');
   db.run(`

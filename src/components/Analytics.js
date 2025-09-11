@@ -43,75 +43,49 @@ const Analytics = ({ onBack }) => {
     const fetchData = async () => {
       const year = new Date().getFullYear();
       try {
-        const [playerRes, rosterRes, statsRes] = await Promise.all([
-          fetch('https://api.sleeper.app/v1/players/nfl').then(r => r.json()),
-          fetch(`${API_BASE_URL}/seasons/${year}/keepers`).then(r => r.json()),
-          fetch(`https://api.sleeper.app/v1/stats/nfl/players/${year}?season_type=regular`).then(r => r.json()).catch(() => ({}))
+        const [rankingRes, rosterRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/ros-rankings`).then(r => r.json()),
+          fetch(`${API_BASE_URL}/seasons/${year}/keepers`).then(r => r.json())
         ]);
 
         const rosterMap = {};
         const draftCostMap = {};
         (rosterRes.rosters || []).forEach(r => {
           r.players.forEach(p => {
-            rosterMap[p.id] = r.manager_name;
+            const nameLower = (p.name || '').toLowerCase();
+            rosterMap[nameLower] = r.manager_name;
             if (p.draft_cost) {
-              draftCostMap[p.id] = Number(p.draft_cost);
+              draftCostMap[nameLower] = Number(p.draft_cost);
             }
           });
         });
 
-        const allowedPositions = ['QB', 'WR', 'RB', 'TE', 'DEF'];
-        const allPlayers = Object.entries(playerRes)
-          .filter(([_, p]) => {
-            const pos = p.position || '';
-            return pos
-              .split(',')
-              .some(position => allowedPositions.includes(position.trim()));
-          })
-          .map(([id, p]) => {
-            const name = p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim();
-            const nameVal = name || id;
-            const teamVal = p.team || '';
-            const positionVal = p.position || '';
-            const managerVal = rosterMap[id] || '';
-            // Sleeper's stats endpoint nests player statistics under a `stats`
-            // key. If that structure is present, use the nested object;
-            // otherwise, fall back to the top-level value. Handling both
-            // shapes prevents the analytics table from defaulting to zeroed
-            // values when statistics are available.
-            const stats = statsRes[id]?.stats || statsRes[id] || {};
-            const pts = stats.pts_ppr || stats.pts_half_ppr || stats.pts_std || 0;
-            const passYds = stats.pass_yd || 0;
-            const passTds = stats.pass_td || 0;
-            const rushYds = stats.rush_yd || 0;
-            const rushTds = stats.rush_td || 0;
-            const recYds = stats.rec_yd || 0;
-            const recTds = stats.rec_td || 0;
-            const draftCost = draftCostMap[id] || 0;
-            return {
-              id,
-              name: nameVal,
-              team: teamVal,
-              position: positionVal,
-              manager: managerVal,
-              draftCost,
-              points: pts,
-              passYds,
-              passTds,
-              rushYds,
-              rushTds,
-              recYds,
-              recTds,
-              nameLower: nameVal.toLowerCase(),
-              teamLower: teamVal.toLowerCase(),
-              positionLower: positionVal.toLowerCase(),
-              managerLower: managerVal.toLowerCase()
-            };
-          });
+        const allPlayers = (rankingRes.rankings || []).map(p => {
+          const nameLower = (p.player_name || '').toLowerCase();
+          const teamVal = p.team || '';
+          const positionVal = p.position || '';
+          const managerVal = rosterMap[nameLower] || '';
+          const draftCost = draftCostMap[nameLower] || 0;
+          return {
+            id: `${nameLower}-${teamVal}-${positionVal}`,
+            name: p.player_name,
+            team: teamVal,
+            position: positionVal,
+            manager: managerVal,
+            draftCost,
+            projPts: p.proj_pts || 0,
+            sosSeason: p.sos_season || 0,
+            sosPlayoffs: p.sos_playoffs || 0,
+            nameLower,
+            teamLower: teamVal.toLowerCase(),
+            positionLower: positionVal.toLowerCase(),
+            managerLower: managerVal.toLowerCase()
+          };
+        });
 
         setPlayers(allPlayers);
       } catch (e) {
-        console.error('Failed to load players:', e);
+        console.error('Failed to load rankings:', e);
       }
     };
 
@@ -155,13 +129,9 @@ const Analytics = ({ onBack }) => {
       <td className="px-3 py-2 whitespace-nowrap">{p.position}</td>
       <td className="px-3 py-2 whitespace-nowrap">{p.manager || ''}</td>
       <td className="px-3 py-2 whitespace-nowrap text-right">{p.draftCost ? `$${p.draftCost}` : ''}</td>
-      <td className="px-3 py-2 whitespace-nowrap text-right">{p.points}</td>
-      <td className="px-3 py-2 whitespace-nowrap text-right">{p.passYds}</td>
-      <td className="px-3 py-2 whitespace-nowrap text-right">{p.passTds}</td>
-      <td className="px-3 py-2 whitespace-nowrap text-right">{p.rushYds}</td>
-      <td className="px-3 py-2 whitespace-nowrap text-right">{p.rushTds}</td>
-      <td className="px-3 py-2 whitespace-nowrap text-right">{p.recYds}</td>
-      <td className="px-3 py-2 whitespace-nowrap text-right">{p.recTds}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.projPts}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.sosSeason}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-right">{p.sosPlayoffs}</td>
     </tr>
   );
 
@@ -220,13 +190,9 @@ const Analytics = ({ onBack }) => {
                 <th className="px-3 py-2 text-left cursor-pointer" onClick={() => handleSort('position')}>Pos</th>
                 <th className="px-3 py-2 text-left cursor-pointer" onClick={() => handleSort('manager')}>Manager</th>
                 <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('draftCost')}>Draft $</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('points')}>Pts</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('passYds')}>Pass Yds</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('passTds')}>Pass TDs</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('rushYds')}>Rush Yds</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('rushTds')}>Rush TDs</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('recYds')}>Rec Yds</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('recTds')}>Rec TDs</th>
+                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('projPts')}>Proj. Pts</th>
+                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('sosSeason')}>SOS Season</th>
+                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('sosPlayoffs')}>SOS Playoffs</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
