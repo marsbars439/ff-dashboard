@@ -25,6 +25,7 @@ import SleeperAdmin from './SleeperAdmin';
 import PlayoffBracket from './PlayoffBracket';
 import AISummary from './AISummary';
 import CollapsibleSection from './CollapsibleSection';
+import AISummaryConfig from './AISummaryConfig';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -2008,6 +2009,11 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         
         {activeTab === 'admin' && (
           <div className="space-y-6 sm:space-y-8">
+            <AISummaryConfig
+              API_BASE_URL={API_BASE_URL}
+              onDataUpdate={fetchData}
+            />
+
             <CollapsibleSection
               title={
                 <div className="flex items-center space-x-2">
