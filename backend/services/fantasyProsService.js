@@ -49,16 +49,45 @@ function parseRankings(html, defaultPos) {
   });
 }
 
+const REQUEST_HEADERS = {
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Referer': 'https://www.fantasypros.com/nfl/',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
+};
+
+async function fetchWithRetry(url, pos, retries = 3, delay = 1000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const { data } = await axios.get(url, { headers: REQUEST_HEADERS });
+      return data;
+    } catch (err) {
+      console.warn(`Attempt ${attempt} failed for ${pos} rankings: ${err.message}`);
+      if (attempt < retries) {
+        await new Promise(res => setTimeout(res, delay));
+      } else {
+        throw new Error(`Failed to fetch ${pos} rankings after ${retries} attempts`);
+      }
+    }
+  }
+}
+
 async function scrapeRosRankings() {
   const allPlayers = [];
+  const failed = [];
   for (const [pos, url] of Object.entries(POS_URLS)) {
     try {
-      const { data: html } = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const html = await fetchWithRetry(url, pos);
       const players = parseRankings(html, pos);
       allPlayers.push(...players);
     } catch (err) {
-      console.error(`Failed to fetch ${pos} rankings:`, err.message);
+      console.error(err.message);
+      failed.push(pos);
     }
+  }
+  if (failed.length) {
+    throw new Error(`Unable to fetch rankings for: ${failed.join(', ')}`);
   }
   return allPlayers;
 }
