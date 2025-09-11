@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart3, ArrowLeft } from 'lucide-react';
+import { FixedSizeList as List } from 'react-window';
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
@@ -107,6 +108,30 @@ const Analytics = ({ onBack }) => {
     }
   };
 
+  const Row = ({ index, style, data }) => {
+    const p = data[index];
+    return (
+      <tr
+        style={{ ...style, display: 'table', tableLayout: 'fixed', width: '100%' }}
+        className="divide-y divide-gray-200"
+      >
+        <td className="px-3 py-2 whitespace-nowrap">{p.name}</td>
+        <td className="px-3 py-2 whitespace-nowrap">{p.team}</td>
+        <td className="px-3 py-2 whitespace-nowrap">{p.position}</td>
+        <td className="px-3 py-2 whitespace-nowrap">{p.manager || ''}</td>
+      </tr>
+    );
+  };
+
+  const TBody = React.forwardRef(({ style, ...rest }, ref) => (
+    <tbody
+      ref={ref}
+      className="divide-y divide-gray-200"
+      style={{ ...style, display: 'block' }}
+      {...rest}
+    />
+  ));
+
   if (!authorized) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 max-w-md mx-auto">
@@ -163,16 +188,16 @@ const Analytics = ({ onBack }) => {
                 <th className="px-3 py-2 text-left cursor-pointer" onClick={() => handleSort('manager')}>Manager</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {sortedPlayers.map(p => (
-                <tr key={p.id}>
-                  <td className="px-3 py-2 whitespace-nowrap">{p.name}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{p.team}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{p.position}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{p.manager || ''}</td>
-                </tr>
-              ))}
-            </tbody>
+            <List
+              height={400}
+              itemCount={sortedPlayers.length}
+              itemSize={40}
+              width={"100%"}
+              itemData={sortedPlayers}
+              outerElementType={TBody}
+            >
+              {Row}
+            </List>
           </table>
         </div>
       </div>
