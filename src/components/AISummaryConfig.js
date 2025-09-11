@@ -24,10 +24,15 @@ const AISummaryConfig = ({ API_BASE_URL, onDataUpdate }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <h3 className="text-xl font-bold text-gray-900 mb-4">AI Summary Config</h3>
+    <div>
       {message && (
-        <div className={`mb-4 p-3 rounded-lg ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+        <div
+          className={`mb-4 p-3 rounded-lg ${
+            message.type === 'success'
+              ? 'bg-green-100 text-green-700'
+              : 'bg-red-100 text-red-700'
+          }`}
+        >
           {message.text}
         </div>
       )}
