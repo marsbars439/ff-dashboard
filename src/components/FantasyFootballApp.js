@@ -25,6 +25,7 @@ import PlayoffBracket from './PlayoffBracket';
 import AISummary from './AISummary';
 import CollapsibleSection from './CollapsibleSection';
 import AISummaryConfig from './AISummaryConfig';
+import Analytics from './Analytics';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -1294,7 +1295,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
               <button
                 onClick={() => setActiveTab('admin')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'admin'
+                  activeTab === 'admin' || activeTab === 'analytics'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
@@ -2011,6 +2012,14 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         
         {activeTab === 'admin' && (
           <div className="space-y-6 sm:space-y-8">
+            <div className="flex justify-end">
+              <button
+                onClick={() => setActiveTab('analytics')}
+                className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+              >
+                <BarChart3 className="w-4 h-4 mr-1" /> Analytics
+              </button>
+            </div>
             <CollapsibleSection
               title={
                 <div className="flex items-center space-x-2">
@@ -2355,6 +2364,10 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
               {renderMarkdown(rulesContent)}
             </div>
           </div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <Analytics onBack={() => setActiveTab('admin')} />
         )}
       </div>
     </div>
