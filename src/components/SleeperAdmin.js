@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { RefreshCw, AlertCircle, CheckCircle, Clock, Eye } from 'lucide-react';
 
 const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
@@ -15,6 +15,17 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
   const [newMapping, setNewMapping] = useState({ name_id: '', season: '', sleeper_user_id: '' });
   const [editingMappingId, setEditingMappingId] = useState(null);
   const [editingMapping, setEditingMapping] = useState({});
+
+  const sortedManagers = useMemo(() => {
+    return [...managers].sort((a, b) => {
+      if (a.active !== b.active) return b.active - a.active;
+      return a.full_name.localeCompare(b.full_name);
+    });
+  }, [managers]);
+
+  const managersByName = useMemo(() => {
+    return [...managers].sort((a, b) => a.full_name.localeCompare(b.full_name));
+  }, [managers]);
 
   // Generate years from 2015 to current year
   const years = Array.from(
@@ -359,10 +370,7 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {managers.sort((a, b) => {
-                if (a.active !== b.active) return b.active - a.active;
-                return a.full_name.localeCompare(b.full_name);
-              }).map(manager => (
+              {sortedManagers.map(manager => (
                 <tr key={manager.id}>
                   <td className="px-3 py-2 font-mono text-xs">{manager.name_id}</td>
                   <td className="px-3 py-2">
@@ -394,11 +402,9 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
             onChange={(e) => setNewMapping(prev => ({ ...prev, name_id: e.target.value }))}
           >
             <option value="">Select Manager</option>
-            {[...managers]
-              .sort((a, b) => a.full_name.localeCompare(b.full_name))
-              .map(m => (
-                <option key={m.name_id} value={m.name_id}>{m.full_name}</option>
-              ))}
+            {managersByName.map(m => (
+              <option key={m.name_id} value={m.name_id}>{m.full_name}</option>
+            ))}
           </select>
           <input
             type="number"
