@@ -57,22 +57,22 @@ const Analytics = ({ onBack }) => {
   const loadData = useCallback(async () => {
     const year = new Date().getFullYear();
     try {
-      const [rankingRes, rosterRes] = await Promise.all([
+      const [dataRes, rosterRes] = await Promise.all([
         fetch(`${API_BASE_URL}/ros-rankings`).then(r => r.json()),
         fetch(`${API_BASE_URL}/seasons/${year}/keepers`).then(r => r.json())
       ]);
 
       // Support both array and object API responses
-      const rankings = Array.isArray(rankingRes)
-        ? rankingRes
-        : rankingRes.rankings || [];
+      const rosData = Array.isArray(dataRes)
+        ? dataRes
+        : dataRes.rankings || [];
       const rosters = Array.isArray(rosterRes)
         ? rosterRes
         : rosterRes.rosters || [];
 
       const playerMap = {};
 
-      // Seed player map with roster data so players show even if rankings fail
+      // Seed player map with roster data so players show even if ROS data fails
       rosters.forEach(r => {
         (r.players || []).forEach(p => {
           const teamVal = p.team || '';
@@ -96,8 +96,8 @@ const Analytics = ({ onBack }) => {
         });
       });
 
-      // Merge in rankings data
-      rankings.forEach(p => {
+      // Merge in ROS data
+      rosData.forEach(p => {
         const teamVal = p.team || '';
         const positionVal = p.position || '';
         const key = createKey(p.player_name, teamVal, positionVal);
@@ -116,15 +116,18 @@ const Analytics = ({ onBack }) => {
           positionLower: positionVal.toLowerCase(),
           managerLower: ''
         };
-        existing.projPts = p.proj_pts || 0;
-        existing.sosSeason = p.sos_season || 0;
-        existing.sosPlayoffs = p.sos_playoffs || 0;
+        existing.projPts = Number(p.proj_pts) || 0;
+        existing.sosSeason = Number(p.sos_season) || 0;
+        existing.sosPlayoffs = Number(p.sos_playoffs) || 0;
         playerMap[key] = existing;
       });
 
-      setPlayers(Object.values(playerMap));
+      const playersArr = Object.values(playerMap);
+      setPlayers(playersArr);
+      return playersArr.some(p => p.projPts || p.sosSeason || p.sosPlayoffs);
     } catch (e) {
-      console.error('Failed to load rankings:', e);
+      console.error('Failed to load player data:', e);
+      return false;
     }
   }, [API_BASE_URL]);
 
@@ -134,20 +137,20 @@ const Analytics = ({ onBack }) => {
     }
   }, [authorized, loadData]);
 
-  const refreshRankings = async () => {
+  const refreshRosData = async () => {
     setRefreshing(true);
-    setRefreshMessage('Requesting ROS rankings refresh...');
+    setRefreshMessage('Requesting ROS data refresh...');
     try {
       const res = await fetch(`${API_BASE_URL}/ros-rankings/refresh`, { method: 'POST' });
       if (!res.ok) {
         throw new Error('Refresh request failed');
       }
-      setRefreshMessage('Loading updated rankings...');
-      await loadData();
-      setRefreshMessage('ROS rankings refreshed successfully.');
+      setRefreshMessage('Loading updated data...');
+      const success = await loadData();
+      setRefreshMessage(success ? 'ROS data refreshed successfully.' : 'Failed to load ROS data.');
     } catch (e) {
-      console.error('Failed to refresh ROS rankings:', e);
-      setRefreshMessage('Failed to refresh ROS rankings.');
+      console.error('Failed to refresh ROS data:', e);
+      setRefreshMessage('Failed to refresh ROS data.');
     } finally {
       setRefreshing(false);
     }
@@ -234,11 +237,11 @@ const Analytics = ({ onBack }) => {
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Analytics</h2>
         </div>
         <button
-          onClick={refreshRankings}
+          onClick={refreshRosData}
           disabled={refreshing}
           className="mb-2 flex items-center bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded"
         >
-          <RefreshCw className="w-4 h-4 mr-2" /> Pull ROS Rankings from FantasyPros
+          <RefreshCw className="w-4 h-4 mr-2" /> Pull ROS Player Data from FantasyPros
         </button>
         {refreshMessage && (
           <div className="mb-4 text-sm text-gray-700">{refreshMessage}</div>
