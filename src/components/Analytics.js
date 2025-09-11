@@ -3,11 +3,28 @@ import { BarChart3, ArrowLeft } from 'lucide-react';
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 const Analytics = ({ onBack }) => {
   const [authorized, setAuthorized] = useState(false);
   const [input, setInput] = useState('');
   const [players, setPlayers] = useState([]);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [sortField, setSortField] = useState('nameLower');
   const [sortDir, setSortDir] = useState('asc');
   const password = process.env.REACT_APP_ANALYTICS_PASSWORD || 'admin';
@@ -69,7 +86,7 @@ const Analytics = ({ onBack }) => {
   }, [authorized, API_BASE_URL]);
 
   const sortedPlayers = useMemo(() => {
-    const searchLower = search.toLowerCase();
+    const searchLower = debouncedSearch.toLowerCase();
     const filtered = players.filter(p =>
       p.nameLower.includes(searchLower) || p.managerLower.includes(searchLower)
     );
@@ -78,7 +95,7 @@ const Analytics = ({ onBack }) => {
         ? collator.compare(a[sortField], b[sortField])
         : collator.compare(b[sortField], a[sortField])
     );
-  }, [players, search, sortField, sortDir]);
+  }, [players, debouncedSearch, sortField, sortDir]);
 
   const handleSort = field => {
     const lowerField = `${field}Lower`;
