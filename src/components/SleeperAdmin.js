@@ -340,6 +340,46 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
               </tbody>
             </table>
           </div>
+        </div>
+    </div>
+
+    {/* Manager IDs */}
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="p-6">
+        <h4 className="text-lg font-semibold mb-4">Manager IDs</h4>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left">Name ID</th>
+                <th className="px-3 py-2 text-left">Full Name</th>
+                <th className="px-3 py-2 text-left">Sleeper Username</th>
+                <th className="px-3 py-2 text-left">Sleeper User ID</th>
+                <th className="px-3 py-2 text-left">Active</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {managers.sort((a, b) => {
+                if (a.active !== b.active) return b.active - a.active;
+                return a.full_name.localeCompare(b.full_name);
+              }).map(manager => (
+                <tr key={manager.id}>
+                  <td className="px-3 py-2 font-mono text-xs">{manager.name_id}</td>
+                  <td className="px-3 py-2">
+                    <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>{manager.full_name}</span>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">{manager.sleeper_username || '-'}</td>
+                  <td className="px-3 py-2 text-gray-600">{manager.sleeper_user_id || '-'}</td>
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${manager.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {manager.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
