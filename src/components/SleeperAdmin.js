@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, AlertCircle, CheckCircle, Clock, Settings, Eye } from 'lucide-react';
+import { RefreshCw, AlertCircle, CheckCircle, Clock, Eye } from 'lucide-react';
 
 const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
   const [leagueSettings, setLeagueSettings] = useState({});
@@ -252,30 +252,17 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
-          <Settings className="w-5 h-5 text-blue-500" />
-          <span>Sleeper API Integration</span>
-        </h3>
-
-        {message && (
-          <div className={`mb-4 p-3 rounded-lg ${
-            message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-          }`}>
-            {message.text}
-          </div>
-        )}
-
-        <div className="text-sm text-gray-600 mb-4">
-          Enter Sleeper league IDs for each year to sync data automatically.
-          Manual fields (dues, payouts, dues_chumpion) will be preserved during sync.
+      {message && (
+        <div className={`p-3 rounded-lg ${
+          message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+        }`}>
+          {message.text}
         </div>
-      </div>
+      )}
 
       {/* AI Summary Config */}
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <h4 className="text-lg font-semibold mb-4">AI Summary Config</h4>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">AI Summary Config</h3>
         <button
           onClick={refreshSummary}
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
