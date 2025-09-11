@@ -162,6 +162,7 @@ const refreshRosRankings = async () => {
     console.log(`Updated ROS rankings: ${rankings.length} players`);
   } catch (err) {
     console.error('Failed to refresh ROS rankings:', err.message);
+    throw err;
   }
 };
 
@@ -1248,7 +1249,9 @@ refreshRosRankings().catch(err =>
 
 // Schedule ROS rankings refresh daily at 3AM ET
 cron.schedule('0 3 * * *', () => {
-  refreshRosRankings();
+  refreshRosRankings().catch(err =>
+    console.error('Scheduled ROS rankings refresh failed:', err.message)
+  );
 }, { timezone: 'America/New_York' });
 
 // Schedule weekly summary generation every Tuesday at 5AM ET

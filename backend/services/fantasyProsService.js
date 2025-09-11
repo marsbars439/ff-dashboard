@@ -80,6 +80,9 @@ async function scrapeRosRankings() {
     try {
       const html = await fetchWithRetry(url, pos);
       const players = parseRankings(html, pos);
+      if (!players.length) {
+        throw new Error(`No rankings found for ${pos}`);
+      }
       allPlayers.push(...players);
     } catch (err) {
       console.error(err.message);
