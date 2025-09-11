@@ -48,10 +48,18 @@ const Analytics = ({ onBack }) => {
           fetch(`${API_BASE_URL}/seasons/${year}/keepers`).then(r => r.json())
         ]);
 
+        // Support both array and object API responses
+        const rankings = Array.isArray(rankingRes)
+          ? rankingRes
+          : rankingRes.rankings || [];
+        const rosters = Array.isArray(rosterRes)
+          ? rosterRes
+          : rosterRes.rosters || [];
+
         const rosterMap = {};
         const draftCostMap = {};
-        (rosterRes.rosters || []).forEach(r => {
-          r.players.forEach(p => {
+        rosters.forEach(r => {
+          (r.players || []).forEach(p => {
             const nameLower = (p.name || '').toLowerCase();
             rosterMap[nameLower] = r.manager_name;
             if (p.draft_cost) {
@@ -60,7 +68,7 @@ const Analytics = ({ onBack }) => {
           });
         });
 
-        const allPlayers = (rankingRes.rankings || []).map(p => {
+        const allPlayers = rankings.map(p => {
           const nameLower = (p.player_name || '').toLowerCase();
           const teamVal = p.team || '';
           const positionVal = p.position || '';
