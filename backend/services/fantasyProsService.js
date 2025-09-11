@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { parse } = require('csv-parse/sync');
 
 const POS_URLS = {
   QB: 'https://www.fantasypros.com/nfl/rankings/ros-qb.php',
@@ -8,43 +9,26 @@ const POS_URLS = {
   DST: 'https://www.fantasypros.com/nfl/rankings/ros-dst.php'
 };
 
-function parseRankings(html, defaultPos) {
-  const headerMatch = html.match(/<thead[^>]*>([\s\S]*?)<\/thead>/i);
-  let idxPlayer = 0, idxProj = -1, idxSosSeason = -1, idxSosPlayoffs = -1;
-  if (headerMatch) {
-    const headers = [...headerMatch[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)]
-      .map(h => h[1].replace(/<[^>]+>/g, '').trim().toLowerCase());
-    idxPlayer = headers.indexOf('player') !== -1 ? headers.indexOf('player') : 0;
-    idxProj = headers.findIndex(h => h.includes('proj'));
-    idxSosSeason = headers.indexOf('sos season');
-    idxSosPlayoffs = headers.indexOf('sos playoffs');
-  }
-  const bodyMatch = html.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
-  if (!bodyMatch) return [];
-  const rows = [...bodyMatch[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)];
-  return rows.map(r => {
-    const cells = [...r[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)]
-      .map(c => c[1].replace(/<[^>]+>/g, '').trim());
-    const playerCell = cells[idxPlayer] || '';
-    const nameMatch = playerCell.match(/^(.*?)\s+\(([^-]+)\s*-\s*([^\)]+)\)/);
-    let name = playerCell;
-    let team = '';
-    let position = defaultPos;
-    if (nameMatch) {
-      name = nameMatch[1].trim();
-      team = nameMatch[2].trim();
-      position = nameMatch[3].trim();
-    }
-    const projPts = parseFloat(cells[idxProj] || '0') || 0;
-    const sosSeason = parseInt(cells[idxSosSeason] || '0') || 0;
-    const sosPlayoffs = parseInt(cells[idxSosPlayoffs] || '0') || 0;
+async function fetchCsvRankings(pos) {
+  const baseUrl = POS_URLS[pos];
+  if (!baseUrl) throw new Error(`Unknown position: ${pos}`);
+  const url = `${baseUrl}?export=csv`;
+  const csv = await fetchWithRetry(url, pos);
+  const records = parse(csv, { columns: true, skip_empty_lines: true });
+  return records.map(r => {
+    const playerName = r.Player || r.player || r.PLAYER || '';
+    const team = r.Team || r.team || r.TEAM || '';
+    const position = r.Pos || r.POSITION || r.position || pos;
+    const proj = parseFloat(r['Proj Pts'] || r.proj_pts || r['FPTS'] || '0') || 0;
+    const sosSeason = parseInt(r['SOS Season'] || r.sos_season || r['SOS SEASON'] || '0', 10) || 0;
+    const sosPlayoffs = parseInt(r['SOS Playoffs'] || r.sos_playoffs || r['SOS PLAYOFFS'] || '0', 10) || 0;
     return {
-      player_name: name,
+      player_name: playerName,
       team,
       position,
-      proj_pts: projPts,
+      proj_pts: proj,
       sos_season: sosSeason,
-      sos_playoffs: sosPlayoffs
+      sos_playoffs: sosPlayoffs,
     };
   });
 }
@@ -76,10 +60,9 @@ async function fetchWithRetry(url, pos, retries = 3, delay = 1000) {
 async function scrapeRosRankings() {
   const allPlayers = [];
   const failed = [];
-  for (const [pos, url] of Object.entries(POS_URLS)) {
+  for (const pos of Object.keys(POS_URLS)) {
     try {
-      const html = await fetchWithRetry(url, pos);
-      const players = parseRankings(html, pos);
+      const players = await fetchCsvRankings(pos);
       if (!players.length) {
         throw new Error(`No rankings found for ${pos}`);
       }
@@ -89,10 +72,7 @@ async function scrapeRosRankings() {
       failed.push(pos);
     }
   }
-  if (failed.length) {
-    throw new Error(`Unable to fetch rankings for: ${failed.join(', ')}`);
-  }
-  return allPlayers;
+  return { players: allPlayers, failed };
 }
 
-module.exports = { scrapeRosRankings };
+module.exports = { scrapeRosRankings, fetchCsvRankings };
