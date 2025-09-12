@@ -1261,6 +1261,26 @@ app.post('/api/summary/refresh', async (req, res) => {
   }
 });
 
+// Refresh upcoming week preview
+app.post('/api/preview/refresh', async (req, res) => {
+  try {
+    const { summary } = await weeklySummaryService.generateWeeklyPreview(db);
+    res.json({ summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate upcoming week preview
+app.get('/api/preview', async (req, res) => {
+  try {
+    const { summary } = await weeklySummaryService.generateWeeklyPreview(db);
+    res.json({ summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });

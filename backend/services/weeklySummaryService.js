@@ -111,4 +111,64 @@ async function generateWeeklySummary(db) {
   return { summary, data };
 }
 
-module.exports = { buildSeasonSummaryData, generateWeeklySummary };
+async function buildPreviewData(db) {
+  const { year } = await getAsync(db, 'SELECT MAX(year) as year FROM team_seasons');
+  if (!year) {
+    throw new Error('No seasons found');
+  }
+
+  const teams = await allAsync(
+    db,
+    `SELECT ts.*, m.full_name as manager_name
+     FROM team_seasons ts
+     LEFT JOIN managers m ON ts.name_id = m.name_id
+     WHERE ts.year = ?`,
+    [year]
+  );
+
+  const leagueRow = await getAsync(db, 'SELECT league_id FROM league_settings WHERE year = ?', [year]);
+  const managers = await allAsync(
+    db,
+    `SELECT m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+     FROM managers m
+     LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?`,
+    [year]
+  );
+
+  let matchups = [];
+  let nextWeek = null;
+
+  if (leagueRow && leagueRow.league_id) {
+    const weeks = await sleeperService.getSeasonMatchups(leagueRow.league_id, managers);
+    const currentWeek = weeks.length > 0 ? Math.max(...weeks.map(w => w.week)) : null;
+    nextWeek = currentWeek != null ? currentWeek + 1 : null;
+    const nextWeekData = weeks.find(w => w.week === nextWeek);
+    if (nextWeekData) {
+      matchups = nextWeekData.matchups.map(m => {
+        const homeTeam = teams.find(t => t.manager_name === m.home.manager_name);
+        const awayTeam = teams.find(t => t.manager_name === m.away.manager_name);
+        return {
+          week: nextWeek,
+          home: {
+            manager_name: m.home.manager_name,
+            record: homeTeam ? `${homeTeam.wins}-${homeTeam.losses}` : ''
+          },
+          away: {
+            manager_name: m.away.manager_name,
+            record: awayTeam ? `${awayTeam.wins}-${awayTeam.losses}` : ''
+          }
+        };
+      });
+    }
+  }
+
+  return { type: 'preview', year, teams, matchups, currentWeek: nextWeek };
+}
+
+async function generateWeeklyPreview(db) {
+  const data = await buildPreviewData(db);
+  const summary = await summaryService.generateSummary(data);
+  return { summary, data };
+}
+
+module.exports = { buildSeasonSummaryData, generateWeeklySummary, buildPreviewData, generateWeeklyPreview };

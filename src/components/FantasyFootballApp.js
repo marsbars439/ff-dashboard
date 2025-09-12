@@ -23,6 +23,7 @@ import {
 import SleeperAdmin from './SleeperAdmin';
 import PlayoffBracket from './PlayoffBracket';
 import AISummary from './AISummary';
+import AIPreview from './AIPreview';
 import CollapsibleSection from './CollapsibleSection';
 import AISummaryConfig from './AISummaryConfig';
 import Analytics from './Analytics';
@@ -1316,6 +1317,10 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   Week {lastCompletedWeek} In Review
                 </h2>
                 <AISummary />
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 mt-6">
+                  Week {lastCompletedWeek + 1} Preview
+                </h2>
+                <AIPreview />
               </div>
             )}
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
