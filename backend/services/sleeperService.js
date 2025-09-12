@@ -536,7 +536,7 @@ class SleeperService {
           }
         });
 
-        return rosters.map(r => {
+        const rosterInfos = rosters.map(r => {
           const user = users.find(u => u.user_id === r.owner_id) || {};
           const teamName =
             r.metadata?.team_name ||
@@ -568,6 +568,22 @@ class SleeperService {
             players: playerInfos
           };
         });
+
+        const draftedPlayers = Object.entries(playerCosts).map(([pid, cost]) => {
+          const p = players[pid] || {};
+          const name =
+            p.full_name ||
+            (p.first_name && p.last_name ? `${p.first_name} ${p.last_name}` : pid);
+          return {
+            id: pid,
+            name,
+            team: p.team || '',
+            position: p.position || '',
+            draft_cost: cost
+          };
+        });
+
+        return { rosters: rosterInfos, draftedPlayers };
       } catch (error) {
         console.error('❌ Error fetching final rosters:', error.message);
         throw error;
