@@ -1,9 +1,10 @@
 # Backend Dockerfile - Multi-architecture SQLite3 fix
 FROM node:18-alpine
 
-# Install build dependencies for SQLite3
+# Install build dependencies for SQLite3 and Python packages
 RUN apk add --no-cache \
     python3 \
+    py3-pip \
     make \
     g++ \
     sqlite
@@ -11,13 +12,14 @@ RUN apk add --no-cache \
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files and Python requirements
+COPY package*.json requirements.txt ./
 
 # Install dependencies first (without building SQLite3 yet)
 # Use `npm install` instead of `npm ci` to avoid strict lockfile checks
 # during multi-architecture builds where the lock file may be out of date.
-RUN npm install --omit=dev
+RUN npm install --omit=dev && \
+    pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Copy source code
 COPY . .
