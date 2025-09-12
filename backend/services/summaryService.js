@@ -80,9 +80,17 @@ function buildSummaryPrompt(data) {
   matchups.forEach(m => {
     const weekLabel = m.week ? `W${m.week} ` : '';
     if (m.home && m.away) {
-      matchupLines.push(
-        `${weekLabel}${m.home.manager_name} vs ${m.away.manager_name} (${m.home.points}-${m.away.points})`
-      );
+      if (d.type === 'preview') {
+        const homeRec = m.home.record ? ` (${m.home.record})` : '';
+        const awayRec = m.away.record ? ` (${m.away.record})` : '';
+        matchupLines.push(
+          `${weekLabel}${m.home.manager_name}${homeRec} vs ${m.away.manager_name}${awayRec}`
+        );
+      } else {
+        matchupLines.push(
+          `${weekLabel}${m.home.manager_name} vs ${m.away.manager_name} (${m.home.points}-${m.away.points})`
+        );
+      }
     } else if (m.team1 && m.team2) {
       matchupLines.push(
         `${weekLabel}${m.team1.manager_name} vs ${m.team2.manager_name} (${m.team1.points}-${m.team2.points})`
@@ -97,7 +105,9 @@ function buildSummaryPrompt(data) {
     season:
       'Surface key insights about this season including championship results, standout performances, and notable matchups.',
     records:
-      'Surface insights about historical records, medal leaders, and long-term manager trends.'
+      'Surface insights about historical records, medal leaders, and long-term manager trends.',
+    preview:
+      'Preview upcoming matchups and discuss potential outcomes and standings implications.'
   };
   const intro = variants[d.type] ||
     'Surface insights about manager performance, medals, win/loss records, roster highlights, and matchups.';
