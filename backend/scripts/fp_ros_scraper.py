@@ -1,177 +1,251 @@
 #!/usr/bin/env python3
-"""Scrape FantasyPros rest-of-season rankings and compile into CSV."""
-import re
-import time
-import csv
-import sys
+"""
+Simple FantasyPros Rest of Season Rankings Scraper
+Extracts: Player, Team, Position, Proj. Fpts
+"""
+
 import argparse
 import json
-from urllib.parse import urljoin
-import requests
+import re
+import time
+from datetime import datetime
+
 import pandas as pd
+import requests
 from bs4 import BeautifulSoup
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; FP-ROS-Scraper/1.0; +https://example.com)"
-}
 
-PAGES = {
-    "QB":  "https://www.fantasypros.com/nfl/rankings/ros-qb.php",
-    "RB":  "https://www.fantasypros.com/nfl/rankings/ros-half-point-ppr-rb.php",
-    "WR":  "https://www.fantasypros.com/nfl/rankings/ros-half-point-ppr-wr.php",
-    "TE":  "https://www.fantasypros.com/nfl/rankings/ros-half-point-ppr-te.php",
-    "DST": "https://www.fantasypros.com/nfl/rankings/ros-dst.php",
-}
+class FantasyProsScraper:
+    """Simple scraper for FantasyPros Rest of Season Rankings"""
 
-CANDIDATES = {
-    "player": ["Player", "Name"],
-    "team": ["Team", "Tm", "NFL Team", "NFLTeam"],
-    "pos": ["Pos", "Position"],
-    "proj": ["Proj. FPTS", "Proj. Fpts", "Projected FPTS", "Projected Pts", "Proj Pts"],
-    "sos_season": ["SOS Season", "SOS (Season)"],
-    "sos_playoffs": ["SOS Playoffs", "SOS (Playoffs)"],
-}
+    def __init__(self, debug: bool = True):
+        self.headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
+        self.session = requests.Session()
+        self.session.headers.update(self.headers)
+        self.debug = debug
 
-def find_column(df: pd.DataFrame, names):
-    lower_map = {c.lower(): c for c in df.columns}
-    for n in names:
-        if n.lower() in lower_map:
-            return lower_map[n.lower()]
-    for c in df.columns:
-        if any(n.lower() in c.lower() for n in names):
-            return c
-    return None
+    # ------------------------------------------------------------------
+    def debug_print(self, message: str) -> None:
+        """Print debug messages if debug mode is enabled"""
+        if self.debug:
+            print(f"DEBUG: {message}")
 
-def extract_csv_link(page_url: str) -> str:
-    r = requests.get(page_url, headers=HEADERS, timeout=30)
-    r.raise_for_status()
-    soup = BeautifulSoup(r.text, "html.parser")
-    for a in soup.find_all("a", href=True):
-        text = (a.get_text() or "").strip().lower()
-        href = a["href"].lower()
-        if "csv" in text or "csv" in href or "export" in href:
-            return urljoin(page_url, a["href"])
-    for suffix in ["?export=csv", "?export=xls", "?csv=1", "?print=true"]:
-        try_url = page_url + suffix
-        rr = requests.get(try_url, headers=HEADERS, timeout=30, allow_redirects=True)
-        if rr.ok and ("text/csv" in rr.headers.get("Content-Type", "").lower() or
-                      rr.text.lower().startswith(("rank", "player", "name"))):
-            return try_url
-    raise RuntimeError(f"Could not find CSV link on {page_url}")
+    # ------------------------------------------------------------------
+    def extract_player_data(self, html_content: str, position: str):
+        """Extract player data focusing only on the 4 required fields"""
+        soup = BeautifulSoup(html_content, "html.parser")
+        players_data = []
 
-def normalize_frame(df: pd.DataFrame, forced_pos: str = None) -> pd.DataFrame:
-    col_player = find_column(df, CANDIDATES["player"])
-    col_team = find_column(df, CANDIDATES["team"])
-    col_pos = find_column(df, CANDIDATES["pos"])
-    col_proj = find_column(df, CANDIDATES["proj"])
-    col_sos_season = find_column(df, CANDIDATES["sos_season"])
-    col_sos_playoffs = find_column(df, CANDIDATES["sos_playoffs"])
+        scripts = soup.find_all("script")
+        for script in scripts:
+            script_text = str(script.string) if script.string else str(script)
+            if not script_text or len(script_text.strip()) < 100:
+                continue
 
-    if not col_team or not col_pos:
-        pat = re.compile(r"\((?P<team>[A-Z]{2,3})\s*-\s*(?P<pos>[A-Z/]{2,4})\)")
-        def parse_tp(s):
-            if not isinstance(s, str):
-                return (None, None)
-            m = pat.search(s)
-            if m:
-                return (m.group("team"), m.group("pos"))
-            return (None, None)
-        teams, poss = [], []
-        base_col = col_player or df.columns[0]
-        for v in df[base_col].astype(str).tolist():
-            t, p = parse_tp(v)
-            teams.append(t)
-            poss.append(p)
-        if not col_team:
-            df["__team_fallback"] = teams
-            col_team = "__team_fallback"
-        if not col_pos:
-            df["__pos_fallback"] = poss
-            col_pos = "__pos_fallback"
+            patterns_to_check = [
+                r"var\s+ecrData\s*=\s*({.*?});",
+                r"var\s+data\s*=\s*({.*?});",
+                r"var\s+playerData\s*=\s*({.*?});",
+                r"var\s+rankingsData\s*=\s*({.*?});",
+                r"window\.ecrData\s*=\s*({.*?});",
+                r"const\s+\w+\s*=\s*({.*?\"players\".*?});",
+            ]
 
-    if forced_pos:
-        df["__forced_pos"] = forced_pos
-        col_pos = "__forced_pos"
+            for pattern in patterns_to_check:
+                matches = re.finditer(pattern, script_text, re.DOTALL)
+                for match in matches:
+                    try:
+                        json_str = match.group(1)
+                        data = json.loads(json_str)
+                        if isinstance(data, dict) and "players" in data:
+                            players = data["players"]
+                            self.debug_print(f"Found {len(players)} players in JSON data")
+                            if players and isinstance(players[0], dict):
+                                sample_keys = list(players[0].keys())
+                                self.debug_print(f"Available fields: {sample_keys}")
 
-    out = pd.DataFrame({
-        "Player": df[col_player] if col_player else df.iloc[:, 0],
-        "Team": df[col_team] if col_team else None,
-        "Pos": df[col_pos] if col_pos else forced_pos,
-        "Proj. Fpts": pd.to_numeric(df[col_proj], errors="coerce") if col_proj else None,
-        "SOS Season": df[col_sos_season] if col_sos_season else None,
-        "SOS Playoffs": df[col_sos_playoffs] if col_sos_playoffs else None,
-    })
+                            for player in players:
+                                if not isinstance(player, dict):
+                                    continue
+                                player_name = player.get("player_name", "").strip()
+                                team_id = player.get("player_team_id", "").strip()
+                                proj_fpts = player.get("r2p_pts", "").strip()
+                                if player_name and proj_fpts:
+                                    players_data.append(
+                                        {
+                                            "Player": player_name,
+                                            "Team": team_id,
+                                            "Position": position,
+                                            "Proj. Fpts": proj_fpts,
+                                        }
+                                    )
 
-    out["Player"] = out["Player"].astype(str).str.replace(r"\s*\([^\)]+\)\s*$", "", regex=True).str.strip()
-    out["Team"] = out["Team"].replace({"N/A": None, "": None})
-    if forced_pos == "DST":
-        out["Pos"] = "DST"
-    return out
+                            if players_data:
+                                self.debug_print(
+                                    f"Successfully extracted {len(players_data)} players"
+                                )
+                                return players_data
+                    except json.JSONDecodeError as e:
+                        self.debug_print(f"JSON decode error: {e}")
+                        continue
 
-def fetch_position(pos_name: str, url: str) -> pd.DataFrame:
-    csv_link = extract_csv_link(url)
-    resp = requests.get(csv_link, headers=HEADERS, timeout=60)
-    resp.raise_for_status()
-    text = resp.content.decode("utf-8", errors="replace")
-    from io import StringIO
-    df_raw = pd.read_csv(StringIO(text))
-    forced = "DST" if pos_name == "DST" else None
-    df_norm = normalize_frame(df_raw, forced_pos=forced)
-    df_norm.insert(0, "SrcPos", pos_name)
-    return df_norm, df_raw, csv_link
+        self.debug_print("No player data found in JSON")
+        return []
 
-def main():
-    ap = argparse.ArgumentParser(description="Scrape FantasyPros ROS CSVs and combine.")
-    ap.add_argument("--out", help="Output combined CSV path")
-    ap.add_argument("--perdir", help="Directory to save per-position CSVs")
-    ap.add_argument("--sleep", type=float, default=2.0, help="Seconds between requests (politeness)")
-    ap.add_argument("--json", action="store_true", help="Output data as JSON to stdout")
-    args = ap.parse_args()
+    # ------------------------------------------------------------------
+    def scrape_rankings(self, url: str, position: str) -> pd.DataFrame:
+        """Scrape rankings from a single URL"""
+        if self.debug:
+            print("\n" + "=" * 50)
+            print(f"Fetching {position} rankings...")
+            print("=" * 50)
 
-    combined = []
-    failed = []
-    for pos, url in PAGES.items():
         try:
-            df_norm, df_raw, csv_link = fetch_position(pos, url)
-            combined.append(df_norm)
-            if args.perdir:
-                per_path = f"{args.perdir}/fantasypros_ros_{pos.lower()}.csv"
-                df_norm.to_csv(per_path, index=False, quoting=csv.QUOTE_MINIMAL)
-            if not args.json:
-                print(f"[OK] {pos}: {len(df_norm)} rows  | CSV: {csv_link}")
-                print(df_norm.head(3).to_string(index=False))
+            response = self.session.get(url, timeout=30)
+            response.raise_for_status()
+            players_data = self.extract_player_data(response.text, position)
+            if players_data:
+                df = pd.DataFrame(players_data)
+                df = df[df["Player"].str.strip() != ""]
+                df = df[df["Proj. Fpts"].str.strip() != ""]
+                df = df.drop_duplicates(subset=["Player"], keep="first")
+                if self.debug:
+                    print(f"✅ Successfully scraped {len(df)} {position} players")
+                    print("\nSample data:")
+                    print(df.head().to_string(index=False))
+                return df
+            else:
+                if self.debug:
+                    print(f"❌ No data found for {position}")
+                return pd.DataFrame()
         except Exception as e:
-            print(f"[ERR] {pos}: {e}", file=sys.stderr)
-            failed.append(pos)
-        time.sleep(args.sleep)
+            if self.debug:
+                print(f"❌ Error fetching {position}: {str(e)}")
+            return pd.DataFrame()
 
-    if not combined:
-        print("[FATAL] No data gathered.", file=sys.stderr)
-        sys.exit(2)
+    # ------------------------------------------------------------------
+    def scrape_all_rankings(self) -> pd.DataFrame:
+        """Scrape all position rankings"""
+        urls_config = [
+            {"url": "https://www.fantasypros.com/nfl/rankings/ros-qb.php", "position": "QB"},
+            {"url": "https://www.fantasypros.com/nfl/rankings/ros-half-point-ppr-rb.php", "position": "RB"},
+            {"url": "https://www.fantasypros.com/nfl/rankings/ros-half-point-ppr-wr.php", "position": "WR"},
+            {"url": "https://www.fantasypros.com/nfl/rankings/ros-half-point-ppr-te.php", "position": "TE"},
+            {"url": "https://www.fantasypros.com/nfl/rankings/ros-dst.php", "position": "DST"},
+        ]
 
-    df_all = pd.concat(combined, ignore_index=True)
-    cols = ["Player", "Team", "Pos", "Proj. Fpts", "SOS Season", "SOS Playoffs"]
-    df_all = df_all[["SrcPos"] + cols]
-    if args.out:
-        df_all.to_csv(args.out, index=False, quoting=csv.QUOTE_MINIMAL)
+        all_data = []
 
-    if args.json:
-        records = df_all[cols].rename(columns={
-            "Player": "player_name",
-            "Team": "team",
-            "Pos": "position",
-            "Proj. Fpts": "proj_pts",
-            "SOS Season": "sos_season",
-            "SOS Playoffs": "sos_playoffs",
-        }).to_dict(orient="records")
-        print(json.dumps({"players": records, "failed": failed}))
-    else:
-        if args.out:
-            print(f"\n[DONE] Wrote combined CSV: {args.out}  ({len(df_all)} total rows)")
+        for config in urls_config:
+            df = self.scrape_rankings(config["url"], config["position"])
+            if not df.empty:
+                all_data.append(df)
+            if self.debug:
+                print("Waiting 2 seconds...")
+            time.sleep(2)
+
+        if all_data:
+            combined_df = pd.concat(all_data, ignore_index=True)
+            combined_df = combined_df.drop_duplicates(subset=["Player"], keep="first")
+            combined_df["Proj. Fpts"] = pd.to_numeric(
+                combined_df["Proj. Fpts"], errors="coerce"
+            )
+            combined_df = combined_df.sort_values(
+                ["Position", "Proj. Fpts"], ascending=[True, False]
+            )
+            return combined_df
+        return pd.DataFrame()
+
+    # ------------------------------------------------------------------
+    def save_to_csv(self, df: pd.DataFrame, filename: str | None = None) -> str | None:
+        """Save DataFrame to CSV file"""
+        if df.empty:
+            if self.debug:
+                print("\n❌ No data to save")
+            return None
+
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"fantasypros_rankings_{timestamp}.csv"
+
+        df.to_csv(filename, index=False)
+
+        if self.debug:
+            print("\n" + "=" * 60)
+            print("✅ SCRAPING COMPLETE!")
+            print("=" * 60)
+            print(f"📄 File saved: {filename}")
+            print(f"👥 Total players: {len(df)}")
+            print("\n📊 Breakdown by position:")
+            pos_counts = df["Position"].value_counts()
+            for pos, count in pos_counts.items():
+                print(f"   {pos}: {count} players")
+            print("\n📈 Projected Points Range:")
+            print(f"   Highest: {df['Proj. Fpts'].max():.1f}")
+            print(f"   Lowest: {df['Proj. Fpts'].min():.1f}")
+            print(f"   Average: {df['Proj. Fpts'].mean():.1f}")
+            print("=" * 60)
+
+        return filename
+
+
+def main() -> tuple[pd.DataFrame | None, str | None]:
+    """Main function to run the scraper"""
+    parser = argparse.ArgumentParser(
+        description="Simple FantasyPros Rankings Scraper"
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output data as JSON to stdout (suppresses other output)",
+    )
+    args = parser.parse_args()
+
+    scraper = FantasyProsScraper(debug=not args.json)
+    df = scraper.scrape_all_rankings()
+
+    if df.empty:
+        if args.json:
+            print(json.dumps({"players": [], "failed": []}))
         else:
-            print(f"\n[DONE] Fetched {len(df_all)} total rows")
-        print("\nColumn summary:\n", df_all[cols].dtypes)
-        print("\nNull counts:\n", df_all[cols].isna().sum())
+            print("\n❌ Failed to scrape any data")
+        return None, None
+
+    filename = None
+    if not args.json:
+        filename = scraper.save_to_csv(df)
+        print("\n📋 Final data sample (top 10 by projected points):")
+        top_players = df.nlargest(10, "Proj. Fpts")
+        print(top_players.to_string(index=False))
+        print(
+            f"\n🎉 Success! '{filename}' is ready for your database!"
+        )
+    else:
+        records = df.rename(
+            columns={
+                "Player": "player_name",
+                "Team": "team",
+                "Position": "position",
+                "Proj. Fpts": "proj_pts",
+            }
+        ).to_dict(orient="records")
+        payload = {"players": records, "failed": []}
+        print(json.dumps(payload))
+
+    return df, filename
+
 
 if __name__ == "__main__":
     main()
+
