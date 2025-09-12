@@ -358,8 +358,8 @@ app.get('/api/seasons/:year/keepers', (req, res) => {
         );
       });
 
-      const rosters = await sleeperService.getFinalRosters(row.league_id, managers);
-      res.json({ rosters });
+      const { rosters, draftedPlayers } = await sleeperService.getFinalRosters(row.league_id, managers);
+      res.json({ rosters, draftedPlayers });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

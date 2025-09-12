@@ -12,8 +12,20 @@ function normalizeName(name = '') {
     .trim();
 }
 
+function normalizeTeam(team = '') {
+  const upper = team.toUpperCase();
+  if (upper === 'JAC') return 'JAX';
+  return upper;
+}
+
+function normalizePosition(position = '') {
+  const upper = position.toUpperCase();
+  if (upper === 'DST') return 'DEF';
+  return upper;
+}
+
 function createKey(name, team, position) {
-  return `${normalizeName(name)}|${(team || '').toLowerCase()}|${(position || '').toLowerCase()}`;
+  return `${normalizeName(name)}|${normalizeTeam(team).toLowerCase()}|${normalizePosition(position).toLowerCase()}`;
 }
 
 function useDebounce(value, delay) {
@@ -69,14 +81,15 @@ const Analytics = ({ onBack }) => {
       const rosters = Array.isArray(rosterRes)
         ? rosterRes
         : rosterRes.rosters || [];
+      const draftedPlayers = rosterRes.draftedPlayers || [];
 
       const playerMap = {};
 
       // Seed player map with roster data so players show even if ROS data fails
       rosters.forEach(r => {
         (r.players || []).forEach(p => {
-          const teamVal = p.team || '';
-          const positionVal = p.position || '';
+          const teamVal = normalizeTeam(p.team || '');
+          const positionVal = normalizePosition(p.position || '');
           const key = createKey(p.name, teamVal, positionVal);
           playerMap[key] = {
             id: key,
@@ -96,10 +109,38 @@ const Analytics = ({ onBack }) => {
         });
       });
 
+      // Include drafted players not on rosters
+      draftedPlayers.forEach(p => {
+        const teamVal = normalizeTeam(p.team || '');
+        const positionVal = normalizePosition(p.position || '');
+        const key = createKey(p.name, teamVal, positionVal);
+        const existing = playerMap[key];
+        const cost = p.draft_cost ? Number(p.draft_cost) : 0;
+        if (existing) {
+          if (!existing.draftCost) existing.draftCost = cost;
+        } else {
+          playerMap[key] = {
+            id: key,
+            name: p.name,
+            team: teamVal,
+            position: positionVal,
+            manager: '',
+            draftCost: cost,
+            projPts: 0,
+            sosSeason: 0,
+            sosPlayoffs: 0,
+            nameLower: normalizeName(p.name),
+            teamLower: teamVal.toLowerCase(),
+            positionLower: positionVal.toLowerCase(),
+            managerLower: ''
+          };
+        }
+      });
+
       // Merge in ROS data
       rosData.forEach(p => {
-        const teamVal = p.team || '';
-        const positionVal = p.position || '';
+        const teamVal = normalizeTeam(p.team || '');
+        const positionVal = normalizePosition(p.position || '');
         const key = createKey(p.player_name, teamVal, positionVal);
         const existing = playerMap[key] || {
           id: key,
