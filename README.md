@@ -43,6 +43,15 @@ docker-compose -f docker-compose.dev.yml up --build
 make dev
 ```
 
+### Backend Python Dependencies
+The backend's FantasyPros scraper requires Python packages. When running the project outside of Docker, install them with:
+
+```
+pip install -r backend/requirements.txt
+```
+
+These dependencies are installed automatically in the backend Docker image.
+
 ### Management Commands
 # Deploy latest version
 make deploy
