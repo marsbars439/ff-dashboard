@@ -52,6 +52,14 @@ const Analytics = ({ onBack }) => {
   const debouncedSearch = useDebounce(search, 300);
   const [sortField, setSortField] = useState('nameLower');
   const [sortDir, setSortDir] = useState('asc');
+  const [filters, setFilters] = useState({
+    name: '',
+    team: '',
+    position: '',
+    manager: '',
+    draftCost: '',
+    projPts: ''
+  });
   const password = process.env.REACT_APP_ANALYTICS_PASSWORD || 'admin';
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
   const [refreshMessage, setRefreshMessage] = useState('');
@@ -99,8 +107,6 @@ const Analytics = ({ onBack }) => {
             manager: r.manager_name,
             draftCost: p.draft_cost ? Number(p.draft_cost) : 0,
             projPts: 0,
-            sosSeason: 0,
-            sosPlayoffs: 0,
             nameLower: normalizeName(p.name),
             teamLower: teamVal.toLowerCase(),
             positionLower: positionVal.toLowerCase(),
@@ -127,8 +133,6 @@ const Analytics = ({ onBack }) => {
             manager: '',
             draftCost: cost,
             projPts: 0,
-            sosSeason: 0,
-            sosPlayoffs: 0,
             nameLower: normalizeName(p.name),
             teamLower: teamVal.toLowerCase(),
             positionLower: positionVal.toLowerCase(),
@@ -150,22 +154,18 @@ const Analytics = ({ onBack }) => {
           manager: '',
           draftCost: 0,
           projPts: 0,
-          sosSeason: 0,
-          sosPlayoffs: 0,
           nameLower: normalizeName(p.player_name),
           teamLower: teamVal.toLowerCase(),
           positionLower: positionVal.toLowerCase(),
           managerLower: ''
         };
         existing.projPts = Number(p.proj_pts) || 0;
-        existing.sosSeason = Number(p.sos_season) || 0;
-        existing.sosPlayoffs = Number(p.sos_playoffs) || 0;
         playerMap[key] = existing;
       });
 
       const playersArr = Object.values(playerMap);
       setPlayers(playersArr);
-      return playersArr.some(p => p.projPts || p.sosSeason || p.sosPlayoffs);
+      return playersArr.some(p => p.projPts);
     } catch (e) {
       console.error('Failed to load player data:', e);
       return false;
@@ -200,7 +200,13 @@ const Analytics = ({ onBack }) => {
   const sortedPlayers = useMemo(() => {
     const searchLower = debouncedSearch.toLowerCase();
     const filtered = players.filter(p =>
-      p.nameLower.includes(searchLower) || p.managerLower.includes(searchLower)
+      (p.nameLower.includes(searchLower) || p.managerLower.includes(searchLower)) &&
+      (!filters.name || p.nameLower.includes(filters.name.toLowerCase())) &&
+      (!filters.team || p.teamLower.includes(filters.team.toLowerCase())) &&
+      (!filters.position || p.positionLower.includes(filters.position.toLowerCase())) &&
+      (!filters.manager || p.managerLower.includes(filters.manager.toLowerCase())) &&
+      (!filters.draftCost || String(p.draftCost).includes(filters.draftCost)) &&
+      (!filters.projPts || String(p.projPts).includes(filters.projPts))
     );
     return filtered.sort((a, b) => {
       const aVal = a[sortField];
@@ -212,7 +218,7 @@ const Analytics = ({ onBack }) => {
         ? collator.compare(aVal, bVal)
         : collator.compare(bVal, aVal);
     });
-  }, [players, debouncedSearch, sortField, sortDir]);
+  }, [players, debouncedSearch, sortField, sortDir, filters]);
 
   const handleSort = field => {
     const strFields = ['name', 'team', 'position', 'manager'];
@@ -233,8 +239,6 @@ const Analytics = ({ onBack }) => {
       <td className="px-3 py-2 whitespace-nowrap">{p.manager || ''}</td>
       <td className="px-3 py-2 whitespace-nowrap text-right">{p.draftCost ? `$${p.draftCost}` : ''}</td>
       <td className="px-3 py-2 whitespace-nowrap text-right">{p.projPts}</td>
-      <td className="px-3 py-2 whitespace-nowrap text-right">{p.sosSeason}</td>
-      <td className="px-3 py-2 whitespace-nowrap text-right">{p.sosPlayoffs}</td>
     </tr>
   );
 
@@ -304,8 +308,50 @@ const Analytics = ({ onBack }) => {
                 <th className="px-3 py-2 text-left cursor-pointer" onClick={() => handleSort('manager')}>Manager</th>
                 <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('draftCost')}>Draft $</th>
                 <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('projPts')}>Proj. Pts</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('sosSeason')}>SOS Season</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('sosPlayoffs')}>SOS Playoffs</th>
+              </tr>
+              <tr>
+                <th className="px-3 py-1">
+                  <input
+                    className="w-full px-1 py-1 border border-gray-300 rounded"
+                    value={filters.name}
+                    onChange={e => setFilters({ ...filters, name: e.target.value })}
+                  />
+                </th>
+                <th className="px-3 py-1">
+                  <input
+                    className="w-full px-1 py-1 border border-gray-300 rounded"
+                    value={filters.team}
+                    onChange={e => setFilters({ ...filters, team: e.target.value })}
+                  />
+                </th>
+                <th className="px-3 py-1">
+                  <input
+                    className="w-full px-1 py-1 border border-gray-300 rounded"
+                    value={filters.position}
+                    onChange={e => setFilters({ ...filters, position: e.target.value })}
+                  />
+                </th>
+                <th className="px-3 py-1">
+                  <input
+                    className="w-full px-1 py-1 border border-gray-300 rounded"
+                    value={filters.manager}
+                    onChange={e => setFilters({ ...filters, manager: e.target.value })}
+                  />
+                </th>
+                <th className="px-3 py-1">
+                  <input
+                    className="w-full px-1 py-1 border border-gray-300 rounded"
+                    value={filters.draftCost}
+                    onChange={e => setFilters({ ...filters, draftCost: e.target.value })}
+                  />
+                </th>
+                <th className="px-3 py-1">
+                  <input
+                    className="w-full px-1 py-1 border border-gray-300 rounded"
+                    value={filters.projPts}
+                    onChange={e => setFilters({ ...filters, projPts: e.target.value })}
+                  />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
