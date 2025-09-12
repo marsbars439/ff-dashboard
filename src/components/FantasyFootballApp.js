@@ -1139,13 +1139,13 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
   const topWeeklyScores = [...weeklyScores].sort((a, b) => b.points - a.points).slice(0, 5);
   const bottomWeeklyScores = [...weeklyScores].sort((a, b) => a.points - b.points).slice(0, 5);
 
-  const currentWeek = useMemo(() => {
-    return seasonMatchups.filter(week =>
-      week.matchups.some(
-        m => (m.home?.points ?? 0) > 0 || (m.away?.points ?? 0) > 0
-      )
-    ).length;
-  }, [seasonMatchups]);
+  const lastCompletedWeek = useMemo(() => {
+    const seasons = teamSeasons.filter(s => s.year === selectedSeasonYear);
+    if (seasons.length === 0) return 0;
+    return Math.max(
+      ...seasons.map(s => s.wins + s.losses + (s.ties || 0))
+    );
+  }, [teamSeasons, selectedSeasonYear]);
 
   const allRecords = calculateAllRecords();
   const activeRecords = Object.values(allRecords).filter(r => r.active);
@@ -1310,10 +1310,10 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {activeTab === 'seasons' && (
           <div className="space-y-4 sm:space-y-6">
-            {selectedSeasonYear === mostRecentYear && (
+            {selectedSeasonYear === mostRecentYear && lastCompletedWeek > 0 && (
               <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
-                  Week {currentWeek} In Review
+                  Week {lastCompletedWeek} In Review
                 </h2>
                 <AISummary />
               </div>
