@@ -129,6 +129,15 @@ db.serialize(() => {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Table for cached weekly AI previews
+  db.run(`
+    CREATE TABLE IF NOT EXISTS previews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      summary TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 });
 
 // Helper functions for async DB operations
@@ -159,6 +168,12 @@ const allAsync = (sql, params = []) =>
 const refreshCachedSummary = async () => {
   const { summary } = await weeklySummaryService.generateWeeklySummary(db);
   await runAsync('INSERT INTO summaries (summary) VALUES (?)', [summary]);
+  return summary;
+};
+
+const refreshCachedPreview = async () => {
+  const { summary } = await weeklySummaryService.generateWeeklyPreview(db);
+  await runAsync('INSERT INTO previews (summary) VALUES (?)', [summary]);
   return summary;
 };
 
@@ -1264,7 +1279,7 @@ app.post('/api/summary/refresh', async (req, res) => {
 // Refresh upcoming week preview
 app.post('/api/preview/refresh', async (req, res) => {
   try {
-    const { summary } = await weeklySummaryService.generateWeeklyPreview(db);
+    const summary = await refreshCachedPreview();
     res.json({ summary });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1274,8 +1289,8 @@ app.post('/api/preview/refresh', async (req, res) => {
 // Generate upcoming week preview
 app.get('/api/preview', async (req, res) => {
   try {
-    const { summary } = await weeklySummaryService.generateWeeklyPreview(db);
-    res.json({ summary });
+    const row = await getAsync('SELECT summary, created_at FROM previews ORDER BY created_at DESC LIMIT 1');
+    res.json({ summary: row ? row.summary : '', updated: row ? row.created_at : null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1303,10 +1318,13 @@ cron.schedule('0 3 * * *', () => {
   );
 }, { timezone: 'America/New_York' });
 
-// Schedule weekly summary generation every Tuesday at 5AM ET
-cron.schedule('0 5 * * 2', () => {
+// Schedule weekly summary and preview generation every Tuesday at 3AM ET
+cron.schedule('0 3 * * 2', () => {
   refreshCachedSummary().catch(err =>
     console.error('Failed to refresh weekly summary:', err.message)
+  );
+  refreshCachedPreview().catch(err =>
+    console.error('Failed to refresh weekly preview:', err.message)
   );
 }, { timezone: 'America/New_York' });
 
