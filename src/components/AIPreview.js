@@ -43,9 +43,12 @@ const AIPreview = () => {
     .filter(line => line);
 
   return (
-    <ul className="list-disc list-inside space-y-1">
+    <ul className="space-y-2 text-gray-700">
       {lines.map((line, idx) => (
-        <li key={idx}>{line.replace(/^[-*]\s*/, '')}</li>
+        <li key={idx} className="flex items-start">
+          <span className="h-2 w-2 mt-2 mr-2 rounded-full bg-indigo-500 flex-shrink-0" />
+          <span>{line.replace(/^[-*]\s*/, '')}</span>
+        </li>
       ))}
     </ul>
   );
