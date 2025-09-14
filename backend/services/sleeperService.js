@@ -691,6 +691,19 @@ class SleeperService {
   }
 
   /**
+   * Get the current NFL week
+   */
+  async getCurrentNFLWeek() {
+    try {
+      const response = await this.client.get('/state/nfl');
+      return response.data.week;
+    } catch (error) {
+      console.error('❌ Error fetching current NFL week:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * Validate that we can connect to Sleeper API
    */
   async testConnection() {
