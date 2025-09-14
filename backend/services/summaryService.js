@@ -12,6 +12,7 @@ function buildSummaryPrompt(data) {
   // Normalize to object
   const d = typeof data === 'object' && data !== null ? data : {};
   const sections = [];
+  const title = typeof d.title === 'string' ? d.title : '';
 
   if (typeof d.currentWeek === 'number') {
     sections.push(`Current week: ${d.currentWeek}`);
@@ -154,7 +155,8 @@ function buildSummaryPrompt(data) {
     variants[d.type] ||
     'Surface insights about manager performance, medals, win/loss records, roster highlights, matchups, and Hall of Records trends. Highlight potential changes in all-time rankings.';
 
-  return `${intro}\n\n${sections.join('\n')}\n\nFormat the response as concise bullet points.`;
+  const titleBlock = title ? `${title}\n\n` : '';
+  return `${titleBlock}${intro}\n\n${sections.join('\n')}\n\nFormat the response as concise bullet points.`;
 }
 
 /**
