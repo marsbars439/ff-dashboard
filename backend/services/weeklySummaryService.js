@@ -73,6 +73,7 @@ async function buildSeasonSummaryData(db) {
   let topWeeklyScores = [];
   let bottomWeeklyScores = [];
   let currentWeek = null;
+  let title = null;
 
   if (leagueRow && leagueRow.league_id) {
     const weeks = await sleeperService.getSeasonMatchups(
@@ -102,6 +103,8 @@ async function buildSeasonSummaryData(db) {
       bottomWeeklyScores = [...scores]
         .sort((a, b) => a.points - b.points)
         .slice(0, 5);
+      title = `Week ${lastWeek.week} In Review`;
+      currentWeek = lastWeek.week;
     }
   }
 
@@ -115,7 +118,8 @@ async function buildSeasonSummaryData(db) {
     topWeeklyScores,
     bottomWeeklyScores,
     matchups,
-    currentWeek
+    currentWeek,
+    title
   };
 }
 
@@ -151,6 +155,7 @@ async function buildPreviewData(db) {
 
   let matchups = [];
   let nextWeek = null;
+  let title = null;
 
   if (leagueRow && leagueRow.league_id) {
     const weeks = await sleeperService.getSeasonMatchups(
@@ -176,10 +181,11 @@ async function buildPreviewData(db) {
           }
         };
       });
+      title = `Week ${nextWeek} Preview`;
     }
   }
 
-  return { type: 'preview', year, teams, matchups, currentWeek: nextWeek };
+  return { type: 'preview', year, teams, matchups, currentWeek: nextWeek, title };
 }
 
 async function generateWeeklyPreview(db) {
