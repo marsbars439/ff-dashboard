@@ -75,20 +75,34 @@ async function buildSeasonSummaryData(db) {
   let currentWeek = null;
 
   if (leagueRow && leagueRow.league_id) {
-    const weeks = await sleeperService.getSeasonMatchups(leagueRow.league_id, managers);
-    matchups = weeks.flatMap(week =>
-      week.matchups.map(m => ({ ...m, week: week.week }))
+    const weeks = await sleeperService.getSeasonMatchups(
+      leagueRow.league_id,
+      managers
     );
-    currentWeek = weeks.length > 0 ? Math.max(...weeks.map(w => w.week)) : null;
+    currentWeek = await sleeperService.getCurrentNFLWeek();
 
-    const scores = weeks.flatMap(week =>
-      week.matchups.flatMap(m => [
-        { manager_name: m.home.manager_name, points: m.home.points, week: week.week },
-        { manager_name: m.away.manager_name, points: m.away.points, week: week.week }
-      ])
-    ).filter(s => s.points > 0);
-    topWeeklyScores = [...scores].sort((a,b) => b.points - a.points).slice(0,5);
-    bottomWeeklyScores = [...scores].sort((a,b) => a.points - b.points).slice(0,5);
+    const completedWeek = currentWeek != null ? currentWeek - 1 : null;
+    const lastWeek = completedWeek != null
+      ? weeks.find(w => w.week === completedWeek)
+      : weeks[weeks.length - 1];
+
+    if (lastWeek) {
+      matchups = lastWeek.matchups.map(m => ({ ...m, week: lastWeek.week }));
+
+      const scores = lastWeek.matchups
+        .flatMap(m => [
+          { manager_name: m.home.manager_name, points: m.home.points, week: lastWeek.week },
+          { manager_name: m.away.manager_name, points: m.away.points, week: lastWeek.week }
+        ])
+        .filter(s => s.points > 0);
+
+      topWeeklyScores = [...scores]
+        .sort((a, b) => b.points - a.points)
+        .slice(0, 5);
+      bottomWeeklyScores = [...scores]
+        .sort((a, b) => a.points - b.points)
+        .slice(0, 5);
+    }
   }
 
   return {
@@ -139,8 +153,11 @@ async function buildPreviewData(db) {
   let nextWeek = null;
 
   if (leagueRow && leagueRow.league_id) {
-    const weeks = await sleeperService.getSeasonMatchups(leagueRow.league_id, managers);
-    const currentWeek = weeks.length > 0 ? Math.max(...weeks.map(w => w.week)) : null;
+    const weeks = await sleeperService.getSeasonMatchups(
+      leagueRow.league_id,
+      managers
+    );
+    const currentWeek = await sleeperService.getCurrentNFLWeek();
     nextWeek = currentWeek != null ? currentWeek + 1 : null;
     const nextWeekData = weeks.find(w => w.week === nextWeek);
     if (nextWeekData) {
