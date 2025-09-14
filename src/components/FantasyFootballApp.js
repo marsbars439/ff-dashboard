@@ -1137,9 +1137,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       .filter(score => score.points > 0);
   }, [seasonMatchups]);
 
-  const topWeeklyScores = [...weeklyScores].sort((a, b) => b.points - a.points).slice(0, 5);
-  const bottomWeeklyScores = [...weeklyScores].sort((a, b) => a.points - b.points).slice(0, 5);
-
   const lastCompletedWeek = useMemo(() => {
     const seasons = teamSeasons.filter(s => s.year === selectedSeasonYear);
     if (seasons.length === 0) return 0;
@@ -1147,6 +1144,18 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       ...seasons.map(s => s.wins + s.losses + (s.ties || 0))
     );
   }, [teamSeasons, selectedSeasonYear]);
+
+  const completedWeeklyScores = useMemo(
+    () => weeklyScores.filter(score => score.week <= lastCompletedWeek),
+    [weeklyScores, lastCompletedWeek]
+  );
+
+  const topWeeklyScores = [...completedWeeklyScores]
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 5);
+  const bottomWeeklyScores = [...completedWeeklyScores]
+    .sort((a, b) => a.points - b.points)
+    .slice(0, 5);
 
   const allRecords = calculateAllRecords();
   const activeRecords = Object.values(allRecords).filter(r => r.active);
