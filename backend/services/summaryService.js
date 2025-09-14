@@ -56,6 +56,47 @@ function buildSummaryPrompt(data) {
     sections.push(`Medal counts: ${medalLines.join('; ')}`);
   }
 
+  // Hall of Records data for historical context
+  if (records.length) {
+    const hallRecords = records.map(r => ({
+      name: r.manager_name || r.name,
+      totalWins: r.totalWins,
+      totalLosses: r.totalLosses,
+      totalPointsFor: r.totalPointsFor,
+      totalPointsAgainst: r.totalPointsAgainst,
+      championships: r.championships,
+      secondPlace: r.secondPlace,
+      thirdPlace: r.thirdPlace,
+      chumpionships: r.chumpionships,
+      totalMedals: r.totalMedals,
+      seasons: r.seasons,
+      playoffAppearances: r.playoffAppearances,
+      winPct: r.winPct,
+      pointsPerGame: r.pointsPerGame,
+      netEarnings: r.netEarnings
+    }));
+    sections.push(`Hall of Records: ${JSON.stringify(hallRecords)}`);
+
+    // Highlight close races that could change rankings
+    const raceMetrics = [
+      { key: 'totalPointsFor', label: 'franchise points scored' },
+      { key: 'totalWins', label: 'franchise wins' },
+      { key: 'totalMedals', label: 'total medals' }
+    ];
+    raceMetrics.forEach(m => {
+      const sorted = [...hallRecords].sort((a, b) => b[m.key] - a[m.key]);
+      if (sorted.length >= 2) {
+        const diff = sorted[0][m.key] - sorted[1][m.key];
+        sections.push(
+          `${m.label} race: ${sorted[0].name} ${sorted[0][m.key]} vs ${sorted[1].name} ${sorted[1][m.key]} (diff ${diff})`
+        );
+      }
+    });
+    sections.push(
+      'Analyze the Hall of Records to spotlight leaders and any categories where rankings may change soon.'
+    );
+  }
+
   // Roster highlights
   const topScores = Array.isArray(d.topWeeklyScores) ? d.topWeeklyScores : [];
   const bottomScores = Array.isArray(d.bottomWeeklyScores) ? d.bottomWeeklyScores : [];
@@ -103,14 +144,15 @@ function buildSummaryPrompt(data) {
 
   const variants = {
     season:
-      'Surface key insights about this season including championship results, standout performances, and notable matchups.',
+      'Surface key insights about this season including championship results, standout performances, and notable matchups. Use Hall of Records data for historical perspective.',
     records:
-      'Surface insights about historical records, medal leaders, and long-term manager trends.',
+      'Surface insights about historical records, medal leaders, long-term manager trends, and note categories where rankings are close.',
     preview:
-      'Preview upcoming matchups and discuss potential outcomes and standings implications.'
+      'Preview upcoming matchups and discuss potential outcomes and standings implications. Reference Hall of Records races that could shift.'
   };
-  const intro = variants[d.type] ||
-    'Surface insights about manager performance, medals, win/loss records, roster highlights, and matchups.';
+  const intro =
+    variants[d.type] ||
+    'Surface insights about manager performance, medals, win/loss records, roster highlights, matchups, and Hall of Records trends. Highlight potential changes in all-time rankings.';
 
   return `${intro}\n\n${sections.join('\n')}\n\nFormat the response as concise bullet points.`;
 }
