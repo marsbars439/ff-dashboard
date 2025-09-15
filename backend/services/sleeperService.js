@@ -13,6 +13,81 @@ class SleeperService {
       timestamp: 0
     };
     this.playersCacheTtl = 1000 * 60 * 60; // 1 hour cache
+    this.scheduleCache = new Map();
+    this.statsCache = new Map();
+    this.gameMetaCacheTtl = 1000 * 60 * 2; // 2 minute cache for live game metadata
+  }
+
+  normalizeTimestamp(value) {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) {
+        return null;
+      }
+      return value < 1e12 ? value * 1000 : value;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      const numeric = Number(trimmed);
+      if (!Number.isNaN(numeric)) {
+        return numeric < 1e12 ? numeric * 1000 : numeric;
+      }
+
+      const parsed = Date.parse(trimmed);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    return null;
+  }
+
+  normalizeGameStatus(status) {
+    if (status === null || status === undefined) {
+      return null;
+    }
+
+    const normalized = status.toString().toLowerCase();
+
+    if (normalized.includes('bye')) {
+      return 'bye';
+    }
+
+    if (
+      normalized.includes('final') ||
+      normalized.includes('post') ||
+      normalized.includes('complete') ||
+      normalized.includes('finished') ||
+      normalized === 'closed'
+    ) {
+      return 'final';
+    }
+
+    if (
+      normalized.includes('progress') ||
+      normalized.includes('inprogress') ||
+      normalized.includes('live') ||
+      normalized.includes('playing')
+    ) {
+      return 'in_progress';
+    }
+
+    if (
+      normalized.includes('pre') ||
+      normalized.includes('sched') ||
+      normalized.includes('upcoming') ||
+      normalized.includes('not_started')
+    ) {
+      return 'pre';
+    }
+
+    return normalized;
   }
 
   async getPlayersMap(forceRefresh = false) {
@@ -35,6 +110,160 @@ class SleeperService {
     } catch (error) {
       console.error('❌ Error fetching Sleeper players:', error.message);
       throw error;
+    }
+  }
+
+  async getWeeklyPlayerStats(season, week, seasonType = 'regular') {
+    const normalizedSeason = Number.parseInt(season, 10);
+    const normalizedWeek = Number.parseInt(week, 10);
+
+    if (!Number.isFinite(normalizedSeason) || !Number.isFinite(normalizedWeek)) {
+      return {};
+    }
+
+    const cacheKey = `${normalizedSeason}-${seasonType}-${normalizedWeek}`;
+    const now = Date.now();
+    const cached = this.statsCache.get(cacheKey);
+    if (cached && now - cached.timestamp < this.gameMetaCacheTtl) {
+      return cached.data;
+    }
+
+    try {
+      const response = await this.client.get(
+        `/stats/nfl/${seasonType}/${normalizedSeason}/${normalizedWeek}`
+      );
+      const payload = response.data;
+
+      let entries = [];
+      if (Array.isArray(payload)) {
+        entries = payload;
+      } else if (payload && typeof payload === 'object') {
+        entries = Object.values(payload);
+      }
+
+      const statsMap = {};
+      entries.forEach(entry => {
+        if (!entry) {
+          return;
+        }
+
+        const playerId = entry.player_id || entry.playerId;
+        if (!playerId) {
+          return;
+        }
+
+        statsMap[playerId] = entry;
+      });
+
+      this.statsCache.set(cacheKey, { data: statsMap, timestamp: now });
+      return statsMap;
+    } catch (error) {
+      console.error(
+        `❌ Error fetching weekly player stats (${seasonType} ${normalizedSeason} wk${normalizedWeek}):`,
+        error.message
+      );
+      this.statsCache.set(cacheKey, { data: {}, timestamp: now });
+      return {};
+    }
+  }
+
+  async getWeeklySchedule(season, week, seasonType = 'regular') {
+    const normalizedSeason = Number.parseInt(season, 10);
+    const normalizedWeek = Number.parseInt(week, 10);
+
+    if (!Number.isFinite(normalizedSeason) || !Number.isFinite(normalizedWeek)) {
+      return {};
+    }
+
+    const cacheKey = `${normalizedSeason}-${seasonType}-${normalizedWeek}`;
+    const now = Date.now();
+    const cached = this.scheduleCache.get(cacheKey);
+    if (cached && now - cached.timestamp < this.gameMetaCacheTtl) {
+      return cached.data;
+    }
+
+    const toTeamKey = teamCode => {
+      if (teamCode === null || teamCode === undefined || teamCode === '') {
+        return null;
+      }
+      return teamCode.toString().toUpperCase();
+    };
+
+    try {
+      const response = await this.client.get(
+        `/schedule/nfl/${seasonType}/${normalizedSeason}`
+      );
+      const payload = response.data;
+
+      const games = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+
+      const scheduleByTeam = {};
+      games
+        .filter(game => Number.parseInt(game.week, 10) === normalizedWeek)
+        .forEach(game => {
+          const homeTeam =
+            toTeamKey(game.home_team) ||
+            toTeamKey(game.home) ||
+            toTeamKey(game.team_home) ||
+            toTeamKey(game.team1);
+          const awayTeam =
+            toTeamKey(game.away_team) ||
+            toTeamKey(game.away) ||
+            toTeamKey(game.team_away) ||
+            toTeamKey(game.team2);
+
+          const startTime = this.normalizeTimestamp(
+            game.start_time ??
+              game.start_time_ms ??
+              game.start_time_epoch ??
+              game.start_time_iso ??
+              game.start ??
+              game.kickoff
+          );
+
+          const rawStatus = game.game_status || game.status || game.state || null;
+          const normalizedStatus = this.normalizeGameStatus(rawStatus);
+          const completed = game.completed === true || normalizedStatus === 'final';
+
+          const baseMeta = {
+            start_time: startTime,
+            status: completed ? 'final' : normalizedStatus,
+            raw_status: rawStatus || null,
+            game_id: game.game_id || null,
+            season: game.season || normalizedSeason,
+            week: game.week || normalizedWeek
+          };
+
+          if (homeTeam) {
+            scheduleByTeam[homeTeam] = {
+              ...baseMeta,
+              opponent: awayTeam || null,
+              home_away: 'home'
+            };
+          }
+
+          if (awayTeam) {
+            scheduleByTeam[awayTeam] = {
+              ...baseMeta,
+              opponent: homeTeam || null,
+              home_away: 'away'
+            };
+          }
+        });
+
+      this.scheduleCache.set(cacheKey, { data: scheduleByTeam, timestamp: now });
+      return scheduleByTeam;
+    } catch (error) {
+      console.error(
+        `❌ Error fetching weekly schedule (${seasonType} ${normalizedSeason} wk${normalizedWeek}):`,
+        error.message
+      );
+      this.scheduleCache.set(cacheKey, { data: {}, timestamp: now });
+      return {};
     }
   }
 
@@ -292,8 +521,13 @@ class SleeperService {
       }
     }
 
-  async getWeeklyMatchupsWithLineups(leagueId, week, managers = []) {
+  async getWeeklyMatchupsWithLineups(leagueId, week, managers = [], seasonYear = null) {
       try {
+        const parsedWeek = Number.parseInt(week, 10);
+        const weekNumber = Number.isFinite(parsedWeek) ? parsedWeek : week;
+        const parsedSeason = Number.parseInt(seasonYear, 10);
+        const season = Number.isFinite(parsedSeason) ? parsedSeason : new Date().getFullYear();
+
         const [rosters, users, weekMatchups] = await Promise.all([
           this.getRosters(leagueId),
           this.getUsers(leagueId),
@@ -304,10 +538,12 @@ class SleeperService {
         ]);
 
         if (!Array.isArray(weekMatchups) || weekMatchups.length === 0) {
-          return { week, matchups: [] };
+          return { week: weekNumber, matchups: [] };
         }
 
         const playersMap = await this.getPlayersMap();
+        const statsByPlayer = await this.getWeeklyPlayerStats(season, week);
+        const scheduleByTeam = await this.getWeeklySchedule(season, week);
 
         const userIdToName = {};
         managers.forEach(m => {
@@ -329,6 +565,31 @@ class SleeperService {
         });
 
         const matchupsMap = {};
+        const now = Date.now();
+        const weekForComparison = Number.isFinite(parsedWeek) ? parsedWeek : null;
+
+        const deriveOpponentFromGameId = (gameId, team) => {
+          if (!gameId || !team) {
+            return null;
+          }
+
+          const parts = gameId.toString().split('-').map(part => part.toUpperCase());
+          const normalizedTeam = team.toUpperCase();
+
+          if (parts.length < 2) {
+            return null;
+          }
+
+          if (parts[0] === normalizedTeam) {
+            return parts[1];
+          }
+
+          if (parts[1] === normalizedTeam) {
+            return parts[0];
+          }
+
+          return null;
+        };
 
         weekMatchups.forEach(m => {
           const matchupKey = m.matchup_id != null ? m.matchup_id : m.roster_id;
@@ -356,10 +617,137 @@ class SleeperService {
                 const position = Array.isArray(player.fantasy_positions) && player.fantasy_positions.length > 0
                   ? player.fantasy_positions[0]
                   : player.position || '';
-                const team = player.team ||
+                const rawTeam = player.team ||
                   player.player_team ||
                   player.metadata?.team_abbr ||
                   '';
+                const team = typeof rawTeam === 'string' ? rawTeam.toUpperCase() : '';
+
+                const rawPoints = starterPoints[idx];
+                const parsedPoints =
+                  typeof rawPoints === 'number'
+                    ? rawPoints
+                    : rawPoints != null && rawPoints !== ''
+                    ? Number(rawPoints)
+                    : null;
+                const pointsValue = Number.isFinite(parsedPoints) ? parsedPoints : null;
+
+                const statsEntry = statsByPlayer[playerId] || null;
+                const scheduleEntry = team ? scheduleByTeam[team] || null : null;
+
+                const rawStatus =
+                  (statsEntry && (statsEntry.status || statsEntry.game_status)) ||
+                  (scheduleEntry && (scheduleEntry.status || scheduleEntry.raw_status)) ||
+                  null;
+                let normalizedStatus = this.normalizeGameStatus(rawStatus);
+
+                const parsedStart = this.normalizeTimestamp(
+                  (statsEntry &&
+                    (statsEntry.game_start ||
+                      statsEntry.game_start_time ||
+                      statsEntry.game_start_ms)) ||
+                    (scheduleEntry && scheduleEntry.start_time) ||
+                    null
+                );
+
+                const opponent =
+                  (statsEntry &&
+                    typeof statsEntry.opponent === 'string' &&
+                    statsEntry.opponent
+                      ? statsEntry.opponent.toUpperCase()
+                      : null) ||
+                  deriveOpponentFromGameId(statsEntry?.game_id, team) ||
+                  (scheduleEntry && scheduleEntry.opponent
+                    ? scheduleEntry.opponent.toUpperCase()
+                    : null);
+
+                const homeAway =
+                  scheduleEntry?.home_away ||
+                  (opponent && team ? (opponent === team ? 'home' : 'away') : null);
+
+                const byeWeek =
+                  player.bye_week ??
+                  player.bye_week_num ??
+                  player.metadata?.bye_week ??
+                  player.metadata?.bye_week_num ??
+                  null;
+                const normalizedByeWeek =
+                  byeWeek != null ? Number.parseInt(byeWeek, 10) : null;
+
+                const normalizedStatsStatus = statsEntry?.status
+                  ? this.normalizeGameStatus(statsEntry.status)
+                  : null;
+
+                const isByeWeek =
+                  normalizedStatus === 'bye' ||
+                  normalizedStatsStatus === 'bye' ||
+                  (scheduleEntry && scheduleEntry.status === 'bye') ||
+                  (normalizedByeWeek != null &&
+                    weekForComparison != null &&
+                    normalizedByeWeek === weekForComparison);
+
+                if (isByeWeek) {
+                  normalizedStatus = 'bye';
+                }
+
+                const injuryStatus =
+                  player.injury_status ||
+                  player.injury_status_2 ||
+                  player.metadata?.injury_status ||
+                  null;
+                const practiceStatus =
+                  player.practice_participation ||
+                  player.practice_status ||
+                  player.metadata?.practice_participation ||
+                  null;
+
+                const determineActivityKey = () => {
+                  if (isByeWeek) {
+                    return 'inactive';
+                  }
+
+                  if (normalizedStatus === 'in_progress') {
+                    return 'live';
+                  }
+
+                  if (normalizedStatus === 'final') {
+                    return 'finished';
+                  }
+
+                  if (normalizedStatus === 'pre') {
+                    return 'upcoming';
+                  }
+
+                  if (parsedStart) {
+                    if (parsedStart > now) {
+                      return 'upcoming';
+                    }
+
+                    if (parsedStart <= now) {
+                      if (pointsValue !== null && pointsValue > 0) {
+                        return 'finished';
+                      }
+
+                      return 'live';
+                    }
+                  }
+
+                  if (pointsValue !== null) {
+                    if (pointsValue > 0) {
+                      return 'finished';
+                    }
+
+                    if (pointsValue === 0) {
+                      return 'live';
+                    }
+                  }
+
+                  if (!team && !statsEntry && !scheduleEntry) {
+                    return 'inactive';
+                  }
+
+                  return 'upcoming';
+                };
 
                 return {
                   slot: idx,
@@ -367,18 +755,33 @@ class SleeperService {
                   name,
                   position,
                   team,
-                  points: starterPoints[idx] != null ? starterPoints[idx] : null
+                  points: pointsValue,
+                  opponent: opponent || null,
+                  home_away: homeAway || null,
+                  game_status: normalizedStatus,
+                  raw_game_status: rawStatus || null,
+                  game_start: parsedStart,
+                  bye_week: normalizedByeWeek,
+                  is_bye: isByeWeek,
+                  injury_status: injuryStatus,
+                  practice_status: practiceStatus,
+                  game_id: statsEntry?.game_id || scheduleEntry?.game_id || null,
+                  activity_key: determineActivityKey(),
+                  stats_available: !!statsEntry
                 };
               })
               .filter(Boolean);
 
           const starters = formatStarters(m.starters || [], m.starters_points || []);
 
+          const numericPoints =
+            typeof m.points === 'number' ? m.points : Number(m.points) || 0;
+
           const team = {
             roster_id: m.roster_id,
             team_name: rosterIdToTeam[m.roster_id] || '',
             manager_name: rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
-            points: m.points || 0,
+            points: Number.isFinite(numericPoints) ? numericPoints : 0,
             starters
           };
 
@@ -396,7 +799,7 @@ class SleeperService {
         }));
 
         return {
-          week,
+          week: weekNumber,
           matchups
         };
       } catch (error) {

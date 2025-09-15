@@ -349,7 +349,8 @@ app.get('/api/seasons/:year/active-week/matchups', (req, res) => {
       const data = await sleeperService.getWeeklyMatchupsWithLineups(
         row.league_id,
         week,
-        managers
+        managers,
+        year
       );
 
       res.json(data);
