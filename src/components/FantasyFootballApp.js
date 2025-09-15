@@ -1366,10 +1366,12 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     finished: {
       key: 'finished',
       label: '',
+      summaryLabel: 'Finished',
       description: 'Game has concluded.',
       badgeClasses: 'border-emerald-200 bg-emerald-50 text-emerald-700',
       dotClasses: 'bg-emerald-500',
-      rowClasses: 'bg-emerald-50/40'
+      rowClasses: 'bg-emerald-50/40',
+      showBadge: false
     },
     inactive: {
       key: 'inactive',
@@ -1517,6 +1519,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       <div className="flex flex-wrap gap-1">
         {entries.map(([key, count]) => {
           const statusMeta = playerActivityStyles[key];
+          const label = statusMeta.summaryLabel ?? statusMeta.label;
           return (
             <span
               key={key}
@@ -1524,7 +1527,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
               className={`inline-flex items-center gap-1 rounded-full border font-medium ${statusMeta.badgeClasses} ${baseClass}`}
             >
               <span className={`${dotSize} rounded-full ${statusMeta.dotClasses}`} />
-              {statusMeta.label ? `${count} ${statusMeta.label}` : count}
+              {label ? `${count} ${label}` : count}
             </span>
           );
         })}
@@ -1632,13 +1635,15 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span
-                      title={statusMeta.description}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium ${statusMeta.badgeClasses}`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClasses}`} />
-                      {statusMeta.label}
-                    </span>
+                    {statusMeta.showBadge !== false && (
+                      <span
+                        title={statusMeta.description}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium ${statusMeta.badgeClasses}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClasses}`} />
+                        {statusMeta.label}
+                      </span>
+                    )}
                     <span className="text-sm font-semibold text-gray-700">
                       {formatPoints(starter.points)}
                     </span>
@@ -2071,25 +2076,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                         <div className="border-t border-gray-200 px-3 pb-3 sm:px-4 sm:pb-4 pt-3 sm:pt-4">
                           {hasActiveLineups ? (
                             <div className="space-y-3">
-                              <div className="flex flex-wrap gap-2 text-[11px]">
-                                {Object.values(playerActivityStyles)
-                                  .sort(
-                                    (a, b) =>
-                                      playerActivityOrder[a.key] - playerActivityOrder[b.key]
-                                  )
-                                  .map(statusMeta => (
-                                    <span
-                                      key={statusMeta.key}
-                                      title={statusMeta.description}
-                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-medium ${statusMeta.badgeClasses}`}
-                                    >
-                                      <span
-                                        className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClasses}`}
-                                      />
-                                      {statusMeta.label}
-                                    </span>
-                                  ))}
-                              </div>
                               {activeWeekMatchups.matchups.map((matchup, idx) =>
                                 renderActiveWeekMatchup(matchup, idx, week.week)
                               )}
