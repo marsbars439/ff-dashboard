@@ -1239,7 +1239,294 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2);
   };
 
-  const renderTeamLineup = (team, label) => {
+  const parseTimestamp = value => {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) {
+        return null;
+      }
+      return value < 1e12 ? value * 1000 : value;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      const numeric = Number(trimmed);
+      if (!Number.isNaN(numeric)) {
+        return numeric < 1e12 ? numeric * 1000 : numeric;
+      }
+
+      const parsed = Date.parse(trimmed);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    return null;
+  };
+
+  const formatKickoffTime = kickoff => {
+    const timestamp = parseTimestamp(kickoff);
+    if (!timestamp) {
+      return null;
+    }
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toLocaleString(undefined, {
+      weekday: 'short',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
+  const getOpponentLabel = starter => {
+    if (!starter?.opponent) {
+      return null;
+    }
+    const prefix = starter.home_away === 'home' ? 'vs' : '@';
+    return `${prefix} ${starter.opponent}`;
+  };
+
+  const playerActivityStyles = {
+    live: {
+      key: 'live',
+      label: 'Live Now',
+      description: 'Game currently in progress.',
+      badgeClasses: 'border-amber-200 bg-amber-50 text-amber-700',
+      dotClasses: 'bg-amber-500',
+      rowClasses: 'bg-amber-50/40'
+    },
+    upcoming: {
+      key: 'upcoming',
+      label: 'Not Started',
+      description: 'Game has not kicked off yet.',
+      badgeClasses: 'border-sky-200 bg-sky-50 text-sky-700',
+      dotClasses: 'bg-sky-500',
+      rowClasses: 'bg-sky-50/40'
+    },
+    finished: {
+      key: 'finished',
+      label: 'Final',
+      description: 'Game has concluded.',
+      badgeClasses: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      dotClasses: 'bg-emerald-500',
+      rowClasses: 'bg-emerald-50/40'
+    },
+    inactive: {
+      key: 'inactive',
+      label: 'Inactive',
+      description: 'Bye week, inactive, or no matchup this week.',
+      badgeClasses: 'border-slate-200 bg-slate-50 text-slate-600',
+      dotClasses: 'bg-slate-400',
+      rowClasses: 'bg-slate-50/60'
+    }
+  };
+
+  const playerActivityOrder = {
+    live: 0,
+    upcoming: 1,
+    finished: 2,
+    inactive: 3
+  };
+
+  const getStarterActivityStatus = starter => {
+    if (!starter) {
+      return playerActivityStyles.inactive;
+    }
+
+    const now = Date.now();
+    const kickoff = parseTimestamp(
+      starter.game_start ?? starter.kickoff ?? starter.start_time ?? starter.startTime
+    );
+    const pointsValue = normalizePoints(starter.points);
+    const rawStatus = (starter.game_status || starter.raw_game_status || '')
+      .toString()
+      .toLowerCase();
+    const backendKey =
+      starter.activity_key && playerActivityStyles[starter.activity_key]
+        ? starter.activity_key
+        : null;
+
+    const isBye = starter.is_bye || rawStatus.includes('bye');
+
+    let resolvedKey = null;
+
+    if (isBye) {
+      resolvedKey = 'inactive';
+    }
+
+    let rawStatusKey = null;
+    if (rawStatus.includes('in_progress') || rawStatus.includes('live') || rawStatus.includes('playing')) {
+      rawStatusKey = 'live';
+    } else if (
+      rawStatus.includes('final') ||
+      rawStatus.includes('post') ||
+      rawStatus.includes('complete') ||
+      rawStatus.includes('finished')
+    ) {
+      rawStatusKey = 'finished';
+    } else if (
+      rawStatus.includes('pre') ||
+      rawStatus.includes('sched') ||
+      rawStatus.includes('upcoming') ||
+      rawStatus.includes('not_started')
+    ) {
+      rawStatusKey = 'upcoming';
+    } else if (rawStatus.includes('bye')) {
+      rawStatusKey = 'inactive';
+    }
+
+    if (rawStatusKey) {
+      if (resolvedKey !== 'inactive' || rawStatusKey === 'inactive') {
+        resolvedKey = rawStatusKey;
+      }
+    }
+
+    if (!resolvedKey && backendKey) {
+      resolvedKey = backendKey;
+    }
+
+    if (!resolvedKey && kickoff) {
+      if (kickoff > now) {
+        resolvedKey = 'upcoming';
+      } else {
+        resolvedKey = pointsValue !== null && pointsValue > 0 ? 'finished' : 'live';
+      }
+    }
+
+    if (!resolvedKey && pointsValue !== null) {
+      if (pointsValue > 0) {
+        resolvedKey = 'finished';
+      } else if (pointsValue === 0) {
+        resolvedKey = 'live';
+      }
+    }
+
+    if (
+      !resolvedKey &&
+      (!starter.player_id || (!starter.team && !starter.opponent))
+    ) {
+      resolvedKey = 'inactive';
+    }
+
+    if (!resolvedKey) {
+      resolvedKey = 'upcoming';
+    }
+
+    return playerActivityStyles[resolvedKey] || playerActivityStyles.upcoming;
+  };
+
+  const buildTeamLineupData = team => {
+    if (!team) {
+      return {
+        starters: [],
+        startersWithStatus: [],
+        statusCounts: {}
+      };
+    }
+
+    const starters = Array.isArray(team.starters) ? team.starters : [];
+    const startersWithStatus = starters.map(starter => {
+      const statusMeta = getStarterActivityStatus(starter);
+      return { starter, statusMeta };
+    });
+    const statusCounts = startersWithStatus.reduce((acc, { statusMeta }) => {
+      if (!statusMeta?.key) {
+        return acc;
+      }
+      acc[statusMeta.key] = (acc[statusMeta.key] || 0) + 1;
+      return acc;
+    }, {});
+
+    return { starters, startersWithStatus, statusCounts };
+  };
+
+  const renderStatusPills = (statusCounts, size = 'md') => {
+    const entries = Object.entries(statusCounts || {})
+      .filter(([key, count]) => playerActivityStyles[key] && count > 0)
+      .sort((a, b) => playerActivityOrder[a[0]] - playerActivityOrder[b[0]]);
+
+    if (entries.length === 0) {
+      return null;
+    }
+
+    const baseClass =
+      size === 'xs' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]';
+    const dotSize = size === 'xs' ? 'w-1 h-1' : 'w-1.5 h-1.5';
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {entries.map(([key, count]) => {
+          const statusMeta = playerActivityStyles[key];
+          return (
+            <span
+              key={key}
+              title={statusMeta.description}
+              className={`inline-flex items-center gap-1 rounded-full border font-medium ${statusMeta.badgeClasses} ${baseClass}`}
+            >
+              <span className={`${dotSize} rounded-full ${statusMeta.dotClasses}`} />
+              {count} {statusMeta.label}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const getStarterSecondaryInfo = (starter, statusMeta) => {
+    const info = [];
+
+    if (starter?.is_bye) {
+      info.push(
+        starter?.bye_week != null && starter.bye_week !== ''
+          ? `Bye Week ${starter.bye_week}`
+          : 'Bye Week'
+      );
+      return info;
+    }
+
+    const opponentLabel = getOpponentLabel(starter);
+    if (opponentLabel) {
+      info.push(opponentLabel);
+    }
+
+    if (statusMeta?.key === 'upcoming') {
+      const kickoffLabel = formatKickoffTime(starter?.game_start);
+      if (kickoffLabel) {
+        info.push(kickoffLabel);
+      }
+    }
+
+    const injury = starter?.injury_status;
+    if (injury && typeof injury === 'string') {
+      const trimmed = injury.trim();
+      if (trimmed && trimmed.toLowerCase() !== 'n/a' && trimmed.toLowerCase() !== 'healthy') {
+        info.push(trimmed.toUpperCase());
+      }
+    } else {
+      const practice = starter?.practice_status;
+      if (practice && typeof practice === 'string') {
+        const trimmedPractice = practice.trim();
+        if (
+          trimmedPractice &&
+          trimmedPractice.toLowerCase() !== 'full' &&
+          trimmedPractice.toLowerCase() !== 'na'
+        ) {
+          info.push(trimmedPractice.toUpperCase());
+        }
+      }
+    }
+
+    return info;
+  };
+
+  const renderTeamLineup = (team, label, lineupDataOverride = null) => {
     if (!team) {
       return (
         <div className="border border-dashed border-gray-300 rounded-lg p-4 text-center text-sm text-gray-500 bg-white">
@@ -1248,7 +1535,9 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       );
     }
 
-    const starters = Array.isArray(team.starters) ? team.starters : [];
+    const lineupData = lineupDataOverride || buildTeamLineupData(team);
+    const { startersWithStatus, statusCounts } = lineupData;
+    const statusPills = renderStatusPills(statusCounts);
 
     return (
       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
@@ -1258,34 +1547,50 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
           {team.team_name && (
             <p className="text-xs text-gray-500">{team.team_name}</p>
           )}
+          {statusPills && <div className="mt-2">{statusPills}</div>}
         </div>
         <ul className="divide-y divide-gray-200">
-          {starters.length > 0 ? (
-            starters.map(starter => (
-              <li
-                key={`${team.roster_id}-${starter.slot}-${starter.player_id}`}
-                className="px-3 py-2 flex items-center justify-between text-xs sm:text-sm bg-white"
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="w-10 text-xs font-semibold uppercase text-gray-500">
-                    {starter.position || ''}
-                  </span>
-                  <div>
-                    <p className="font-medium text-gray-800">{starter.name}</p>
-                    {starter.team && (
-                      <p className="text-[11px] uppercase tracking-wide text-gray-400">
-                        {starter.team}
-                      </p>
-                    )}
+          {startersWithStatus.length > 0 ? (
+            startersWithStatus.map(({ starter, statusMeta }) => {
+              const secondaryInfo = getStarterSecondaryInfo(starter, statusMeta);
+              return (
+                <li
+                  key={`${team.roster_id}-${starter.slot}-${starter.player_id}`}
+                  className={`px-3 py-2 flex items-center justify-between text-xs sm:text-sm bg-white ${statusMeta.rowClasses || ''}`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <span className="w-10 text-xs font-semibold uppercase text-gray-500">
+                      {starter.position || ''}
+                    </span>
+                    <div>
+                      <p className="font-medium text-gray-800">{starter.name}</p>
+                      {starter.team && (
+                        <p className="text-[11px] uppercase tracking-wide text-gray-400">
+                          {starter.team}
+                        </p>
+                      )}
+                      {secondaryInfo.length > 0 && (
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          {secondaryInfo.join(' • ')}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {starter.points != null && (
-                  <span className="text-sm font-semibold text-gray-700">
-                    {formatPoints(starter.points)}
-                  </span>
-                )}
-              </li>
-            ))
+                  <div className="flex items-center space-x-2">
+                    <span
+                      title={statusMeta.description}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium ${statusMeta.badgeClasses}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClasses}`} />
+                      {statusMeta.label}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-700">
+                      {formatPoints(starter.points)}
+                    </span>
+                  </div>
+                </li>
+              );
+            })
           ) : (
             <li className="px-3 py-2 text-xs text-gray-500 bg-white">Lineup not set</li>
           )}
@@ -1299,6 +1604,10 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       matchup.matchup_id != null ? `matchup-${matchup.matchup_id}` : `week-${weekNumber}-${idx}`;
     const home = matchup.home || null;
     const away = matchup.away || null;
+    const homeLineup = buildTeamLineupData(home);
+    const awayLineup = buildTeamLineupData(away);
+    const homeSummary = renderStatusPills(homeLineup.statusCounts, 'xs');
+    const awaySummary = renderStatusPills(awayLineup.statusCounts, 'xs');
     const homePointsValue = normalizePoints(home?.points);
     const awayPointsValue = normalizePoints(away?.points);
     const homeWin =
@@ -1331,6 +1640,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 {home?.team_name && (
                   <p className="text-xs text-gray-500">{home.team_name}</p>
                 )}
+                {homeSummary && <div className="mt-1">{homeSummary}</div>}
               </div>
               <span
                 className={`text-sm sm:text-base font-bold ${
@@ -1353,6 +1663,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 {away?.team_name && (
                   <p className="text-xs text-gray-500">{away.team_name}</p>
                 )}
+                {awaySummary && <div className="mt-1">{awaySummary}</div>}
               </div>
               <span
                 className={`text-sm sm:text-base font-bold ${
@@ -1369,16 +1680,16 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
             }`}
           />
         </button>
-        {isExpanded && (
-          <div className="border-t px-3 py-3 sm:px-4 sm:py-4 bg-gray-50">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {renderTeamLineup(home, 'Home Lineup')}
-              {renderTeamLineup(away, 'Away Lineup')}
+          {isExpanded && (
+            <div className="border-t px-3 py-3 sm:px-4 sm:py-4 bg-gray-50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {renderTeamLineup(home, 'Home Lineup', homeLineup)}
+                {renderTeamLineup(away, 'Away Lineup', awayLineup)}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-    );
+          )}
+        </div>
+      );
   };
 
   const allRecords = calculateAllRecords();
@@ -1682,6 +1993,25 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
 
                       {hasActiveLineups ? (
                         <div className="space-y-3">
+                          <div className="flex flex-wrap gap-2 text-[11px]">
+                            {Object.values(playerActivityStyles)
+                              .sort(
+                                (a, b) =>
+                                  playerActivityOrder[a.key] - playerActivityOrder[b.key]
+                              )
+                              .map(statusMeta => (
+                                <span
+                                  key={statusMeta.key}
+                                  title={statusMeta.description}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-medium ${statusMeta.badgeClasses}`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClasses}`}
+                                  />
+                                  {statusMeta.label}
+                                </span>
+                              ))}
+                          </div>
                           {activeWeekMatchups.matchups.map((matchup, idx) =>
                             renderActiveWeekMatchup(matchup, idx, week.week)
                           )}
