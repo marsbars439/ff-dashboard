@@ -311,6 +311,54 @@ app.get('/api/seasons/:year/matchups', (req, res) => {
   });
 });
 
+// Get active week matchups with starting lineups
+app.get('/api/seasons/:year/active-week/matchups', (req, res) => {
+  const year = parseInt(req.params.year, 10);
+  const requestedWeek = req.query.week ? parseInt(req.query.week, 10) : null;
+  const query = 'SELECT league_id FROM league_settings WHERE year = ?';
+
+  db.get(query, [year], async (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+
+    if (!row || !row.league_id) {
+      res.status(404).json({ error: 'League ID not found for year' });
+      return;
+    }
+
+    try {
+      const managers = await allAsync(
+        `SELECT m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+         FROM managers m
+         LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?`,
+        [year]
+      );
+
+      let week = Number.isInteger(requestedWeek) ? requestedWeek : null;
+      if (!week) {
+        week = await sleeperService.getCurrentNFLWeek();
+      }
+
+      if (!week) {
+        res.status(400).json({ error: 'Unable to determine active week' });
+        return;
+      }
+
+      const data = await sleeperService.getWeeklyMatchupsWithLineups(
+        row.league_id,
+        week,
+        managers
+      );
+
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+});
+
 // Get playoff matchups for a specific season
 app.get('/api/seasons/:year/playoffs', (req, res) => {
   const year = req.params.year;

@@ -8,6 +8,34 @@ class SleeperService {
       baseURL: SLEEPER_BASE_URL,
       timeout: 10000,
     });
+    this.playersCache = {
+      data: null,
+      timestamp: 0
+    };
+    this.playersCacheTtl = 1000 * 60 * 60; // 1 hour cache
+  }
+
+  async getPlayersMap(forceRefresh = false) {
+    const now = Date.now();
+    if (
+      !forceRefresh &&
+      this.playersCache.data &&
+      now - this.playersCache.timestamp < this.playersCacheTtl
+    ) {
+      return this.playersCache.data;
+    }
+
+    try {
+      const players = await this.client.get('/players/nfl').then(res => res.data);
+      this.playersCache = {
+        data: players,
+        timestamp: now
+      };
+      return players;
+    } catch (error) {
+      console.error('❌ Error fetching Sleeper players:', error.message);
+      throw error;
+    }
   }
 
   /**
@@ -260,6 +288,119 @@ class SleeperService {
         return weeks;
       } catch (error) {
         console.error('❌ Error fetching season matchups:', error.message);
+        throw error;
+      }
+    }
+
+  async getWeeklyMatchupsWithLineups(leagueId, week, managers = []) {
+      try {
+        const [rosters, users, weekMatchups] = await Promise.all([
+          this.getRosters(leagueId),
+          this.getUsers(leagueId),
+          this.client
+            .get(`/league/${leagueId}/matchups/${week}`)
+            .then(res => res.data)
+            .catch(() => [])
+        ]);
+
+        if (!Array.isArray(weekMatchups) || weekMatchups.length === 0) {
+          return { week, matchups: [] };
+        }
+
+        const playersMap = await this.getPlayersMap();
+
+        const userIdToName = {};
+        managers.forEach(m => {
+          if (m.sleeper_user_id) {
+            userIdToName[m.sleeper_user_id] = m.full_name;
+          }
+        });
+
+        const rosterIdToTeam = {};
+        const rosterIdToManager = {};
+        rosters.forEach(r => {
+          const user = users.find(u => u.user_id === r.owner_id) || {};
+          const teamName = r.metadata?.team_name ||
+            user.metadata?.team_name ||
+            user.display_name ||
+            `Team ${r.roster_id}`;
+          rosterIdToTeam[r.roster_id] = teamName;
+          rosterIdToManager[r.roster_id] = userIdToName[r.owner_id] || teamName;
+        });
+
+        const matchupsMap = {};
+
+        weekMatchups.forEach(m => {
+          const matchupKey = m.matchup_id != null ? m.matchup_id : m.roster_id;
+          if (!matchupsMap[matchupKey]) {
+            matchupsMap[matchupKey] = {
+              matchup_id: m.matchup_id,
+              home: null,
+              away: null
+            };
+          }
+
+          const formatStarters = (starters = [], starterPoints = []) =>
+            starters
+              .map((playerId, idx) => {
+                if (!playerId || playerId === '0') {
+                  return null;
+                }
+
+                const player = playersMap[playerId] || {};
+                const name = player.full_name ||
+                  [player.first_name, player.last_name]
+                    .filter(Boolean)
+                    .join(' ') ||
+                  playerId;
+                const position = Array.isArray(player.fantasy_positions) && player.fantasy_positions.length > 0
+                  ? player.fantasy_positions[0]
+                  : player.position || '';
+                const team = player.team ||
+                  player.player_team ||
+                  player.metadata?.team_abbr ||
+                  '';
+
+                return {
+                  slot: idx,
+                  player_id: playerId,
+                  name,
+                  position,
+                  team,
+                  points: starterPoints[idx] != null ? starterPoints[idx] : null
+                };
+              })
+              .filter(Boolean);
+
+          const starters = formatStarters(m.starters || [], m.starters_points || []);
+
+          const team = {
+            roster_id: m.roster_id,
+            team_name: rosterIdToTeam[m.roster_id] || '',
+            manager_name: rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
+            points: m.points || 0,
+            starters
+          };
+
+          if (!matchupsMap[matchupKey].home) {
+            matchupsMap[matchupKey].home = team;
+          } else {
+            matchupsMap[matchupKey].away = team;
+          }
+        });
+
+        const matchups = Object.values(matchupsMap).map(matchup => ({
+          matchup_id: matchup.matchup_id != null ? matchup.matchup_id : null,
+          home: matchup.home,
+          away: matchup.away
+        }));
+
+        return {
+          week,
+          matchups
+        };
+      } catch (error) {
+        console.error('❌ Error fetching weekly matchups with lineups:', error.message);
         throw error;
       }
     }
