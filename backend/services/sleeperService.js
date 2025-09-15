@@ -738,7 +738,7 @@ class SleeperService {
                     }
 
                     if (pointsValue === 0) {
-                      return 'live';
+                      return 'upcoming';
                     }
                   }
 
