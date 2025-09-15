@@ -1239,6 +1239,47 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2);
   };
 
+  const playerActivityStyles = {
+    live: {
+      key: 'live',
+      label: 'Live',
+      description: 'Game in progress or lineup locked with no points yet.',
+      badgeClasses: 'border-amber-200 bg-amber-50 text-amber-700',
+      dotClasses: 'bg-amber-500'
+    },
+    scored: {
+      key: 'scored',
+      label: 'Has Points',
+      description: 'Player has recorded fantasy points (playing or finished).',
+      badgeClasses: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      dotClasses: 'bg-emerald-500'
+    },
+    upcoming: {
+      key: 'upcoming',
+      label: 'Not Started',
+      description: 'Game has not kicked off yet.',
+      badgeClasses: 'border-sky-200 bg-sky-50 text-sky-700',
+      dotClasses: 'bg-sky-500'
+    }
+  };
+
+  const playerActivityOrder = {
+    live: 0,
+    scored: 1,
+    upcoming: 2
+  };
+
+  const getStarterActivityStatus = starter => {
+    const pointsValue = normalizePoints(starter?.points);
+    if (pointsValue === null) {
+      return playerActivityStyles.upcoming;
+    }
+    if (pointsValue === 0) {
+      return playerActivityStyles.live;
+    }
+    return playerActivityStyles.scored;
+  };
+
   const renderTeamLineup = (team, label) => {
     if (!team) {
       return (
@@ -1249,6 +1290,11 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     }
 
     const starters = Array.isArray(team.starters) ? team.starters : [];
+    const statusCounts = starters.reduce((acc, starter) => {
+      const { key } = getStarterActivityStatus(starter);
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
 
     return (
       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
@@ -1258,34 +1304,66 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
           {team.team_name && (
             <p className="text-xs text-gray-500">{team.team_name}</p>
           )}
+          {starters.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {Object.entries(statusCounts)
+                .sort((a, b) => playerActivityOrder[a[0]] - playerActivityOrder[b[0]])
+                .map(([key, count]) => {
+                  const statusMeta = playerActivityStyles[key];
+                  if (!statusMeta) {
+                    return null;
+                  }
+                  return (
+                    <span
+                      key={key}
+                      title={statusMeta.description}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${statusMeta.badgeClasses}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClasses}`} />
+                      {count} {statusMeta.label}
+                    </span>
+                  );
+                })}
+            </div>
+          )}
         </div>
         <ul className="divide-y divide-gray-200">
           {starters.length > 0 ? (
-            starters.map(starter => (
-              <li
-                key={`${team.roster_id}-${starter.slot}-${starter.player_id}`}
-                className="px-3 py-2 flex items-center justify-between text-xs sm:text-sm bg-white"
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="w-10 text-xs font-semibold uppercase text-gray-500">
-                    {starter.position || ''}
-                  </span>
-                  <div>
-                    <p className="font-medium text-gray-800">{starter.name}</p>
-                    {starter.team && (
-                      <p className="text-[11px] uppercase tracking-wide text-gray-400">
-                        {starter.team}
-                      </p>
-                    )}
+            starters.map(starter => {
+              const statusMeta = getStarterActivityStatus(starter);
+              return (
+                <li
+                  key={`${team.roster_id}-${starter.slot}-${starter.player_id}`}
+                  className="px-3 py-2 flex items-center justify-between text-xs sm:text-sm bg-white"
+                >
+                  <div className="flex items-center space-x-3">
+                    <span className="w-10 text-xs font-semibold uppercase text-gray-500">
+                      {starter.position || ''}
+                    </span>
+                    <div>
+                      <p className="font-medium text-gray-800">{starter.name}</p>
+                      {starter.team && (
+                        <p className="text-[11px] uppercase tracking-wide text-gray-400">
+                          {starter.team}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {starter.points != null && (
-                  <span className="text-sm font-semibold text-gray-700">
-                    {formatPoints(starter.points)}
-                  </span>
-                )}
-              </li>
-            ))
+                  <div className="flex items-center space-x-2">
+                    <span
+                      title={statusMeta.description}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium ${statusMeta.badgeClasses}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClasses}`} />
+                      {statusMeta.label}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-700">
+                      {formatPoints(starter.points)}
+                    </span>
+                  </div>
+                </li>
+              );
+            })
           ) : (
             <li className="px-3 py-2 text-xs text-gray-500 bg-white">Lineup not set</li>
           )}
@@ -1682,6 +1760,25 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
 
                       {hasActiveLineups ? (
                         <div className="space-y-3">
+                          <div className="flex flex-wrap gap-2 text-[11px]">
+                            {Object.values(playerActivityStyles)
+                              .sort(
+                                (a, b) =>
+                                  playerActivityOrder[a.key] - playerActivityOrder[b.key]
+                              )
+                              .map(statusMeta => (
+                                <span
+                                  key={statusMeta.key}
+                                  title={statusMeta.description}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-medium ${statusMeta.badgeClasses}`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClasses}`}
+                                  />
+                                  {statusMeta.label}
+                                </span>
+                              ))}
+                          </div>
                           {activeWeekMatchups.matchups.map((matchup, idx) =>
                             renderActiveWeekMatchup(matchup, idx, week.week)
                           )}
