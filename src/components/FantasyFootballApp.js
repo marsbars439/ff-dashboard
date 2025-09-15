@@ -60,6 +60,8 @@ const FantasyFootballApp = () => {
   const [activeWeekLoading, setActiveWeekLoading] = useState(false);
   const [activeWeekError, setActiveWeekError] = useState(null);
   const [expandedMatchups, setExpandedMatchups] = useState({});
+  const [expandedWeeks, setExpandedWeeks] = useState({});
+  const activeWeekNumber = activeWeekMatchups?.week ?? null;
 
   // Determine if a season's regular season is complete (all teams have 14 games)
   const isRegularSeasonComplete = year => {
@@ -156,6 +158,41 @@ const FantasyFootballApp = () => {
   useEffect(() => {
     setSeasonDataPage(0);
   }, [teamSeasons]);
+
+  useEffect(() => {
+    setExpandedWeeks({});
+  }, [selectedSeasonYear]);
+
+  useEffect(() => {
+    if (!Array.isArray(seasonMatchups) || seasonMatchups.length === 0) {
+      setExpandedWeeks({});
+      return;
+    }
+
+    setExpandedWeeks(prev => {
+      const desiredState = seasonMatchups.reduce((acc, week) => {
+        acc[week.week] = activeWeekNumber ? week.week === activeWeekNumber : true;
+        return acc;
+      }, {});
+
+      const prevKeys = Object.keys(prev);
+      const desiredKeys = Object.keys(desiredState);
+      const keysMatch =
+        prevKeys.length === desiredKeys.length &&
+        desiredKeys.every(key => prevKeys.includes(key));
+
+      if (!keysMatch) {
+        return desiredState;
+      }
+
+      if (activeWeekNumber) {
+        const differs = desiredKeys.some(key => prev[key] !== desiredState[key]);
+        return differs ? desiredState : prev;
+      }
+
+      return prev;
+    });
+  }, [seasonMatchups, activeWeekNumber]);
 
   const fetchData = async () => {
     try {
@@ -1219,6 +1256,22 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     }));
   };
 
+  const toggleWeekExpansion = weekNumber => {
+    setExpandedWeeks(prev => {
+      const hasWeekState = Object.prototype.hasOwnProperty.call(prev, weekNumber);
+      const currentValue = hasWeekState
+        ? !!prev[weekNumber]
+        : activeWeekNumber
+        ? weekNumber === activeWeekNumber
+        : true;
+
+      return {
+        ...prev,
+        [weekNumber]: !currentValue
+      };
+    });
+  };
+
   const normalizePoints = value => {
     if (value === null || value === undefined) {
       return null;
@@ -1312,7 +1365,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     },
     finished: {
       key: 'finished',
-      label: 'Final',
+      label: '',
       description: 'Game has concluded.',
       badgeClasses: 'border-emerald-200 bg-emerald-50 text-emerald-700',
       dotClasses: 'bg-emerald-500',
@@ -1471,7 +1524,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
               className={`inline-flex items-center gap-1 rounded-full border font-medium ${statusMeta.badgeClasses} ${baseClass}`}
             >
               <span className={`${dotSize} rounded-full ${statusMeta.dotClasses}`} />
-              {count} {statusMeta.label}
+              {statusMeta.label ? `${count} ${statusMeta.label}` : count}
             </span>
           );
         })}
@@ -1526,7 +1579,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     return info;
   };
 
-  const renderTeamLineup = (team, label, lineupDataOverride = null) => {
+  const renderTeamLineup = (team, label = null, lineupDataOverride = null) => {
     if (!team) {
       return (
         <div className="border border-dashed border-gray-300 rounded-lg p-4 text-center text-sm text-gray-500 bg-white">
@@ -1542,7 +1595,9 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     return (
       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
         <div className="px-3 py-2 border-b bg-gray-50">
-          <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
+          {label && (
+            <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
+          )}
           <p className="text-sm font-semibold text-gray-900">{team.manager_name || 'TBD'}</p>
           {team.team_name && (
             <p className="text-xs text-gray-500">{team.team_name}</p>
@@ -1683,8 +1738,8 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
           {isExpanded && (
             <div className="border-t px-3 py-3 sm:px-4 sm:py-4 bg-gray-50">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderTeamLineup(home, 'Home Lineup', homeLineup)}
-                {renderTeamLineup(away, 'Away Lineup', awayLineup)}
+                {renderTeamLineup(home, null, homeLineup)}
+                {renderTeamLineup(away, null, awayLineup)}
               </div>
             </div>
           )}
@@ -1981,87 +2036,112 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                   const headerMessageClass = activeWeekError
                     ? 'text-xs text-red-500'
                     : 'text-xs text-gray-500';
+                  const hasWeekState = Object.prototype.hasOwnProperty.call(
+                    expandedWeeks,
+                    week.week
+                  );
+                  const isExpanded = hasWeekState
+                    ? !!expandedWeeks[week.week]
+                    : activeWeekNumber
+                    ? week.week === activeWeekNumber
+                    : true;
 
                   return (
-                    <div key={week.week} className="mb-6 bg-gray-50 rounded-lg p-2 sm:p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                        <h4 className="font-semibold">Week {week.week}</h4>
-                        {isActiveWeek && (
-                          <span className={headerMessageClass}>{headerMessage}</span>
-                        )}
-                      </div>
-
-                      {hasActiveLineups ? (
-                        <div className="space-y-3">
-                          <div className="flex flex-wrap gap-2 text-[11px]">
-                            {Object.values(playerActivityStyles)
-                              .sort(
-                                (a, b) =>
-                                  playerActivityOrder[a.key] - playerActivityOrder[b.key]
-                              )
-                              .map(statusMeta => (
-                                <span
-                                  key={statusMeta.key}
-                                  title={statusMeta.description}
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-medium ${statusMeta.badgeClasses}`}
-                                >
-                                  <span
-                                    className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClasses}`}
-                                  />
-                                  {statusMeta.label}
-                                </span>
-                              ))}
-                          </div>
-                          {activeWeekMatchups.matchups.map((matchup, idx) =>
-                            renderActiveWeekMatchup(matchup, idx, week.week)
+                    <div key={week.week} className="mb-6 bg-gray-50 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => toggleWeekExpansion(week.week)}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
+                        aria-expanded={isExpanded}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-1 gap-2">
+                          <h4 className="font-semibold">Week {week.week}</h4>
+                          {isActiveWeek && (
+                            <span className={headerMessageClass}>{headerMessage}</span>
                           )}
                         </div>
-                      ) : (
-                        <>
-                          {isActiveWeek && activeWeekLoading && (
-                            <p className="text-xs text-gray-500 mb-2">
-                              Loading starting lineups from Sleeper...
-                            </p>
+                        <ChevronDown
+                          className={`w-5 h-5 text-gray-500 transition-transform ${
+                            isExpanded ? 'transform rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+
+                      {isExpanded && (
+                        <div className="border-t border-gray-200 px-3 pb-3 sm:px-4 sm:pb-4 pt-3 sm:pt-4">
+                          {hasActiveLineups ? (
+                            <div className="space-y-3">
+                              <div className="flex flex-wrap gap-2 text-[11px]">
+                                {Object.values(playerActivityStyles)
+                                  .sort(
+                                    (a, b) =>
+                                      playerActivityOrder[a.key] - playerActivityOrder[b.key]
+                                  )
+                                  .map(statusMeta => (
+                                    <span
+                                      key={statusMeta.key}
+                                      title={statusMeta.description}
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-medium ${statusMeta.badgeClasses}`}
+                                    >
+                                      <span
+                                        className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClasses}`}
+                                      />
+                                      {statusMeta.label}
+                                    </span>
+                                  ))}
+                              </div>
+                              {activeWeekMatchups.matchups.map((matchup, idx) =>
+                                renderActiveWeekMatchup(matchup, idx, week.week)
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              {isActiveWeek && activeWeekLoading && (
+                                <p className="text-xs text-gray-500 mb-2">
+                                  Loading starting lineups from Sleeper...
+                                </p>
+                              )}
+                              {isActiveWeek && activeWeekError && (
+                                <p className="text-xs text-red-600 mb-2">{activeWeekError}</p>
+                              )}
+                              <div className="overflow-x-auto">
+                                <table className="min-w-full text-xs sm:text-sm table-fixed">
+                                  <tbody className="divide-y divide-gray-200">
+                                    {week.matchups.map((m, idx) => {
+                                      const homePoints = normalizePoints(m.home?.points);
+                                      const awayPoints = normalizePoints(m.away?.points);
+                                      const homeWin =
+                                        homePoints !== null &&
+                                        awayPoints !== null &&
+                                        homePoints > awayPoints;
+                                      const awayWin =
+                                        homePoints !== null &&
+                                        awayPoints !== null &&
+                                        awayPoints > homePoints;
+                                      return (
+                                        <tr key={idx} className="text-left">
+                                          <td className={`px-2 py-1 w-1/5 ${homeWin ? 'bg-green-50 text-green-700 font-semibold rounded-l' : ''}`}>
+                                            {m.home?.manager_name || 'TBD'}
+                                          </td>
+                                          <td className={`px-2 py-1 w-1/5 text-right ${homeWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
+                                            {formatPoints(m.home?.points)}
+                                          </td>
+                                          <td className="px-2 py-1 w-1/5 text-center">vs</td>
+                                          <td className={`px-2 py-1 w-1/5 ${awayWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
+                                            {m.away?.manager_name || 'TBD'}
+                                          </td>
+                                          <td className={`px-2 py-1 w-1/5 text-right ${awayWin ? 'bg-green-50 text-green-700 font-semibold rounded-r' : ''}`}>
+                                            {formatPoints(m.away?.points)}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </>
                           )}
-                          {isActiveWeek && activeWeekError && (
-                            <p className="text-xs text-red-600 mb-2">{activeWeekError}</p>
-                          )}
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full text-xs sm:text-sm table-fixed">
-                              <tbody className="divide-y divide-gray-200">
-                                {week.matchups.map((m, idx) => {
-                                  const homePoints = normalizePoints(m.home?.points);
-                                  const awayPoints = normalizePoints(m.away?.points);
-                                  const homeWin =
-                                    homePoints !== null &&
-                                    awayPoints !== null &&
-                                    homePoints > awayPoints;
-                                  const awayWin =
-                                    homePoints !== null &&
-                                    awayPoints !== null &&
-                                    awayPoints > homePoints;
-                                  return (
-                                    <tr key={idx} className="text-left">
-                                      <td className={`px-2 py-1 w-1/5 ${homeWin ? 'bg-green-50 text-green-700 font-semibold rounded-l' : ''}`}>
-                                        {m.home?.manager_name || 'TBD'}
-                                      </td>
-                                      <td className={`px-2 py-1 w-1/5 text-right ${homeWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
-                                        {formatPoints(m.home?.points)}
-                                      </td>
-                                      <td className="px-2 py-1 w-1/5 text-center">vs</td>
-                                      <td className={`px-2 py-1 w-1/5 ${awayWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
-                                        {m.away?.manager_name || 'TBD'}
-                                      </td>
-                                      <td className={`px-2 py-1 w-1/5 text-right ${awayWin ? 'bg-green-50 text-green-700 font-semibold rounded-r' : ''}`}>
-                                        {formatPoints(m.away?.points)}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </>
+                        </div>
                       )}
                     </div>
                   );
