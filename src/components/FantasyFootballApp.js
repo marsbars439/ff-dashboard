@@ -1404,7 +1404,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       if (pointsValue > 0) {
         resolvedKey = 'finished';
       } else if (pointsValue === 0) {
-        resolvedKey = 'live';
+        resolvedKey = 'upcoming';
       }
     }
 
