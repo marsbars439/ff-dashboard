@@ -74,6 +74,11 @@ async function buildSeasonSummaryData(db) {
   let bottomWeeklyScores = [];
   let currentWeek = null;
   let title = null;
+  let closestMatchups = [];
+  let biggestBlowouts = [];
+  let highestScoringMatchups = [];
+  let standoutPlayers = [];
+  let strugglingPlayers = [];
 
   if (leagueRow && leagueRow.league_id) {
     const weeks = await sleeperService.getSeasonMatchups(
@@ -105,6 +110,139 @@ async function buildSeasonSummaryData(db) {
         .slice(0, 5);
       title = `Week ${lastWeek.week} In Review`;
       currentWeek = lastWeek.week;
+
+      const normalizePoints = value => {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          return value;
+        }
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+
+      const matchupDetails = lastWeek.matchups
+        .map(m => {
+          if (!m || !m.home || !m.away) {
+            return null;
+          }
+
+          const homePoints = normalizePoints(m.home.points);
+          const awayPoints = normalizePoints(m.away.points);
+          const margin = Math.abs(homePoints - awayPoints);
+
+          return {
+            week: lastWeek.week,
+            home: {
+              manager_name: m.home.manager_name,
+              points: homePoints
+            },
+            away: {
+              manager_name: m.away.manager_name,
+              points: awayPoints
+            },
+            margin,
+            totalPoints: homePoints + awayPoints,
+            winner:
+              homePoints >= awayPoints
+                ? m.home.manager_name
+                : m.away.manager_name,
+            loser:
+              homePoints >= awayPoints
+                ? m.away.manager_name
+                : m.home.manager_name
+          };
+        })
+        .filter(Boolean);
+
+      if (matchupDetails.length) {
+        const byTightest = [...matchupDetails].sort(
+          (a, b) => a.margin - b.margin
+        );
+        closestMatchups = byTightest.slice(0, Math.min(3, byTightest.length));
+
+        const byMargin = [...matchupDetails].sort(
+          (a, b) => b.margin - a.margin
+        );
+        biggestBlowouts = byMargin.slice(0, Math.min(3, byMargin.length));
+
+        const byTotalPoints = [...matchupDetails].sort(
+          (a, b) => b.totalPoints - a.totalPoints
+        );
+        highestScoringMatchups = byTotalPoints.slice(
+          0,
+          Math.min(3, byTotalPoints.length)
+        );
+      }
+
+      try {
+        const lineupData = await sleeperService.getWeeklyMatchupsWithLineups(
+          leagueRow.league_id,
+          lastWeek.week,
+          managers,
+          year
+        );
+
+        const allStarters = [];
+        (lineupData?.matchups || []).forEach(matchup => {
+          ['home', 'away'].forEach(side => {
+            const team = matchup?.[side];
+            if (!team || !Array.isArray(team.starters)) {
+              return;
+            }
+
+            team.starters.forEach(player => {
+              if (!player) {
+                return;
+              }
+
+              const numericPoints =
+                typeof player.points === 'number'
+                  ? player.points
+                  : Number(player.points);
+
+              if (!Number.isFinite(numericPoints)) {
+                return;
+              }
+
+              allStarters.push({
+                manager_name: team.manager_name || team.team_name || '',
+                team_name: team.team_name || '',
+                player_name: player.name || '',
+                position: player.position || '',
+                points: numericPoints,
+                opponent: player.opponent || null,
+                nfl_team: player.team || null
+              });
+            });
+          });
+        });
+
+        if (allStarters.length) {
+          const descByPoints = [...allStarters].sort(
+            (a, b) => b.points - a.points
+          );
+          standoutPlayers = descByPoints
+            .slice(0, Math.min(8, descByPoints.length))
+            .map(player => ({
+              ...player,
+              points: Number(player.points.toFixed(1))
+            }));
+
+          const ascByPoints = [...allStarters].sort(
+            (a, b) => a.points - b.points
+          );
+          strugglingPlayers = ascByPoints
+            .slice(0, Math.min(8, ascByPoints.length))
+            .map(player => ({
+              ...player,
+              points: Number(player.points.toFixed(1))
+            }));
+        }
+      } catch (err) {
+        console.error(
+          'Failed to enrich weekly summary with lineup data:',
+          err.message
+        );
+      }
     }
   }
 
@@ -118,6 +256,11 @@ async function buildSeasonSummaryData(db) {
     topWeeklyScores,
     bottomWeeklyScores,
     matchups,
+    closestMatchups,
+    biggestBlowouts,
+    highestScoringMatchups,
+    standoutPlayers,
+    strugglingPlayers,
     currentWeek,
     title
   };
@@ -173,11 +316,21 @@ async function buildPreviewData(db) {
           week: nextWeek,
           home: {
             manager_name: m.home.manager_name,
-            record: homeTeam ? `${homeTeam.wins}-${homeTeam.losses}` : ''
+            record: homeTeam ? `${homeTeam.wins}-${homeTeam.losses}` : '',
+            wins: homeTeam ? homeTeam.wins : null,
+            losses: homeTeam ? homeTeam.losses : null,
+            points_for: homeTeam ? homeTeam.points_for : null,
+            points_against: homeTeam ? homeTeam.points_against : null,
+            rank: homeTeam ? homeTeam.regular_season_rank : null
           },
           away: {
             manager_name: m.away.manager_name,
-            record: awayTeam ? `${awayTeam.wins}-${awayTeam.losses}` : ''
+            record: awayTeam ? `${awayTeam.wins}-${awayTeam.losses}` : '',
+            wins: awayTeam ? awayTeam.wins : null,
+            losses: awayTeam ? awayTeam.losses : null,
+            points_for: awayTeam ? awayTeam.points_for : null,
+            points_against: awayTeam ? awayTeam.points_against : null,
+            rank: awayTeam ? awayTeam.regular_season_rank : null
           }
         };
       });
