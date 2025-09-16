@@ -1,6 +1,7 @@
 const axios = require('axios');
 
 const SLEEPER_BASE_URL = 'https://api.sleeper.app/v1';
+const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
 
 class SleeperService {
   constructor() {
@@ -677,10 +678,14 @@ class SleeperService {
                 const normalizedStatsStatus = statsEntry?.status
                   ? this.normalizeGameStatus(statsEntry.status)
                   : null;
+                const normalizedScheduleStatus = scheduleEntry?.status
+                  ? this.normalizeGameStatus(scheduleEntry.status)
+                  : null;
 
                 const isByeWeek =
                   normalizedStatus === 'bye' ||
                   normalizedStatsStatus === 'bye' ||
+                  normalizedScheduleStatus === 'bye' ||
                   (scheduleEntry && scheduleEntry.status === 'bye') ||
                   (normalizedByeWeek != null &&
                     weekForComparison != null &&
@@ -706,40 +711,65 @@ class SleeperService {
                     return 'inactive';
                   }
 
-                  if (normalizedStatus === 'in_progress') {
-                    return 'live';
-                  }
+                  const statusCandidates = [
+                    normalizedStatus,
+                    normalizedStatsStatus,
+                    normalizedScheduleStatus
+                  ].filter(Boolean);
 
-                  if (normalizedStatus === 'final') {
+                  const hasFinalStatus = statusCandidates.includes('final');
+                  const hasLiveStatus = statusCandidates.includes('in_progress');
+                  const hasPreStatus = statusCandidates.includes('pre');
+
+                  const rawStatusText = (rawStatus || '').toString().toLowerCase();
+                  const hasFinishedDetail =
+                    rawStatusText.includes('final') ||
+                    rawStatusText.includes('post') ||
+                    rawStatusText.includes('complete') ||
+                    rawStatusText.includes('finished') ||
+                    rawStatusText.includes('closed');
+                  const liveDetailRegex = /\b(q[1-4]|1st|2nd|3rd|4th|ot)\b/;
+                  const hasLiveDetail =
+                    liveDetailRegex.test(rawStatusText) ||
+                    rawStatusText.includes('half') ||
+                    rawStatusText.includes('quarter');
+
+                  const hasKickoff = Number.isFinite(parsedStart);
+                  const kickoffHasPassed = hasKickoff && parsedStart <= now;
+                  const kickoffLikelyFinished =
+                    hasKickoff && now - parsedStart >= GAME_COMPLETION_BUFFER_MS;
+
+                  const statsAvailable = !!statsEntry;
+                  const hasPoints = pointsValue !== null;
+                  const hasNonZeroPoints = hasPoints && pointsValue !== 0;
+
+                  const hasGameFinishedSignal =
+                    hasFinalStatus ||
+                    hasFinishedDetail ||
+                    (kickoffLikelyFinished && (statsAvailable || hasPoints));
+
+                  if (hasGameFinishedSignal) {
                     return 'finished';
                   }
 
-                  if (normalizedStatus === 'pre') {
+                  const hasGameStartedSignal =
+                    hasGameFinishedSignal ||
+                    hasLiveStatus ||
+                    hasLiveDetail ||
+                    statsAvailable ||
+                    kickoffHasPassed ||
+                    hasNonZeroPoints;
+
+                  if (hasGameStartedSignal) {
+                    return 'live';
+                  }
+
+                  const hasGameUpcomingSignal =
+                    hasPreStatus ||
+                    (!hasGameStartedSignal && hasKickoff && parsedStart > now);
+
+                  if (hasGameUpcomingSignal) {
                     return 'upcoming';
-                  }
-
-                  if (parsedStart) {
-                    if (parsedStart > now) {
-                      return 'upcoming';
-                    }
-
-                    if (parsedStart <= now) {
-                      if (pointsValue !== null && pointsValue > 0) {
-                        return 'finished';
-                      }
-
-                      return 'live';
-                    }
-                  }
-
-                  if (pointsValue !== null) {
-                    if (pointsValue > 0) {
-                      return 'finished';
-                    }
-
-                    if (pointsValue === 0) {
-                      return 'upcoming';
-                    }
                   }
 
                   if (!team && !statsEntry && !scheduleEntry) {
