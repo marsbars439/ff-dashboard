@@ -1428,19 +1428,43 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
 
     const now = Date.now();
     const kickoff = parseTimestamp(
-      starter.game_start ?? starter.kickoff ?? starter.start_time ?? starter.startTime
+      starter?.scoreboard_start ??
+        starter?.game_start ??
+        starter?.kickoff ??
+        starter?.start_time ??
+        starter?.startTime
     );
     const pointsValue = normalizePoints(starter.points);
     const statsAvailable = Boolean(starter?.stats_available);
-    const rawStatus = (starter.game_status || starter.raw_game_status || '')
+    const scoreboardStatusRaw = (starter?.scoreboard_status || '')
       .toString()
       .toLowerCase()
       .trim();
+    const scoreboardActivityKeyRaw = starter?.scoreboard_activity_key
+      ? starter.scoreboard_activity_key.toString().toLowerCase().trim()
+      : '';
+    const scoreboardDetail = typeof starter?.scoreboard_detail === 'string'
+      ? starter.scoreboard_detail.trim()
+      : '';
+    const rawStatusPieces = [
+      starter?.game_status,
+      starter?.raw_game_status,
+      scoreboardDetail,
+      scoreboardStatusRaw
+    ].filter(Boolean);
+    const rawStatus = rawStatusPieces
+      .map(value => value.toString().toLowerCase().trim())
+      .filter(Boolean)
+      .join(' ');
     const normalizedBackendKey = starter.activity_key
       ? starter.activity_key.toString().toLowerCase().trim()
       : '';
 
-    const isBye = starter.is_bye || rawStatus.includes('bye');
+    const isBye =
+      starter.is_bye ||
+      rawStatus.includes('bye') ||
+      scoreboardStatusRaw.includes('bye') ||
+      scoreboardActivityKeyRaw.includes('bye');
     if (isBye) {
       return playerActivityStyles.inactive;
     }
@@ -1472,6 +1496,37 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         normalizedBackendKey.includes('sched') ||
         normalizedBackendKey.includes('upcoming') ||
         normalizedBackendKey.includes('not_started')
+      ) {
+        backendKey = 'upcoming';
+      }
+    }
+
+    if (!backendKey && scoreboardActivityKeyRaw && playerActivityStyles[scoreboardActivityKeyRaw]) {
+      backendKey = scoreboardActivityKeyRaw;
+    } else if (!backendKey && scoreboardActivityKeyRaw) {
+      if (
+        scoreboardActivityKeyRaw.includes('live') ||
+        scoreboardActivityKeyRaw.includes('progress') ||
+        scoreboardActivityKeyRaw.includes('play')
+      ) {
+        backendKey = 'live';
+      } else if (
+        scoreboardActivityKeyRaw.includes('final') ||
+        scoreboardActivityKeyRaw.includes('finish') ||
+        scoreboardActivityKeyRaw.includes('complete') ||
+        scoreboardActivityKeyRaw.includes('closed')
+      ) {
+        backendKey = 'finished';
+      } else if (
+        scoreboardActivityKeyRaw.includes('inactive') ||
+        scoreboardActivityKeyRaw.includes('bye')
+      ) {
+        backendKey = 'inactive';
+      } else if (
+        scoreboardActivityKeyRaw.includes('pre') ||
+        scoreboardActivityKeyRaw.includes('sched') ||
+        scoreboardActivityKeyRaw.includes('upcoming') ||
+        scoreboardActivityKeyRaw.includes('not_started')
       ) {
         backendKey = 'upcoming';
       }
@@ -1509,6 +1564,35 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       }
     }
 
+    if (!rawStatusKey && scoreboardActivityKeyRaw) {
+      if (
+        scoreboardActivityKeyRaw.includes('live') ||
+        scoreboardActivityKeyRaw.includes('progress') ||
+        scoreboardActivityKeyRaw.includes('play')
+      ) {
+        rawStatusKey = 'live';
+      } else if (
+        scoreboardActivityKeyRaw.includes('final') ||
+        scoreboardActivityKeyRaw.includes('finish') ||
+        scoreboardActivityKeyRaw.includes('complete') ||
+        scoreboardActivityKeyRaw.includes('closed')
+      ) {
+        rawStatusKey = 'finished';
+      } else if (
+        scoreboardActivityKeyRaw.includes('inactive') ||
+        scoreboardActivityKeyRaw.includes('bye')
+      ) {
+        rawStatusKey = 'inactive';
+      } else if (
+        scoreboardActivityKeyRaw.includes('pre') ||
+        scoreboardActivityKeyRaw.includes('sched') ||
+        scoreboardActivityKeyRaw.includes('upcoming') ||
+        scoreboardActivityKeyRaw.includes('not_started')
+      ) {
+        rawStatusKey = 'upcoming';
+      }
+    }
+
     if (rawStatusKey === 'inactive') {
       return playerActivityStyles.inactive;
     }
@@ -1534,8 +1618,30 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       rawStatus.includes('finished') ||
       rawStatus.includes('closed');
 
+    const scoreboardHasFinished =
+      scoreboardActivityKeyRaw === 'finished' ||
+      scoreboardStatusRaw.includes('final') ||
+      scoreboardStatusRaw.includes('complete') ||
+      scoreboardStatusRaw.includes('post');
+    const scoreboardHasLive =
+      scoreboardActivityKeyRaw === 'live' ||
+      scoreboardStatusRaw.includes('progress') ||
+      scoreboardStatusRaw.includes('live') ||
+      scoreboardStatusRaw.includes('playing');
+    const scoreboardHasUpcoming =
+      scoreboardActivityKeyRaw === 'upcoming' ||
+      scoreboardStatusRaw.includes('pre') ||
+      scoreboardStatusRaw.includes('sched') ||
+      scoreboardStatusRaw.includes('upcoming');
+    const scoreboardIsInactive =
+      scoreboardActivityKeyRaw === 'inactive' ||
+      scoreboardStatusRaw.includes('postpon') ||
+      scoreboardStatusRaw.includes('cancel') ||
+      scoreboardStatusRaw.includes('delay');
+
     const hasGameFinishedSignal = Boolean(
-      (resolvedKey === 'finished' && playerActivityStyles[resolvedKey]) ||
+      scoreboardHasFinished ||
+        (resolvedKey === 'finished' && playerActivityStyles[resolvedKey]) ||
         backendKey === 'finished' ||
         hasFinishedDetail ||
         (kickoffLikelyFinished && (statsAvailable || pointsValue !== null))
@@ -1545,6 +1651,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       hasGameFinishedSignal ||
         resolvedKey === 'live' ||
         backendKey === 'live' ||
+        scoreboardHasLive ||
         hasLiveDetail ||
         statsAvailable ||
         kickoffHasPassed ||
@@ -1554,6 +1661,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     const hasGameUpcomingSignal = Boolean(
       resolvedKey === 'upcoming' ||
         backendKey === 'upcoming' ||
+        scoreboardHasUpcoming ||
         (!hasGameStartedSignal && hasKickoff && kickoff > now)
     );
 
@@ -1567,6 +1675,15 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
 
     if (!resolvedKey && hasGameUpcomingSignal) {
       resolvedKey = 'upcoming';
+    }
+
+    if (
+      !resolvedKey &&
+      scoreboardIsInactive &&
+      !hasGameStartedSignal &&
+      !hasGameFinishedSignal
+    ) {
+      resolvedKey = 'inactive';
     }
 
     if (!resolvedKey && pointsValue !== null) {
@@ -1664,8 +1781,22 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
   const getStarterSecondaryInfo = (starter, statusMeta) => {
     const info = [];
 
+    const addInfo = value => {
+      if (value === null || value === undefined) {
+        return;
+      }
+      const text = value.toString().trim();
+      if (!text) {
+        return;
+      }
+      const exists = info.some(item => item.toLowerCase() === text.toLowerCase());
+      if (!exists) {
+        info.push(text);
+      }
+    };
+
     if (starter?.is_bye) {
-      info.push(
+      addInfo(
         starter?.bye_week != null && starter.bye_week !== ''
           ? `Bye Week ${starter.bye_week}`
           : 'Bye Week'
@@ -1675,13 +1806,39 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
 
     const opponentLabel = getOpponentLabel(starter);
     if (opponentLabel) {
-      info.push(opponentLabel);
+      addInfo(opponentLabel);
     }
 
     if (statusMeta?.key === 'upcoming') {
-      const kickoffLabel = formatKickoffTime(starter?.game_start);
+      const kickoffLabel = formatKickoffTime(
+        starter?.scoreboard_start ?? starter?.game_start
+      );
       if (kickoffLabel) {
-        info.push(kickoffLabel);
+        addInfo(kickoffLabel);
+      }
+    }
+
+    if (statusMeta?.key === 'live') {
+      const detail =
+        (typeof starter?.scoreboard_detail === 'string' && starter.scoreboard_detail) ||
+        (typeof starter?.raw_game_status === 'string' && starter.raw_game_status) ||
+        (typeof starter?.game_status === 'string' && starter.game_status);
+      if (detail) {
+        addInfo(detail.toUpperCase());
+      }
+    }
+
+    if (statusMeta?.key === 'finished') {
+      const detail =
+        (typeof starter?.scoreboard_detail === 'string' && starter.scoreboard_detail) ||
+        (typeof starter?.raw_game_status === 'string' && starter.raw_game_status) ||
+        (typeof starter?.game_status === 'string' && starter.game_status);
+      if (detail) {
+        addInfo(detail.toUpperCase());
+      } else if (starter?.scoreboard_status) {
+        addInfo(starter.scoreboard_status.toString().toUpperCase());
+      } else {
+        addInfo('FINAL');
       }
     }
 
@@ -1689,7 +1846,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     if (injury && typeof injury === 'string') {
       const trimmed = injury.trim();
       if (trimmed && trimmed.toLowerCase() !== 'n/a' && trimmed.toLowerCase() !== 'healthy') {
-        info.push(trimmed.toUpperCase());
+        addInfo(trimmed.toUpperCase());
       }
     } else {
       const practice = starter?.practice_status;
@@ -1700,7 +1857,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
           trimmedPractice.toLowerCase() !== 'full' &&
           trimmedPractice.toLowerCase() !== 'na'
         ) {
-          info.push(trimmedPractice.toUpperCase());
+          addInfo(trimmedPractice.toUpperCase());
         }
       }
     }
