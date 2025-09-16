@@ -1419,6 +1419,8 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     inactive: 3
   };
 
+  const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
+
   const getStarterActivityStatus = starter => {
     if (!starter) {
       return playerActivityStyles.inactive;
@@ -1429,65 +1431,150 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
       starter.game_start ?? starter.kickoff ?? starter.start_time ?? starter.startTime
     );
     const pointsValue = normalizePoints(starter.points);
+    const statsAvailable = Boolean(starter?.stats_available);
     const rawStatus = (starter.game_status || starter.raw_game_status || '')
       .toString()
-      .toLowerCase();
-    const backendKey =
-      starter.activity_key && playerActivityStyles[starter.activity_key]
-        ? starter.activity_key
-        : null;
+      .toLowerCase()
+      .trim();
+    const normalizedBackendKey = starter.activity_key
+      ? starter.activity_key.toString().toLowerCase().trim()
+      : '';
 
     const isBye = starter.is_bye || rawStatus.includes('bye');
-
-    let resolvedKey = null;
-
     if (isBye) {
-      resolvedKey = 'inactive';
+      return playerActivityStyles.inactive;
+    }
+
+    let backendKey = null;
+    if (normalizedBackendKey && playerActivityStyles[normalizedBackendKey]) {
+      backendKey = normalizedBackendKey;
+    } else if (normalizedBackendKey) {
+      if (
+        normalizedBackendKey.includes('live') ||
+        normalizedBackendKey.includes('progress') ||
+        normalizedBackendKey.includes('play')
+      ) {
+        backendKey = 'live';
+      } else if (
+        normalizedBackendKey.includes('final') ||
+        normalizedBackendKey.includes('finish') ||
+        normalizedBackendKey.includes('complete') ||
+        normalizedBackendKey.includes('closed')
+      ) {
+        backendKey = 'finished';
+      } else if (
+        normalizedBackendKey.includes('inactive') ||
+        normalizedBackendKey.includes('bye')
+      ) {
+        backendKey = 'inactive';
+      } else if (
+        normalizedBackendKey.includes('pre') ||
+        normalizedBackendKey.includes('sched') ||
+        normalizedBackendKey.includes('upcoming') ||
+        normalizedBackendKey.includes('not_started')
+      ) {
+        backendKey = 'upcoming';
+      }
     }
 
     let rawStatusKey = null;
-    if (rawStatus.includes('in_progress') || rawStatus.includes('live') || rawStatus.includes('playing')) {
-      rawStatusKey = 'live';
-    } else if (
-      rawStatus.includes('final') ||
-      rawStatus.includes('post') ||
-      rawStatus.includes('complete') ||
-      rawStatus.includes('finished')
-    ) {
-      rawStatusKey = 'finished';
-    } else if (
-      rawStatus.includes('pre') ||
-      rawStatus.includes('sched') ||
-      rawStatus.includes('upcoming') ||
-      rawStatus.includes('not_started')
-    ) {
-      rawStatusKey = 'upcoming';
-    } else if (rawStatus.includes('bye')) {
-      rawStatusKey = 'inactive';
-    }
-
-    if (rawStatusKey) {
-      if (resolvedKey !== 'inactive' || rawStatusKey === 'inactive') {
-        resolvedKey = rawStatusKey;
+    if (rawStatus) {
+      const liveRegex = /\b(q[1-4]|1st|2nd|3rd|4th|ot)\b/;
+      if (
+        rawStatus.includes('in_progress') ||
+        rawStatus.includes('live') ||
+        rawStatus.includes('playing') ||
+        liveRegex.test(rawStatus) ||
+        rawStatus.includes('half') ||
+        rawStatus.includes('quarter')
+      ) {
+        rawStatusKey = 'live';
+      } else if (
+        rawStatus.includes('final') ||
+        rawStatus.includes('post') ||
+        rawStatus.includes('complete') ||
+        rawStatus.includes('finished') ||
+        rawStatus.includes('closed')
+      ) {
+        rawStatusKey = 'finished';
+      } else if (
+        rawStatus.includes('pre') ||
+        rawStatus.includes('sched') ||
+        rawStatus.includes('upcoming') ||
+        rawStatus.includes('not_started')
+      ) {
+        rawStatusKey = 'upcoming';
+      } else if (rawStatus.includes('bye')) {
+        rawStatusKey = 'inactive';
       }
     }
 
-    if (!resolvedKey && backendKey) {
+    if (rawStatusKey === 'inactive') {
+      return playerActivityStyles.inactive;
+    }
+
+    let resolvedKey = null;
+    if (rawStatusKey && playerActivityStyles[rawStatusKey]) {
+      resolvedKey = rawStatusKey;
+    }
+
+    if (!resolvedKey && backendKey && playerActivityStyles[backendKey]) {
       resolvedKey = backendKey;
     }
 
-    if (!resolvedKey && kickoff) {
-      if (kickoff > now) {
-        resolvedKey = 'upcoming';
-      } else {
-        resolvedKey = pointsValue !== null && pointsValue > 0 ? 'finished' : 'live';
-      }
+    const hasKickoff = Number.isFinite(kickoff);
+    const kickoffHasPassed = hasKickoff && kickoff <= now;
+    const kickoffLikelyFinished = hasKickoff && now - kickoff >= GAME_COMPLETION_BUFFER_MS;
+    const liveDetailRegex = /\b(q[1-4]|1st|2nd|3rd|4th|ot)\b/;
+    const hasLiveDetail = liveDetailRegex.test(rawStatus) || rawStatus.includes('half') || rawStatus.includes('quarter');
+    const hasFinishedDetail =
+      rawStatus.includes('final') ||
+      rawStatus.includes('post') ||
+      rawStatus.includes('complete') ||
+      rawStatus.includes('finished') ||
+      rawStatus.includes('closed');
+
+    const hasGameFinishedSignal = Boolean(
+      (resolvedKey === 'finished' && playerActivityStyles[resolvedKey]) ||
+        backendKey === 'finished' ||
+        hasFinishedDetail ||
+        (kickoffLikelyFinished && (statsAvailable || pointsValue !== null))
+    );
+
+    const hasGameStartedSignal = Boolean(
+      hasGameFinishedSignal ||
+        resolvedKey === 'live' ||
+        backendKey === 'live' ||
+        hasLiveDetail ||
+        statsAvailable ||
+        kickoffHasPassed ||
+        (pointsValue !== null && pointsValue !== 0)
+    );
+
+    const hasGameUpcomingSignal = Boolean(
+      resolvedKey === 'upcoming' ||
+        backendKey === 'upcoming' ||
+        (!hasGameStartedSignal && hasKickoff && kickoff > now)
+    );
+
+    if (!resolvedKey && hasGameFinishedSignal) {
+      resolvedKey = 'finished';
+    }
+
+    if (!resolvedKey && hasGameStartedSignal) {
+      resolvedKey = 'live';
+    }
+
+    if (!resolvedKey && hasGameUpcomingSignal) {
+      resolvedKey = 'upcoming';
     }
 
     if (!resolvedKey && pointsValue !== null) {
-      if (pointsValue > 0) {
+      if (hasGameFinishedSignal) {
         resolvedKey = 'finished';
-      } else if (pointsValue === 0) {
+      } else if (hasGameStartedSignal) {
+        resolvedKey = 'live';
+      } else {
         resolvedKey = 'upcoming';
       }
     }
