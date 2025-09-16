@@ -100,6 +100,29 @@ season rather than updating past records. Seed scripts in
 `backend/scripts/seedDatabase.js` include examples of how to populate these
 historical IDs.
 
+### Live Game Status Integration
+
+Player activity badges now support a dedicated NFL game-status provider to
+ensure a starter's status (upcoming, live, finished) reflects the official
+scoreboard. Configure the backend with the following optional environment
+variables (see `backend/.env.example` for details):
+
+- `GAME_STATUS_API_URL` – base URL for the scoreboard API
+- `GAME_STATUS_API_PATH` – endpoint that returns weekly games (defaults to
+  `/events` when using ESPN feeds)
+- `GAME_STATUS_API_KEY` / `GAME_STATUS_API_HOST` – optional authentication
+  headers
+- `GAME_STATUS_CACHE_TTL_MS` and `GAME_STATUS_API_TIMEOUT_MS` – request tuning
+- `GAME_STATUS_SEASON_TYPE`, `GAME_STATUS_LEAGUE`, `GAME_STATUS_SPORT` – query
+  parameter overrides when the provider requires them
+- When targeting ESPN, include a `dates` query string such as
+  `20230907-20230913` (or a single day `YYYYMMDD`) so the API scopes the
+  returned events to the desired week.
+
+If these variables are not provided the dashboard falls back to Sleeper data,
+but enabling the integration keeps player statuses aligned with the actual NFL
+game clock.
+
 ## Contributing
 
 1. Fork the repository

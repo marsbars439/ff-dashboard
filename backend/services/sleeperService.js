@@ -1,4 +1,5 @@
 const axios = require('axios');
+const gameStatusService = require('./gameStatusService');
 
 const SLEEPER_BASE_URL = 'https://api.sleeper.app/v1';
 const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
@@ -545,6 +546,10 @@ class SleeperService {
         const playersMap = await this.getPlayersMap();
         const statsByPlayer = await this.getWeeklyPlayerStats(season, week);
         const scheduleByTeam = await this.getWeeklySchedule(season, week);
+        const scoreboardByTeam = await gameStatusService.getWeekGameStatuses(
+          season,
+          Number.isFinite(parsedWeek) ? parsedWeek : null
+        );
 
         const userIdToName = {};
         managers.forEach(m => {
@@ -623,6 +628,7 @@ class SleeperService {
                   player.metadata?.team_abbr ||
                   '';
                 const team = typeof rawTeam === 'string' ? rawTeam.toUpperCase() : '';
+                const scoreboardEntry = team ? scoreboardByTeam[team] || null : null;
 
                 const rawPoints = starterPoints[idx];
                 const parsedPoints =
@@ -636,22 +642,65 @@ class SleeperService {
                 const statsEntry = statsByPlayer[playerId] || null;
                 const scheduleEntry = team ? scheduleByTeam[team] || null : null;
 
-                const rawStatus =
-                  (statsEntry && (statsEntry.status || statsEntry.game_status)) ||
-                  (scheduleEntry && (scheduleEntry.status || scheduleEntry.raw_status)) ||
-                  null;
-                let normalizedStatus = this.normalizeGameStatus(rawStatus);
+                const rawStatusPieces = [];
+                if (statsEntry && (statsEntry.status || statsEntry.game_status)) {
+                  rawStatusPieces.push(statsEntry.status || statsEntry.game_status);
+                }
+                if (scheduleEntry && (scheduleEntry.status || scheduleEntry.raw_status)) {
+                  rawStatusPieces.push(scheduleEntry.status || scheduleEntry.raw_status);
+                }
+                if (scoreboardEntry?.rawStatusText) {
+                  rawStatusPieces.push(scoreboardEntry.rawStatusText);
+                } else if (scoreboardEntry?.status) {
+                  rawStatusPieces.push(scoreboardEntry.status);
+                }
 
-                const parsedStart = this.normalizeTimestamp(
-                  (statsEntry &&
-                    (statsEntry.game_start ||
-                      statsEntry.game_start_time ||
-                      statsEntry.game_start_ms)) ||
-                    (scheduleEntry && scheduleEntry.start_time) ||
-                    null
+                const rawStatus = rawStatusPieces.length ? rawStatusPieces[0] : null;
+
+                const normalizedStatsStatus = statsEntry?.status
+                  ? this.normalizeGameStatus(statsEntry.status)
+                  : null;
+                const normalizedScheduleStatus = scheduleEntry?.status
+                  ? this.normalizeGameStatus(scheduleEntry.status)
+                  : null;
+                const normalizedScoreboardStatus = scoreboardEntry?.status
+                  ? this.normalizeGameStatus(scoreboardEntry.status)
+                  : null;
+
+                let normalizedStatus = this.normalizeGameStatus(rawStatus);
+                if (normalizedScoreboardStatus) {
+                  normalizedStatus = normalizedScoreboardStatus;
+                }
+
+                const pickFirstTimestamp = (...values) => {
+                  for (const candidate of values) {
+                    const normalized = this.normalizeTimestamp(candidate);
+                    if (Number.isFinite(normalized)) {
+                      return normalized;
+                    }
+                  }
+                  return null;
+                };
+
+                const parsedStart = pickFirstTimestamp(
+                  statsEntry?.game_start,
+                  statsEntry?.game_start_time,
+                  statsEntry?.game_start_ms,
+                  scheduleEntry?.start_time,
+                  scoreboardEntry?.startTime
                 );
 
+                const scoreboardOpponent =
+                  scoreboardEntry && team
+                    ? scoreboardEntry.homeTeam === team
+                      ? scoreboardEntry.awayTeam
+                      : scoreboardEntry.awayTeam === team
+                      ? scoreboardEntry.homeTeam
+                      : null
+                    : null;
+
                 const opponent =
+                  (scoreboardOpponent && scoreboardOpponent) ||
                   (statsEntry &&
                     typeof statsEntry.opponent === 'string' &&
                     statsEntry.opponent
@@ -662,8 +711,18 @@ class SleeperService {
                     ? scheduleEntry.opponent.toUpperCase()
                     : null);
 
+                const scoreboardHomeAway =
+                  scoreboardEntry && team
+                    ? scoreboardEntry.homeTeam === team
+                      ? 'home'
+                      : scoreboardEntry.awayTeam === team
+                      ? 'away'
+                      : null
+                    : null;
+
                 const homeAway =
                   scheduleEntry?.home_away ||
+                  scoreboardHomeAway ||
                   (opponent && team ? (opponent === team ? 'home' : 'away') : null);
 
                 const byeWeek =
@@ -675,17 +734,30 @@ class SleeperService {
                 const normalizedByeWeek =
                   byeWeek != null ? Number.parseInt(byeWeek, 10) : null;
 
-                const normalizedStatsStatus = statsEntry?.status
-                  ? this.normalizeGameStatus(statsEntry.status)
-                  : null;
-                const normalizedScheduleStatus = scheduleEntry?.status
-                  ? this.normalizeGameStatus(scheduleEntry.status)
-                  : null;
+                const scoreboardActivityKey = scoreboardEntry?.activityKey || null;
+                const scoreboardHasFinishedSignal =
+                  scoreboardEntry?.isFinal ||
+                  scoreboardActivityKey === 'finished' ||
+                  normalizedScoreboardStatus === 'final';
+                const scoreboardHasLiveSignal =
+                  scoreboardEntry?.isInProgress ||
+                  scoreboardActivityKey === 'live' ||
+                  normalizedScoreboardStatus === 'in_progress';
+                const scoreboardHasUpcomingSignal =
+                  scoreboardEntry?.isPre ||
+                  scoreboardActivityKey === 'upcoming' ||
+                  normalizedScoreboardStatus === 'pre';
+                const scoreboardIsDelayed =
+                  scoreboardEntry?.isDelayed ||
+                  normalizedScoreboardStatus === 'postponed' ||
+                  normalizedScoreboardStatus === 'delayed' ||
+                  normalizedScoreboardStatus === 'canceled';
 
                 const isByeWeek =
                   normalizedStatus === 'bye' ||
                   normalizedStatsStatus === 'bye' ||
                   normalizedScheduleStatus === 'bye' ||
+                  normalizedScoreboardStatus === 'bye' ||
                   (scheduleEntry && scheduleEntry.status === 'bye') ||
                   (normalizedByeWeek != null &&
                     weekForComparison != null &&
@@ -714,25 +786,33 @@ class SleeperService {
                   const statusCandidates = [
                     normalizedStatus,
                     normalizedStatsStatus,
-                    normalizedScheduleStatus
+                    normalizedScheduleStatus,
+                    normalizedScoreboardStatus
                   ].filter(Boolean);
 
                   const hasFinalStatus = statusCandidates.includes('final');
                   const hasLiveStatus = statusCandidates.includes('in_progress');
                   const hasPreStatus = statusCandidates.includes('pre');
 
-                  const rawStatusText = (rawStatus || '').toString().toLowerCase();
+                  const rawStatusTextCombined = [
+                    rawStatus,
+                    scoreboardEntry?.rawStatusText,
+                    scoreboardEntry?.detail
+                  ]
+                    .filter(Boolean)
+                    .map(value => value.toString().toLowerCase())
+                    .join(' ');
                   const hasFinishedDetail =
-                    rawStatusText.includes('final') ||
-                    rawStatusText.includes('post') ||
-                    rawStatusText.includes('complete') ||
-                    rawStatusText.includes('finished') ||
-                    rawStatusText.includes('closed');
+                    rawStatusTextCombined.includes('final') ||
+                    rawStatusTextCombined.includes('post') ||
+                    rawStatusTextCombined.includes('complete') ||
+                    rawStatusTextCombined.includes('finished') ||
+                    rawStatusTextCombined.includes('closed');
                   const liveDetailRegex = /\b(q[1-4]|1st|2nd|3rd|4th|ot)\b/;
                   const hasLiveDetail =
-                    liveDetailRegex.test(rawStatusText) ||
-                    rawStatusText.includes('half') ||
-                    rawStatusText.includes('quarter');
+                    liveDetailRegex.test(rawStatusTextCombined) ||
+                    rawStatusTextCombined.includes('half') ||
+                    rawStatusTextCombined.includes('quarter');
 
                   const hasKickoff = Number.isFinite(parsedStart);
                   const kickoffHasPassed = hasKickoff && parsedStart <= now;
@@ -743,33 +823,44 @@ class SleeperService {
                   const hasPoints = pointsValue !== null;
                   const hasNonZeroPoints = hasPoints && pointsValue !== 0;
 
-                  const hasGameFinishedSignal =
-                    hasFinalStatus ||
-                    hasFinishedDetail ||
-                    (kickoffLikelyFinished && (statsAvailable || hasPoints));
+                  const hasGameFinishedSignal = Boolean(
+                    scoreboardHasFinishedSignal ||
+                      hasFinalStatus ||
+                      hasFinishedDetail ||
+                      (kickoffLikelyFinished && (statsAvailable || hasPoints))
+                  );
 
                   if (hasGameFinishedSignal) {
                     return 'finished';
                   }
 
-                  const hasGameStartedSignal =
-                    hasGameFinishedSignal ||
-                    hasLiveStatus ||
-                    hasLiveDetail ||
-                    statsAvailable ||
-                    kickoffHasPassed ||
-                    hasNonZeroPoints;
+                  const hasGameStartedSignal = Boolean(
+                    scoreboardHasLiveSignal ||
+                      hasGameFinishedSignal ||
+                      hasLiveStatus ||
+                      hasLiveDetail ||
+                      statsAvailable ||
+                      kickoffHasPassed ||
+                      hasNonZeroPoints
+                  );
 
                   if (hasGameStartedSignal) {
                     return 'live';
                   }
 
-                  const hasGameUpcomingSignal =
-                    hasPreStatus ||
-                    (!hasGameStartedSignal && hasKickoff && parsedStart > now);
+                  const hasGameUpcomingSignal = Boolean(
+                    scoreboardHasUpcomingSignal ||
+                      hasPreStatus ||
+                      (!hasGameStartedSignal && hasKickoff && parsedStart > now) ||
+                      (scoreboardIsDelayed && !hasGameFinishedSignal)
+                  );
 
                   if (hasGameUpcomingSignal) {
                     return 'upcoming';
+                  }
+
+                  if (scoreboardActivityKey === 'inactive') {
+                    return 'inactive';
                   }
 
                   if (!team && !statsEntry && !scheduleEntry) {
@@ -778,6 +869,11 @@ class SleeperService {
 
                   return 'upcoming';
                 };
+
+                const rawGameStatusForDisplay =
+                  scoreboardEntry?.detail ||
+                  scoreboardEntry?.rawStatusText ||
+                  (typeof rawStatus === 'string' ? rawStatus : null);
 
                 return {
                   slot: idx,
@@ -789,15 +885,38 @@ class SleeperService {
                   opponent: opponent || null,
                   home_away: homeAway || null,
                   game_status: normalizedStatus,
-                  raw_game_status: rawStatus || null,
+                  raw_game_status: rawGameStatusForDisplay || null,
                   game_start: parsedStart,
                   bye_week: normalizedByeWeek,
                   is_bye: isByeWeek,
                   injury_status: injuryStatus,
                   practice_status: practiceStatus,
-                  game_id: statsEntry?.game_id || scheduleEntry?.game_id || null,
+                  game_id:
+                    statsEntry?.game_id ||
+                    scheduleEntry?.game_id ||
+                    scoreboardEntry?.gameId ||
+                    null,
                   activity_key: determineActivityKey(),
-                  stats_available: !!statsEntry
+                  stats_available: !!statsEntry,
+                  scoreboard_status: scoreboardEntry?.status || null,
+                  scoreboard_activity_key: scoreboardActivityKey || null,
+                  scoreboard_detail:
+                    scoreboardEntry?.detail ||
+                    (scoreboardHasFinishedSignal ? 'FINAL' : null),
+                  scoreboard_start: scoreboardEntry?.startTime || null,
+                  scoreboard_last_updated: scoreboardEntry?.lastUpdated || null,
+                  scoreboard_home_team: scoreboardEntry?.homeTeam || null,
+                  scoreboard_home_score:
+                    scoreboardEntry && scoreboardEntry.homeScore != null
+                      ? scoreboardEntry.homeScore
+                      : null,
+                  scoreboard_away_team: scoreboardEntry?.awayTeam || null,
+                  scoreboard_away_score:
+                    scoreboardEntry && scoreboardEntry.awayScore != null
+                      ? scoreboardEntry.awayScore
+                      : null,
+                  scoreboard_quarter: scoreboardEntry?.quarter || null,
+                  scoreboard_clock: scoreboardEntry?.clock || null
                 };
               })
               .filter(Boolean);
