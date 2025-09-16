@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Trophy,
   Crown,
@@ -29,6 +29,7 @@ import AISummaryConfig from './AISummaryConfig';
 import Analytics from './Analytics';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
 
 const FantasyFootballApp = () => {
   const [activeTab, setActiveTab] = useState('records');
@@ -62,6 +63,7 @@ const FantasyFootballApp = () => {
   const [expandedMatchups, setExpandedMatchups] = useState({});
   const [expandedWeeks, setExpandedWeeks] = useState({});
   const activeWeekNumber = activeWeekMatchups?.week ?? null;
+  const hasLoadedActiveWeekRef = useRef(false);
 
   // Determine if a season's regular season is complete (all teams have 14 games)
   const isRegularSeasonComplete = year => {
@@ -110,41 +112,68 @@ const FantasyFootballApp = () => {
       setActiveWeekError(null);
       setActiveWeekLoading(false);
       setExpandedMatchups({});
+      hasLoadedActiveWeekRef.current = false;
       return;
     }
 
     let isCancelled = false;
+    let intervalId = null;
+    let isFetching = false;
 
-    const fetchActiveWeekMatchups = async () => {
+    const fetchActiveWeekMatchups = async (forceLoading = false) => {
+      if (isCancelled || isFetching) {
+        return;
+      }
+
+      isFetching = true;
+
       try {
-        setActiveWeekLoading(true);
+        if (forceLoading || !hasLoadedActiveWeekRef.current) {
+          setActiveWeekLoading(true);
+        }
         setActiveWeekError(null);
         const response = await fetch(`${API_BASE_URL}/seasons/${selectedSeasonYear}/active-week/matchups`);
         if (!response.ok) {
           throw new Error('Failed to fetch active week matchups');
         }
         const data = await response.json();
-        if (!isCancelled) {
-          setActiveWeekMatchups(data);
-          setExpandedMatchups({});
+        if (isCancelled) {
+          return;
         }
+        setActiveWeekMatchups(prev => {
+          if (!prev || prev.week !== data.week) {
+            setExpandedMatchups({});
+          }
+          return data;
+        });
+        hasLoadedActiveWeekRef.current = true;
       } catch (err) {
         console.error('Error fetching active week matchups:', err);
-        if (!isCancelled) {
-          setActiveWeekError('Unable to load starting lineups from Sleeper.');
-          setActiveWeekMatchups(null);
+        if (isCancelled) {
+          return;
         }
+        setActiveWeekError('Unable to load starting lineups from Sleeper.');
+        setActiveWeekMatchups(null);
+        hasLoadedActiveWeekRef.current = false;
       } finally {
         if (!isCancelled) {
           setActiveWeekLoading(false);
         }
+        isFetching = false;
       }
     };
 
-    fetchActiveWeekMatchups();
+    fetchActiveWeekMatchups(!hasLoadedActiveWeekRef.current);
+
+    intervalId = setInterval(() => {
+      fetchActiveWeekMatchups(false);
+    }, ACTIVE_WEEK_REFRESH_INTERVAL_MS);
 
     return () => {
       isCancelled = true;
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
   }, [selectedSeasonYear, teamSeasons]);
 
@@ -1349,7 +1378,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
   const playerActivityStyles = {
     live: {
       key: 'live',
-      label: 'Live Now',
+      label: 'In Progress',
       description: 'Game currently in progress.',
       badgeClasses: 'border-amber-200 bg-amber-50 text-amber-700',
       dotClasses: 'bg-amber-500',
@@ -1502,9 +1531,19 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
     return { starters, startersWithStatus, statusCounts };
   };
 
-  const renderStatusPills = (statusCounts, size = 'md') => {
+  const renderStatusPills = (statusCounts, size = 'md', options = {}) => {
+    const { includeFinished = false } = options;
     const entries = Object.entries(statusCounts || {})
-      .filter(([key, count]) => playerActivityStyles[key] && count > 0)
+      .filter(([key, count]) => {
+        const statusMeta = playerActivityStyles[key];
+        if (!statusMeta || count <= 0) {
+          return false;
+        }
+        if (!includeFinished && key === 'finished') {
+          return false;
+        }
+        return true;
+      })
       .sort((a, b) => playerActivityOrder[a[0]] - playerActivityOrder[b[0]]);
 
     if (entries.length === 0) {
