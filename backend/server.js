@@ -201,6 +201,168 @@ const refreshRosRankings = async () => {
   }
 };
 
+const syncSleeperSeason = async ({ year, leagueId, preserveManualFields = true } = {}) => {
+  if (!year) {
+    throw new Error('Year is required for Sleeper sync');
+  }
+  if (!leagueId) {
+    throw new Error('League ID is required for Sleeper sync');
+  }
+
+  await runAsync(
+    'UPDATE league_settings SET sync_status = ?, last_sync = CURRENT_TIMESTAMP WHERE year = ?',
+    ['syncing', year]
+  );
+
+  try {
+    const managers = await allAsync('SELECT * FROM managers');
+    const seasonalIds = await allAsync(
+      'SELECT name_id, sleeper_user_id FROM manager_sleeper_ids WHERE season = ?',
+      [year]
+    );
+
+    const sleeperResult = await sleeperService.fetchLeagueData(
+      leagueId,
+      year,
+      managers,
+      seasonalIds
+    );
+
+    if (!sleeperResult.success) {
+      throw new Error(sleeperResult.error);
+    }
+
+    const existingData = await allAsync('SELECT * FROM team_seasons WHERE year = ?', [year]);
+    const existingMap = {};
+    existingData.forEach(row => {
+      existingMap[row.name_id] = row;
+    });
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    for (const teamData of sleeperResult.data) {
+      if (!teamData.name_id) {
+        errorCount++;
+        errors.push(
+          `No manager match for Sleeper user: ${teamData.sleeper_username || teamData.sleeper_user_id}`
+        );
+        continue;
+      }
+
+      const existing = existingMap[teamData.name_id];
+
+      const dataToSave = {
+        ...teamData,
+        dues: preserveManualFields && existing ? existing.dues : teamData.dues || 250,
+        payout: preserveManualFields && existing ? existing.payout : teamData.payout || 0,
+        dues_chumpion:
+          preserveManualFields && existing
+            ? existing.dues_chumpion
+            : teamData.dues_chumpion || 0
+      };
+
+      delete dataToSave.sleeper_username;
+      delete dataToSave.sleeper_user_id;
+
+      const query = `
+        INSERT INTO team_seasons (
+          year, name_id, team_name, wins, losses, points_for, points_against,
+          regular_season_rank, playoff_finish, dues, payout, dues_chumpion, high_game
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(year, name_id)
+        DO UPDATE SET
+          team_name = excluded.team_name,
+          wins = excluded.wins,
+          losses = excluded.losses,
+          points_for = excluded.points_for,
+          points_against = excluded.points_against,
+          regular_season_rank = excluded.regular_season_rank,
+          playoff_finish = excluded.playoff_finish,
+          high_game = excluded.high_game,
+          ${preserveManualFields
+            ? ''
+            : `
+          dues = excluded.dues,
+          payout = excluded.payout,
+          dues_chumpion = excluded.dues_chumpion,
+          `}
+          updated_at = CURRENT_TIMESTAMP
+      `;
+
+      const values = [
+        dataToSave.year,
+        dataToSave.name_id,
+        dataToSave.team_name,
+        dataToSave.wins,
+        dataToSave.losses,
+        dataToSave.points_for,
+        dataToSave.points_against,
+        dataToSave.regular_season_rank,
+        dataToSave.playoff_finish,
+        dataToSave.dues,
+        dataToSave.payout,
+        dataToSave.dues_chumpion,
+        dataToSave.high_game
+      ];
+
+      try {
+        await runAsync(query, values);
+        successCount++;
+      } catch (err) {
+        errorCount++;
+        errors.push(`Error saving ${dataToSave.name_id}: ${err.message}`);
+      }
+    }
+
+    await runAsync(
+      'UPDATE league_settings SET sync_status = ?, last_sync = CURRENT_TIMESTAMP WHERE year = ?',
+      ['completed', year]
+    );
+
+    return {
+      message: 'Sync completed',
+      year,
+      league_id: leagueId,
+      summary: {
+        total_teams: sleeperResult.data.length,
+        successful_updates: successCount,
+        errors: errorCount,
+        error_details: errors,
+        preserved_manual_fields: preserveManualFields
+      }
+    };
+  } catch (error) {
+    await runAsync('UPDATE league_settings SET sync_status = ? WHERE year = ?', ['failed', year]);
+    throw error;
+  }
+};
+
+const syncCurrentSeasonFromSleeper = async () => {
+  const seasonSettings = await getAsync(
+    'SELECT year, league_id FROM league_settings WHERE year = (SELECT MAX(year) FROM league_settings)'
+  );
+
+  if (!seasonSettings || !seasonSettings.year) {
+    console.warn('Skipping scheduled Sleeper sync: no season configuration found.');
+    return null;
+  }
+
+  if (!seasonSettings.league_id) {
+    console.warn(
+      `Skipping scheduled Sleeper sync for ${seasonSettings.year}: missing league ID configuration.`
+    );
+    return null;
+  }
+
+  return syncSleeperSeason({
+    year: seasonSettings.year,
+    leagueId: seasonSettings.league_id,
+    preserveManualFields: true
+  });
+};
+
 
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
@@ -612,162 +774,19 @@ app.post('/api/sleeper/sync/:year', async (req, res) => {
   }
 
   try {
-    // Update sync status
-    db.run(
-      'UPDATE league_settings SET sync_status = ?, last_sync = CURRENT_TIMESTAMP WHERE year = ?',
-      ['syncing', year]
-    );
-
-    // Get all managers for username mapping
-    const managers = await new Promise((resolve, reject) => {
-      db.all('SELECT * FROM managers', [], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-
-    // Get seasonal Sleeper ID mappings
-    const seasonalIds = await new Promise((resolve, reject) => {
-      db.all('SELECT name_id, sleeper_user_id FROM manager_sleeper_ids WHERE season = ?', [year], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-
-    // Fetch data from Sleeper
-    const sleeperResult = await sleeperService.fetchLeagueData(league_id, year, managers, seasonalIds);
-
-    if (!sleeperResult.success) {
-      throw new Error(sleeperResult.error);
-    }
-
-    // Get existing team_seasons data for this year (to preserve manual fields)
-    const existingData = await new Promise((resolve, reject) => {
-      db.all('SELECT * FROM team_seasons WHERE year = ?', [year], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-
-    // Create a map of existing data by name_id for easy lookup
-    const existingMap = {};
-    existingData.forEach(row => {
-      existingMap[row.name_id] = row;
-    });
-
-    // Process and merge data
-    let successCount = 0;
-    let errorCount = 0;
-    const errors = [];
-
-    for (const teamData of sleeperResult.data) {
-      // Skip if no name_id match found
-      if (!teamData.name_id) {
-        errorCount++;
-        errors.push(`No manager match for Sleeper user: ${teamData.sleeper_username || teamData.sleeper_user_id}`);
-        continue;
-      }
-
-      const existing = existingMap[teamData.name_id];
-
-      // Prepare data for insertion/update
-      const dataToSave = {
-        ...teamData,
-        // Preserve manual fields if requested and they exist
-        dues: preserve_manual_fields && existing ? existing.dues : (teamData.dues || 250),
-        payout: preserve_manual_fields && existing ? existing.payout : (teamData.payout || 0),
-        dues_chumpion: preserve_manual_fields && existing ? existing.dues_chumpion : (teamData.dues_chumpion || 0),
-      };
-
-      // Remove Sleeper identifiers as we don't save them to team_seasons
-      delete dataToSave.sleeper_username;
-      delete dataToSave.sleeper_user_id;
-
-      // Insert or update the record
-      const query = `
-        INSERT INTO team_seasons (
-          year, name_id, team_name, wins, losses, points_for, points_against,
-          regular_season_rank, playoff_finish, dues, payout, dues_chumpion, high_game
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(year, name_id) 
-        DO UPDATE SET 
-          team_name = excluded.team_name,
-          wins = excluded.wins,
-          losses = excluded.losses,
-          points_for = excluded.points_for,
-          points_against = excluded.points_against,
-          regular_season_rank = excluded.regular_season_rank,
-          playoff_finish = excluded.playoff_finish,
-          high_game = excluded.high_game,
-          ${preserve_manual_fields ? '' : `
-            dues = excluded.dues,
-            payout = excluded.payout,
-            dues_chumpion = excluded.dues_chumpion,
-          `}
-          updated_at = CURRENT_TIMESTAMP
-      `;
-
-      const values = [
-        dataToSave.year,
-        dataToSave.name_id,
-        dataToSave.team_name,
-        dataToSave.wins,
-        dataToSave.losses,
-        dataToSave.points_for,
-        dataToSave.points_against,
-        dataToSave.regular_season_rank,
-        dataToSave.playoff_finish,
-        dataToSave.dues,
-        dataToSave.payout,
-        dataToSave.dues_chumpion,
-        dataToSave.high_game
-      ];
-
-      await new Promise((resolve, reject) => {
-        db.run(query, values, function(err) {
-          if (err) {
-            errorCount++;
-            errors.push(`Error saving ${dataToSave.name_id}: ${err.message}`);
-            reject(err);
-          } else {
-            successCount++;
-            resolve();
-          }
-        });
-      }).catch(() => {}); // Continue on error
-    }
-
-    // Update sync status
-    db.run(
-      'UPDATE league_settings SET sync_status = ?, last_sync = CURRENT_TIMESTAMP WHERE year = ?',
-      ['completed', year]
-    );
-
-    res.json({
-      message: 'Sync completed',
+    const result = await syncSleeperSeason({
       year,
-      league_id,
-      summary: {
-        total_teams: sleeperResult.data.length,
-        successful_updates: successCount,
-        errors: errorCount,
-        error_details: errors,
-        preserved_manual_fields: preserve_manual_fields
-      }
+      leagueId: league_id,
+      preserveManualFields: preserve_manual_fields
     });
 
+    res.json(result);
   } catch (error) {
-    // Update sync status to failed
-    db.run(
-      'UPDATE league_settings SET sync_status = ? WHERE year = ?',
-      ['failed', year]
-    );
-
     console.error('Sync error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message,
       year,
-      league_id 
+      league_id
     });
   }
 });
@@ -1367,8 +1386,22 @@ cron.schedule('0 3 * * *', () => {
   );
 }, { timezone: 'America/New_York' });
 
-// Schedule weekly summary and preview generation every Tuesday at 3AM ET
-cron.schedule('0 3 * * 2', () => {
+// Schedule current season Sleeper sync every Tuesday at 3:55AM ET
+cron.schedule('55 3 * * 2', async () => {
+  try {
+    const result = await syncCurrentSeasonFromSleeper();
+    if (result) {
+      console.log(
+        `Completed scheduled Sleeper sync for ${result.year}: ${result.summary.successful_updates}/${result.summary.total_teams} teams updated.`
+      );
+    }
+  } catch (err) {
+    console.error('Scheduled Sleeper sync failed:', err.message);
+  }
+}, { timezone: 'America/New_York' });
+
+// Schedule weekly summary and preview generation every Tuesday at 4AM ET
+cron.schedule('0 4 * * 2', () => {
   refreshCachedSummary().catch(err =>
     console.error('Failed to refresh weekly summary:', err.message)
   );
