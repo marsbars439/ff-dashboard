@@ -565,7 +565,7 @@ async function buildPreviewData(db) {
   );
 
   let matchups = [];
-  let nextWeek = null;
+  let previewWeek = null;
   let title = null;
 
   if (leagueRow && leagueRow.league_id) {
@@ -574,10 +574,10 @@ async function buildPreviewData(db) {
       managers
     );
     const currentWeek = await sleeperService.getCurrentNFLWeek();
-    nextWeek = currentWeek != null ? currentWeek + 1 : null;
-    const nextWeekData = weeks.find(w => w.week === nextWeek);
-    if (nextWeekData) {
-      matchups = nextWeekData.matchups.map(m => {
+    previewWeek = currentWeek != null ? currentWeek : null;
+    const previewWeekData = weeks.find(w => w.week === previewWeek);
+    if (previewWeekData) {
+      matchups = previewWeekData.matchups.map(m => {
         const homeTeam = teams.find(t => t.manager_name === m.home.manager_name);
         const awayTeam = teams.find(t => t.manager_name === m.away.manager_name);
         const homePf = homeTeam ? toNumber(homeTeam.points_for) : null;
@@ -602,7 +602,7 @@ async function buildPreviewData(db) {
             : null;
 
         return {
-          week: nextWeek,
+          week: previewWeek,
           home: {
             manager_name: m.home.manager_name,
             record: homeTeam ? `${homeTeam.wins}-${homeTeam.losses}` : '',
@@ -626,11 +626,11 @@ async function buildPreviewData(db) {
           win_gap: winGap
         };
       });
-      title = `Week ${nextWeek} Preview`;
+      title = `Week ${previewWeek} Preview`;
     }
   }
 
-  return { type: 'preview', year, teams, matchups, currentWeek: nextWeek, title };
+  return { type: 'preview', year, teams, matchups, currentWeek: previewWeek, title };
 }
 
 async function generateWeeklyPreview(db) {
