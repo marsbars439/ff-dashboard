@@ -13,6 +13,9 @@ function buildSummaryPrompt(data) {
   const d = typeof data === 'object' && data !== null ? data : {};
   const sections = [];
   const title = typeof d.title === 'string' ? d.title : '';
+  const isReview = d.type === 'season';
+  const isPreview = d.type === 'preview';
+  const hasComparison = Boolean(d.hasPreviousStandingsComparison);
 
   const toNumber = value => {
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -29,6 +32,26 @@ function buildSummaryPrompt(data) {
     }
     const rounded = Number(num.toFixed(digits));
     return Number.isFinite(rounded) ? rounded.toString() : num.toFixed(digits);
+  };
+
+  const formatRecordString = entry => {
+    if (!entry) {
+      return '';
+    }
+
+    const wins = toNumber(entry.wins);
+    const losses = toNumber(entry.losses);
+    const ties = toNumber(entry.ties);
+
+    if (wins === null || losses === null) {
+      return '';
+    }
+
+    if (ties && ties > 0) {
+      return `${wins}-${losses}-${ties}`;
+    }
+
+    return `${wins}-${losses}`;
   };
 
   const describeMatchup = (
@@ -111,10 +134,12 @@ function buildSummaryPrompt(data) {
       }
     }
   });
-  if (managerRecords.length) {
-    sections.push(`Managers and records: ${managerRecords.join('; ')}`);
-  } else if (managers.size) {
-    sections.push(`Managers: ${Array.from(managers).join(', ')}`);
+  if (!isReview) {
+    if (managerRecords.length) {
+      sections.push(`Managers and records: ${managerRecords.join('; ')}`);
+    } else if (managers.size) {
+      sections.push(`Managers: ${Array.from(managers).join(', ')}`);
+    }
   }
 
   const rankedTeams = teams
@@ -127,7 +152,7 @@ function buildSummaryPrompt(data) {
     }))
     .filter(team => team.manager_name);
 
-  if (rankedTeams.length) {
+  if (!isReview && rankedTeams.length) {
     const standings = [...rankedTeams].sort((a, b) => {
       if (a.wins == null && b.wins == null) {
         return 0;
@@ -236,7 +261,7 @@ function buildSummaryPrompt(data) {
   }
 
   // Hall of Records data for historical context
-  if (records.length) {
+  if (!isReview && records.length) {
     const hallRecords = records.map(r => ({
       name: r.manager_name || r.name,
       totalWins: r.totalWins,
@@ -301,7 +326,7 @@ function buildSummaryPrompt(data) {
       highlightLines.push(`Low W${s.week} ${s.manager_name} ${points} pts`);
     }
   });
-  if (highlightLines.length) {
+  if (!isReview && highlightLines.length) {
     sections.push(`Roster highlights: ${highlightLines.join('; ')}`);
   }
 
@@ -309,7 +334,7 @@ function buildSummaryPrompt(data) {
     ? d.standoutPlayers
     : [];
   const standoutLines = standoutPlayers
-    .slice(0, 6)
+    .slice(0, isReview ? 3 : 6)
     .map(player => {
       const points = formatNumber(player.points, 1);
       if (points === null) {
@@ -328,7 +353,7 @@ function buildSummaryPrompt(data) {
     ? d.strugglingPlayers
     : [];
   const strugglingLines = strugglingPlayers
-    .slice(0, 6)
+    .slice(0, isReview ? 3 : 6)
     .map(player => {
       const points = formatNumber(player.points, 1);
       if (points === null) {
@@ -341,6 +366,124 @@ function buildSummaryPrompt(data) {
     sections.push(`Underperformers: ${strugglingLines.join('; ')}`);
   }
 
+  if (isReview) {
+    const movementEntries = Array.isArray(d.standingsMovement)
+      ? d.standingsMovement
+      : [];
+    if (movementEntries.length) {
+      const moveLines = movementEntries.map(entry => {
+        const direction =
+          entry.current_rank != null && entry.previous_rank != null
+            ? entry.current_rank < entry.previous_rank
+              ? 'up'
+              : 'down'
+            : 'moved';
+        const record = entry.record ? ` (${entry.record})` : '';
+        const pf = formatNumber(entry.points_for, 1);
+        const pfText = pf ? `, ${pf} PF` : '';
+        const previous = entry.previous_rank != null
+          ? `was #${entry.previous_rank}`
+          : 'previous rank unknown';
+        return `${entry.manager_name} ${direction} to #${entry.current_rank}${record}${pfText} (${previous})`;
+      });
+      sections.push(`Standings movement: ${moveLines.join('; ')}`);
+    } else if (hasComparison) {
+      sections.push('Standings movement: none this week.');
+    }
+
+    const leaderEntries = Array.isArray(d.currentStandingsLeaders)
+      ? d.currentStandingsLeaders
+      : [];
+    if (leaderEntries.length) {
+      const leaderLines = leaderEntries.map((entry, idx) => {
+        const rankLabel = entry.rank != null ? `#${entry.rank}` : `#${idx + 1}`;
+        const record = formatRecordString(entry);
+        const pf = formatNumber(entry.points_for, 1);
+        const recordText = record ? ` ${record}` : '';
+        const pfText = pf ? ` (${pf} PF)` : '';
+        return `${rankLabel} ${entry.manager_name}${recordText}${pfText}`;
+      });
+      sections.push(`Standings leaders now: ${leaderLines.join('; ')}`);
+    }
+
+    const topPfEntries = Array.isArray(d.pointsForTopChanges)
+      ? d.pointsForTopChanges
+      : [];
+    if (topPfEntries.length) {
+      const pfLines = topPfEntries.map(entry => {
+        const currentRankLabel =
+          entry.current_rank != null
+            ? `now #${entry.current_rank}`
+            : 'dropped out of top 3';
+        const previousRankLabel =
+          entry.previous_rank != null
+            ? `was #${entry.previous_rank}`
+            : 'previously outside top 3';
+        const currentPf = formatNumber(
+          entry.current_points_for != null
+            ? entry.current_points_for
+            : entry.points_for,
+          1
+        );
+        const previousPf = formatNumber(entry.previous_points_for, 1);
+        const pfTextParts = [];
+        if (currentPf) {
+          pfTextParts.push(`${currentPf} PF`);
+        }
+        if (previousPf && previousPf !== currentPf) {
+          pfTextParts.push(`prev ${previousPf} PF`);
+        }
+        const pfText = pfTextParts.length ? ` (${pfTextParts.join(', ')})` : '';
+        return `${entry.manager_name} ${currentRankLabel}, ${previousRankLabel}${pfText}`;
+      });
+      sections.push(`Top PF shifts: ${pfLines.join('; ')}`);
+    } else if (hasComparison) {
+      sections.push('Top PF shifts: none.');
+    }
+
+    const currentTopPf = Array.isArray(d.currentTopPointsFor)
+      ? d.currentTopPointsFor
+      : [];
+    if (currentTopPf.length) {
+      const currentPfLines = currentTopPf.map((entry, idx) => {
+        const rankLabel = entry.pfRank != null ? `#${entry.pfRank}` : `#${idx + 1}`;
+        const record = formatRecordString(entry);
+        const pf = formatNumber(entry.points_for, 1);
+        const recordText = record ? ` ${record}` : '';
+        const pfText = pf ? ` (${pf} PF)` : '';
+        return `${rankLabel} ${entry.manager_name}${recordText}${pfText}`;
+      });
+      sections.push(`Current top PF board: ${currentPfLines.join('; ')}`);
+    }
+
+    const lowestChange = d.lowestPointsForChange || null;
+    const currentLowest = d.currentLowestPointsFor || null;
+    if (
+      lowestChange &&
+      lowestChange.current &&
+      lowestChange.previous &&
+      lowestChange.current.manager_name &&
+      lowestChange.previous.manager_name
+    ) {
+      const newPfValue = formatNumber(lowestChange.current.points_for, 1);
+      const prevPfValue = formatNumber(lowestChange.previous.points_for, 1);
+      const newPf = newPfValue || '—';
+      const prevPf = prevPfValue || '—';
+      const lowestSwapLine =
+        `Lowest PF swap: ${lowestChange.current.manager_name} now last at ${newPf} PF, ` +
+        `replacing ${lowestChange.previous.manager_name} (${prevPf} PF).`;
+      sections.push(lowestSwapLine);
+    } else if (currentLowest && currentLowest.manager_name) {
+      const lowestPfValue = formatNumber(currentLowest.points_for, 1);
+      const lowestPf = lowestPfValue || '—';
+      sections.push(
+        `Lowest PF holder: ${currentLowest.manager_name} steady at ${lowestPf} PF.`
+      );
+    } else if (hasComparison) {
+      sections.push('Lowest PF holder: unchanged.');
+    }
+  }
+
   const closestMatchups = Array.isArray(d.closestMatchups)
     ? d.closestMatchups
     : [];
@@ -348,7 +491,7 @@ function buildSummaryPrompt(data) {
     .slice(0, 3)
     .map(matchup => describeMatchup(matchup, { emphasiseMargin: true }))
     .filter(Boolean);
-  if (closeLines.length) {
+  if (!isReview && closeLines.length) {
     sections.push(`Nail-biters: ${closeLines.join('; ')}`);
   }
 
@@ -359,7 +502,7 @@ function buildSummaryPrompt(data) {
     .slice(0, 3)
     .map(matchup => describeMatchup(matchup, { emphasiseMargin: true }))
     .filter(Boolean);
-  if (blowoutLines.length) {
+  if (!isReview && blowoutLines.length) {
     sections.push(`Statement wins: ${blowoutLines.join('; ')}`);
   }
 
@@ -370,7 +513,7 @@ function buildSummaryPrompt(data) {
     .slice(0, 3)
     .map(matchup => describeMatchup(matchup, { emphasiseTotal: true }))
     .filter(Boolean);
-  if (highScoreLines.length) {
+  if (!isReview && highScoreLines.length) {
     sections.push(`Scoreboard bonanzas: ${highScoreLines.join('; ')}`);
   }
 
@@ -420,11 +563,115 @@ function buildSummaryPrompt(data) {
     }
   });
   const filteredMatchupLines = matchupLines.filter(Boolean);
-  if (filteredMatchupLines.length) {
+  if (!isReview && filteredMatchupLines.length) {
     sections.push(`Head-to-head matchups: ${filteredMatchupLines.join('; ')}`);
   }
 
-  if (d.type === 'preview') {
+  if (isPreview) {
+    const potentialShakeups = matchups
+      .map(m => {
+        if (!m || !m.home || !m.away) {
+          return null;
+        }
+
+        const homeRank = toNumber(m.home.rank);
+        const awayRank = toNumber(m.away.rank);
+        const homeWins = toNumber(m.home.wins);
+        const awayWins = toNumber(m.away.wins);
+        const homeLosses = toNumber(m.home.losses);
+        const awayLosses = toNumber(m.away.losses);
+        const storedWinGap = toNumber(m.win_gap);
+        const winGap = storedWinGap !== null
+          ? storedWinGap
+          : homeWins !== null && awayWins !== null
+          ? Math.abs(homeWins - awayWins)
+          : null;
+        const nearTop =
+          (homeRank !== null && homeRank <= 4) ||
+          (awayRank !== null && awayRank <= 4);
+        const bubbleBattle =
+          homeRank !== null && awayRank !== null &&
+          homeRank <= 6 &&
+          awayRank <= 6;
+        const qualifies =
+          (winGap !== null && winGap <= 1) ||
+          (nearTop && winGap !== null && winGap <= 2) ||
+          (winGap === null && (nearTop || bubbleBattle));
+
+        if (!qualifies) {
+          return null;
+        }
+
+        const homePf = toNumber(m.home.points_for);
+        const awayPf = toNumber(m.away.points_for);
+        const storedPfDiff = toNumber(m.pf_diff);
+        const pfDiff = storedPfDiff !== null
+          ? storedPfDiff
+          : homePf !== null && awayPf !== null
+          ? Number((homePf - awayPf).toFixed(1))
+          : null;
+        const favorite =
+          typeof m.favorite === 'string' && m.favorite
+            ? m.favorite
+            : pfDiff !== null && pfDiff !== 0
+            ? pfDiff > 0
+              ? m.home.manager_name
+              : m.away.manager_name
+            : null;
+
+        const homeLabelParts = [];
+        if (homeRank !== null) {
+          homeLabelParts.push(`#${homeRank}`);
+        }
+        homeLabelParts.push(m.home.manager_name);
+        if (homeWins !== null && homeLosses !== null) {
+          homeLabelParts.push(`(${homeWins}-${homeLosses})`);
+        }
+        const homeLabel = homeLabelParts.join(' ');
+
+        const awayLabelParts = [];
+        if (awayRank !== null) {
+          awayLabelParts.push(`#${awayRank}`);
+        }
+        awayLabelParts.push(m.away.manager_name);
+        if (awayWins !== null && awayLosses !== null) {
+          awayLabelParts.push(`(${awayWins}-${awayLosses})`);
+        }
+        const awayLabel = awayLabelParts.join(' ');
+
+        const detailParts = [];
+        if (winGap !== null) {
+          detailParts.push(`win gap ${formatNumber(winGap, 0)}`);
+        }
+        if (pfDiff !== null && pfDiff !== 0) {
+          const edgeFor = pfDiff > 0 ? m.home.manager_name : m.away.manager_name;
+          detailParts.push(
+            `PF edge ${formatNumber(Math.abs(pfDiff), 1)} for ${edgeFor}`
+          );
+        }
+        if (favorite) {
+          detailParts.push(`favorite ${favorite}`);
+        }
+        if (nearTop) {
+          detailParts.push('top-tier stakes');
+        } else if (bubbleBattle) {
+          detailParts.push('playoff bubble duel');
+        }
+
+        const detailText = detailParts.length
+          ? ` (${detailParts.join('; ')})`
+          : '';
+
+        return `${homeLabel} vs ${awayLabel}${detailText}`;
+      })
+      .filter(Boolean);
+
+    if (potentialShakeups.length) {
+      sections.push(`Potential shake-ups: ${potentialShakeups.join('; ')}`);
+    }
+  }
+
+  if (isPreview) {
     const winGapLines = matchups
       .map(m => {
         if (!m.home || !m.away) {
@@ -446,11 +693,11 @@ function buildSummaryPrompt(data) {
 
   const variants = {
     season:
-      'Deliver an energetic weekly recap that digs into scoreboard swings, standout players, and how results reshape the playoff race. Tie every storyline to concrete scores, margins, or records.',
+      'Write a concise standings-focused recap for the completed week. Spotlight shifts in overall rank and movements within the points-for leaderboard, and plainly note when nothing changed.',
     records:
       'Deliver a history-focused report that quantifies record chases, medal leaders, and long-term manager trends. Use specific totals and gaps to show what milestones are within reach.',
     preview:
-      'Deliver an energetic preview of the upcoming slate. Spotlight matchups with records, points-for pace, and playoff-position implications, and call out players poised to swing outcomes.'
+      'Write a concise preview of the upcoming slate that highlights matchups most likely to shake up the standings and who holds the statistical edge.'
   };
   const intro =
     variants[d.type] ||
@@ -458,7 +705,36 @@ function buildSummaryPrompt(data) {
 
   const titleBlock = title ? `${title}\n\n` : '';
   const body = sections.join('\n');
-  return `${titleBlock}${intro}\n\n${body}\n\nCraft 5-7 punchy bullet points. Each bullet must cite specific numbers (scores, records, margins, or point totals) and explain the impact or looming implications. When previewing upcoming games, finish with a forward-looking takeaway.`;
+
+  const guidance = [];
+
+  if (isReview) {
+    guidance.push(
+      'Focus solely on standings movement, shifts among the top three points-for totals, and any change at the bottom of the points-for table. If nothing changed in a required category, say so explicitly.'
+    );
+  } else if (isPreview) {
+    guidance.push(
+      'Focus on potential standings shake-ups from the upcoming matchups, explaining who has the edge and what a win would do to the table.'
+    );
+    guidance.push('Close with a forward-looking note about the most pivotal swing to watch.');
+  } else {
+    guidance.push(
+      'Deliver the requested fantasy football insights with clear numerical evidence.'
+    );
+  }
+
+  guidance.push(
+    'Weave in exact numbers—scores, records, points-for totals, margins, or projections—to support every storyline.'
+  );
+  guidance.push(
+    'You may mention massive individual player over- or under-performances when they materially impact those narratives.'
+  );
+  guidance.push('Write the response as two or three short paragraphs, not a list.');
+  guidance.push('Do not use numbered lists.');
+
+  const guidanceText = guidance.map(line => `- ${line}`).join('\n');
+
+  return `${titleBlock}${intro}\n\n${body}\n\n${guidanceText}`;
 }
 
 /**
