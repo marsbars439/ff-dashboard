@@ -76,10 +76,20 @@ const Analytics = ({ onBack }) => {
 
   const loadData = useCallback(async () => {
     const year = new Date().getFullYear();
+    const cacheBuster = Date.now();
+    const fetchJson = (url) =>
+      fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      }).then(r => r.json());
+
+    const withCacheBust = (url) => `${url}${url.includes('?') ? '&' : '?'}_=${cacheBuster}`;
     try {
       const [dataRes, rosterRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/ros-rankings`).then(r => r.json()),
-        fetch(`${API_BASE_URL}/seasons/${year}/keepers`).then(r => r.json())
+        fetchJson(withCacheBust(`${API_BASE_URL}/ros-rankings`)),
+        fetchJson(withCacheBust(`${API_BASE_URL}/seasons/${year}/keepers`))
       ]);
 
       // Support both array and object API responses
