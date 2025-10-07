@@ -3,6 +3,48 @@ import { BarChart3, ArrowLeft, RefreshCw } from 'lucide-react';
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
+const NUMERIC_OPERATORS = ['>', '>=', '<', '<=', '='];
+
+function parseNumericFilterInput(filter) {
+  if (!filter) return null;
+  const { operator = '', value = '' } = filter;
+  const trimmedOperator = operator.trim();
+  if (!trimmedOperator || !NUMERIC_OPERATORS.includes(trimmedOperator)) {
+    return null;
+  }
+  const trimmedValue = typeof value === 'string' ? value.trim() : value;
+  if (trimmedValue === '') {
+    return null;
+  }
+  const numericValue = Number(trimmedValue);
+  if (!Number.isFinite(numericValue)) {
+    return null;
+  }
+  return { operator: trimmedOperator, value: numericValue };
+}
+
+function matchesNumericFilter(value, parsedFilter) {
+  if (!parsedFilter) return true;
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return false;
+  }
+  switch (parsedFilter.operator) {
+    case '>':
+      return numericValue > parsedFilter.value;
+    case '>=':
+      return numericValue >= parsedFilter.value;
+    case '<':
+      return numericValue < parsedFilter.value;
+    case '<=':
+      return numericValue <= parsedFilter.value;
+    case '=':
+      return numericValue === parsedFilter.value;
+    default:
+      return true;
+  }
+}
+
 function normalizeName(name = '') {
   return name
     .toLowerCase()
@@ -54,12 +96,13 @@ const Analytics = ({ onBack }) => {
   const [sortDir, setSortDir] = useState('asc');
   const [filters, setFilters] = useState({
     name: '',
-    team: '',
-    position: '',
-    manager: '',
-    draftCost: '',
-    projPts: ''
+    team: [],
+    position: [],
+    manager: [],
+    draftCost: { operator: '', value: '' },
+    projPts: { operator: '', value: '' }
   });
+  const [excludedPositions, setExcludedPositions] = useState([]);
   const password = process.env.REACT_APP_ANALYTICS_PASSWORD || 'admin';
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
   const [refreshMessage, setRefreshMessage] = useState('');
@@ -207,16 +250,47 @@ const Analytics = ({ onBack }) => {
     }
   };
 
+  const availableTeams = useMemo(() => {
+    const teams = new Set();
+    players.forEach(p => {
+      if (p.team) teams.add(p.team);
+    });
+    return Array.from(teams).sort(collator.compare);
+  }, [players]);
+
+  const availablePositions = useMemo(() => {
+    const positions = new Set();
+    players.forEach(p => {
+      if (p.position) positions.add(p.position);
+    });
+    return Array.from(positions).sort(collator.compare);
+  }, [players]);
+
+  const availableManagers = useMemo(() => {
+    const managers = new Set();
+    players.forEach(p => {
+      if (p.manager) managers.add(p.manager);
+    });
+    return Array.from(managers).sort(collator.compare);
+  }, [players]);
+
   const sortedPlayers = useMemo(() => {
     const searchLower = debouncedSearch.toLowerCase();
+    const teamFilter = new Set(filters.team.map(t => t.toLowerCase()));
+    const positionFilter = new Set(filters.position.map(p => p.toLowerCase()));
+    const managerFilter = new Set(filters.manager.map(m => m.toLowerCase()));
+    const excludedPositionFilter = new Set(excludedPositions.map(pos => pos.toLowerCase()));
+    const draftCostFilter = parseNumericFilterInput(filters.draftCost);
+    const projPtsFilter = parseNumericFilterInput(filters.projPts);
     const filtered = players.filter(p =>
       (p.nameLower.includes(searchLower) || p.managerLower.includes(searchLower)) &&
       (!filters.name || p.nameLower.includes(filters.name.toLowerCase())) &&
-      (!filters.team || p.teamLower.includes(filters.team.toLowerCase())) &&
-      (!filters.position || p.positionLower.includes(filters.position.toLowerCase())) &&
-      (!filters.manager || p.managerLower.includes(filters.manager.toLowerCase())) &&
-      (!filters.draftCost || String(p.draftCost).includes(filters.draftCost)) &&
-      (!filters.projPts || String(p.projPts).includes(filters.projPts))
+      (teamFilter.size === 0 || teamFilter.has(p.teamLower)) &&
+      (positionFilter.size === 0 || positionFilter.has(p.positionLower)) &&
+      (managerFilter.size === 0 || managerFilter.has(p.managerLower)) &&
+      (excludedPositionFilter.size === 0 || !excludedPositionFilter.has(p.positionLower)) &&
+      matchesNumericFilter(p.draftCost, draftCostFilter) &&
+      matchesNumericFilter(p.projPts, projPtsFilter)
     );
     return filtered.sort((a, b) => {
       const aVal = a[sortField];
@@ -228,7 +302,7 @@ const Analytics = ({ onBack }) => {
         ? collator.compare(aVal, bVal)
         : collator.compare(bVal, aVal);
     });
-  }, [players, debouncedSearch, sortField, sortDir, filters]);
+  }, [players, debouncedSearch, sortField, sortDir, filters, excludedPositions]);
 
   const handleSort = field => {
     const strFields = ['name', 'team', 'position', 'manager'];
@@ -239,6 +313,42 @@ const Analytics = ({ onBack }) => {
       setSortField(actualField);
       setSortDir('asc');
     }
+  };
+
+  const handleMultiSelectChange = (field) => (event) => {
+    const selected = Array.from(event.target.selectedOptions || [], option => option.value);
+    setFilters(prev => ({
+      ...prev,
+      [field]: selected
+    }));
+  };
+
+  const handleNumericFilterChange = (field, key) => (event) => {
+    const { value } = event.target;
+    setFilters(prev => ({
+      ...prev,
+      [field]: {
+        ...prev[field],
+        [key]: value
+      }
+    }));
+  };
+
+  const togglePosition = (position) => {
+    setFilters(prev => ({
+      ...prev,
+      position: prev.position.includes(position)
+        ? prev.position.filter(p => p !== position)
+        : [...prev.position, position]
+    }));
+  };
+
+  const toggleExcludedPosition = (position) => {
+    setExcludedPositions(prev => (
+      prev.includes(position)
+        ? prev.filter(p => p !== position)
+        : [...prev, position]
+    ));
   };
 
   const renderRow = p => (
@@ -324,43 +434,118 @@ const Analytics = ({ onBack }) => {
                   <input
                     className="w-full px-1 py-1 border border-gray-300 rounded"
                     value={filters.name}
-                    onChange={e => setFilters({ ...filters, name: e.target.value })}
+                    onChange={e => setFilters(prev => ({ ...prev, name: e.target.value }))}
                   />
                 </th>
                 <th className="px-3 py-1">
-                  <input
-                    className="w-full px-1 py-1 border border-gray-300 rounded"
+                  <select
+                    multiple
+                    className="w-full px-1 py-1 border border-gray-300 rounded h-24"
                     value={filters.team}
-                    onChange={e => setFilters({ ...filters, team: e.target.value })}
-                  />
+                    onChange={handleMultiSelectChange('team')}
+                  >
+                    {availableTeams.map(team => (
+                      <option key={team} value={team}>
+                        {team}
+                      </option>
+                    ))}
+                  </select>
                 </th>
                 <th className="px-3 py-1">
-                  <input
-                    className="w-full px-1 py-1 border border-gray-300 rounded"
-                    value={filters.position}
-                    onChange={e => setFilters({ ...filters, position: e.target.value })}
-                  />
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    <div className="flex flex-wrap gap-2">
+                      {availablePositions.map(position => {
+                        const included = filters.position.includes(position);
+                        const excluded = excludedPositions.includes(position);
+                        return (
+                          <div
+                            key={position}
+                            className="flex flex-col items-start gap-1 border border-gray-200 rounded px-2 py-1 text-xs"
+                          >
+                            <label className="inline-flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                className="rounded"
+                                checked={included}
+                                onChange={() => togglePosition(position)}
+                              />
+                              <span>{position}</span>
+                            </label>
+                            <button
+                              type="button"
+                              className={`px-2 py-0.5 rounded transition-colors ${
+                                excluded
+                                  ? 'bg-red-500 text-white'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                              onClick={() => toggleExcludedPosition(position)}
+                            >
+                              {excluded ? 'Excluded' : 'Exclude'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </th>
                 <th className="px-3 py-1">
-                  <input
-                    className="w-full px-1 py-1 border border-gray-300 rounded"
+                  <select
+                    multiple
+                    className="w-full px-1 py-1 border border-gray-300 rounded h-24"
                     value={filters.manager}
-                    onChange={e => setFilters({ ...filters, manager: e.target.value })}
-                  />
+                    onChange={handleMultiSelectChange('manager')}
+                  >
+                    {availableManagers.map(manager => (
+                      <option key={manager} value={manager}>
+                        {manager}
+                      </option>
+                    ))}
+                  </select>
                 </th>
                 <th className="px-3 py-1">
-                  <input
-                    className="w-full px-1 py-1 border border-gray-300 rounded"
-                    value={filters.draftCost}
-                    onChange={e => setFilters({ ...filters, draftCost: e.target.value })}
-                  />
+                  <div className="flex items-center gap-1">
+                    <select
+                      className="px-1 py-1 border border-gray-300 rounded"
+                      value={filters.draftCost.operator}
+                      onChange={handleNumericFilterChange('draftCost', 'operator')}
+                    >
+                      <option value="">Any</option>
+                      {NUMERIC_OPERATORS.map(op => (
+                        <option key={op} value={op}>{op}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      className="w-full px-1 py-1 border border-gray-300 rounded"
+                      placeholder="Value"
+                      value={filters.draftCost.value}
+                      onChange={handleNumericFilterChange('draftCost', 'value')}
+                    />
+                  </div>
                 </th>
                 <th className="px-3 py-1">
-                  <input
-                    className="w-full px-1 py-1 border border-gray-300 rounded"
-                    value={filters.projPts}
-                    onChange={e => setFilters({ ...filters, projPts: e.target.value })}
-                  />
+                  <div className="flex items-center gap-1">
+                    <select
+                      className="px-1 py-1 border border-gray-300 rounded"
+                      value={filters.projPts.operator}
+                      onChange={handleNumericFilterChange('projPts', 'operator')}
+                    >
+                      <option value="">Any</option>
+                      {NUMERIC_OPERATORS.map(op => (
+                        <option key={op} value={op}>{op}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      step="any"
+                      className="w-full px-1 py-1 border border-gray-300 rounded"
+                      placeholder="Value"
+                      value={filters.projPts.value}
+                      onChange={handleNumericFilterChange('projPts', 'value')}
+                    />
+                  </div>
                 </th>
               </tr>
             </thead>
