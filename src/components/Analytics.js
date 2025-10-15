@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { BarChart3, ArrowLeft, RefreshCw } from 'lucide-react';
+import { BarChart3, ArrowLeft, RefreshCw, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
 const NUMERIC_OPERATORS = ['>', '>=', '<', '<=', '='];
+const STRING_SORT_FIELDS = ['name', 'team', 'position', 'manager'];
 
 function parseNumericFilterInput(filter) {
   if (!filter) return null;
@@ -70,6 +71,10 @@ function createKey(name, team, position) {
   return `${normalizeName(name)}|${normalizeTeam(team).toLowerCase()}|${normalizePosition(position).toLowerCase()}`;
 }
 
+function getSortFieldKey(field) {
+  return STRING_SORT_FIELDS.includes(field) ? `${field}Lower` : field;
+}
+
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -103,10 +108,37 @@ const Analytics = ({ onBack }) => {
     projPts: { operator: '', value: '' }
   });
   const [excludedPositions, setExcludedPositions] = useState([]);
+  const [activeFilterKey, setActiveFilterKey] = useState(null);
   const password = process.env.REACT_APP_ANALYTICS_PASSWORD || 'admin';
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
   const [refreshMessage, setRefreshMessage] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (!activeFilterKey) return undefined;
+
+    const handleClickOutside = (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (!target.closest(`[data-filter-key="${activeFilterKey}"]`)) {
+        setActiveFilterKey(null);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setActiveFilterKey(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeFilterKey]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -304,23 +336,134 @@ const Analytics = ({ onBack }) => {
     });
   }, [players, debouncedSearch, sortField, sortDir, filters, excludedPositions]);
 
-  const handleSort = field => {
-    const strFields = ['name', 'team', 'position', 'manager'];
-    const actualField = strFields.includes(field) ? `${field}Lower` : field;
+  const toggleFilterPanel = useCallback((key) => {
+    setActiveFilterKey(prev => (prev === key ? null : key));
+  }, []);
+
+  const closeFilterPanel = useCallback(() => {
+    setActiveFilterKey(null);
+  }, []);
+
+  const isFilterApplied = useCallback((key) => {
+    switch (key) {
+      case 'name':
+        return Boolean(filters.name.trim());
+      case 'team':
+        return filters.team.length > 0;
+      case 'position':
+        return filters.position.length > 0 || excludedPositions.length > 0;
+      case 'manager':
+        return filters.manager.length > 0;
+      case 'draftCost':
+      case 'projPts':
+        return Boolean(filters[key].operator) || `${filters[key].value}`.trim() !== '';
+      default:
+        return false;
+    }
+  }, [filters, excludedPositions]);
+
+  const toggleListFilter = useCallback((field, value) => {
+    setFilters(prev => {
+      const current = new Set(prev[field]);
+      if (current.has(value)) {
+        current.delete(value);
+      } else {
+        current.add(value);
+      }
+      return {
+        ...prev,
+        [field]: Array.from(current)
+      };
+    });
+  }, []);
+
+  const clearListFilter = useCallback((field) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: []
+    }));
+  }, []);
+
+  const clearNumericFilter = useCallback((field) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: { operator: '', value: '' }
+    }));
+  }, []);
+
+  const clearPositionFilters = useCallback(() => {
+    setFilters(prev => ({
+      ...prev,
+      position: []
+    }));
+    setExcludedPositions([]);
+  }, []);
+
+  const handleSort = useCallback((field) => {
+    const actualField = getSortFieldKey(field);
     if (actualField === sortField) {
       setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(actualField);
       setSortDir('asc');
     }
-  };
+  }, [sortField, sortDir]);
 
-  const handleMultiSelectChange = (field) => (event) => {
-    const selected = Array.from(event.target.selectedOptions || [], option => option.value);
-    setFilters(prev => ({
-      ...prev,
-      [field]: selected
-    }));
+  const getSortIcon = useCallback((field) => {
+    const actualField = getSortFieldKey(field);
+    if (sortField !== actualField) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
+    }
+    return sortDir === 'asc'
+      ? <ArrowUp className="w-4 h-4 text-blue-600" />
+      : <ArrowDown className="w-4 h-4 text-blue-600" />;
+  }, [sortField, sortDir]);
+
+  const renderSortButton = useCallback((label, field, align = 'left') => {
+    const actualField = getSortFieldKey(field);
+    const isActive = sortField === actualField;
+    const alignmentClass = align === 'right' ? 'ml-auto' : '';
+    return (
+      <button
+        type="button"
+        onClick={() => handleSort(field)}
+        className={`flex items-center gap-1 text-sm font-semibold transition-colors ${alignmentClass} ${isActive ? 'text-blue-600 hover:text-blue-700' : 'text-gray-700 hover:text-gray-900'}`}
+      >
+        <span>{label}</span>
+        {getSortIcon(field)}
+      </button>
+    );
+  }, [getSortIcon, handleSort, sortField]);
+
+  const FilterDropdown = ({ filterKey, align = 'left', widthClass = 'w-64', children }) => {
+    const isOpen = activeFilterKey === filterKey;
+    const applied = isFilterApplied(filterKey);
+    const alignmentClass = align === 'right' ? 'right-0' : 'left-0';
+    const buttonStateClass = isOpen || applied
+      ? 'text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100'
+      : 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-blue-50';
+
+    return (
+      <div className="relative ml-2" data-filter-key={filterKey}>
+        <button
+          type="button"
+          onClick={() => toggleFilterPanel(filterKey)}
+          className={`rounded-md border p-1 transition-colors ${buttonStateClass}`}
+          aria-label={`Filter ${filterKey}`}
+        >
+          <Filter className="w-4 h-4" />
+        </button>
+        {isOpen && (
+          <div
+            className={`absolute ${alignmentClass} z-20 mt-2 ${widthClass} rounded-lg border border-gray-200 bg-white p-4 shadow-xl`}
+            role="dialog"
+            aria-label={`${filterKey} filters`}
+          >
+            {children({ close: closeFilterPanel })}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const handleNumericFilterChange = (field, key) => (event) => {
@@ -335,12 +478,7 @@ const Analytics = ({ onBack }) => {
   };
 
   const togglePosition = (position) => {
-    setFilters(prev => ({
-      ...prev,
-      position: prev.position.includes(position)
-        ? prev.position.filter(p => p !== position)
-        : [...prev.position, position]
-    }));
+    toggleListFilter('position', position);
   };
 
   const toggleExcludedPosition = (position) => {
@@ -422,129 +560,307 @@ const Analytics = ({ onBack }) => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-2 text-left cursor-pointer" onClick={() => handleSort('name')}>Player</th>
-                <th className="px-3 py-2 text-left cursor-pointer" onClick={() => handleSort('team')}>Team</th>
-                <th className="px-3 py-2 text-left cursor-pointer" onClick={() => handleSort('position')}>Pos</th>
-                <th className="px-3 py-2 text-left cursor-pointer" onClick={() => handleSort('manager')}>Manager</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('draftCost')}>Draft $</th>
-                <th className="px-3 py-2 text-right cursor-pointer" onClick={() => handleSort('projPts')}>Proj. Pts</th>
-              </tr>
-              <tr>
-                <th className="px-3 py-1">
-                  <input
-                    className="w-full px-1 py-1 border border-gray-300 rounded"
-                    value={filters.name}
-                    onChange={e => setFilters(prev => ({ ...prev, name: e.target.value }))}
-                  />
-                </th>
-                <th className="px-3 py-1">
-                  <select
-                    multiple
-                    className="w-full px-1 py-1 border border-gray-300 rounded h-24"
-                    value={filters.team}
-                    onChange={handleMultiSelectChange('team')}
-                  >
-                    {availableTeams.map(team => (
-                      <option key={team} value={team}>
-                        {team}
-                      </option>
-                    ))}
-                  </select>
-                </th>
-                <th className="px-3 py-1">
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    <div className="flex flex-wrap gap-2">
-                      {availablePositions.map(position => {
-                        const included = filters.position.includes(position);
-                        const excluded = excludedPositions.includes(position);
-                        return (
-                          <div
-                            key={position}
-                            className="flex flex-col items-start gap-1 border border-gray-200 rounded px-2 py-1 text-xs"
-                          >
-                            <label className="inline-flex items-center gap-1">
-                              <input
-                                type="checkbox"
-                                className="rounded"
-                                checked={included}
-                                onChange={() => togglePosition(position)}
-                              />
-                              <span>{position}</span>
-                            </label>
+                <th className="px-3 py-3 text-left align-top">
+                  <div className="flex items-center">
+                    {renderSortButton('Player', 'name')}
+                    <FilterDropdown filterKey="name">
+                      {({ close }) => (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">Player name</span>
                             <button
                               type="button"
-                              className={`px-2 py-0.5 rounded transition-colors ${
-                                excluded
-                                  ? 'bg-red-500 text-white'
-                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                              }`}
-                              onClick={() => toggleExcludedPosition(position)}
+                              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                              onClick={() => setFilters(prev => ({ ...prev, name: '' }))}
                             >
-                              {excluded ? 'Excluded' : 'Exclude'}
+                              Clear
                             </button>
                           </div>
-                        );
-                      })}
-                    </div>
+                          <input
+                            className="w-full rounded-md border border-gray-300 px-2 py-1 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            placeholder="Contains..."
+                            value={filters.name}
+                            onChange={e => setFilters(prev => ({ ...prev, name: e.target.value }))}
+                          />
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                              onClick={close}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </FilterDropdown>
                   </div>
                 </th>
-                <th className="px-3 py-1">
-                  <select
-                    multiple
-                    className="w-full px-1 py-1 border border-gray-300 rounded h-24"
-                    value={filters.manager}
-                    onChange={handleMultiSelectChange('manager')}
-                  >
-                    {availableManagers.map(manager => (
-                      <option key={manager} value={manager}>
-                        {manager}
-                      </option>
-                    ))}
-                  </select>
-                </th>
-                <th className="px-3 py-1">
-                  <div className="flex items-center gap-1">
-                    <select
-                      className="px-1 py-1 border border-gray-300 rounded"
-                      value={filters.draftCost.operator}
-                      onChange={handleNumericFilterChange('draftCost', 'operator')}
-                    >
-                      <option value="">Any</option>
-                      {NUMERIC_OPERATORS.map(op => (
-                        <option key={op} value={op}>{op}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      className="w-full px-1 py-1 border border-gray-300 rounded"
-                      placeholder="Value"
-                      value={filters.draftCost.value}
-                      onChange={handleNumericFilterChange('draftCost', 'value')}
-                    />
+                <th className="px-3 py-3 text-left align-top">
+                  <div className="flex items-center">
+                    {renderSortButton('Team', 'team')}
+                    <FilterDropdown filterKey="team">
+                      {({ close }) => (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">Teams</span>
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                              onClick={() => clearListFilter('team')}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                            {availableTeams.map(team => (
+                              <label key={team} className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                  type="checkbox"
+                                  className="rounded"
+                                  checked={filters.team.includes(team)}
+                                  onChange={() => toggleListFilter('team', team)}
+                                />
+                                <span>{team}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                              onClick={close}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </FilterDropdown>
                   </div>
                 </th>
-                <th className="px-3 py-1">
-                  <div className="flex items-center gap-1">
-                    <select
-                      className="px-1 py-1 border border-gray-300 rounded"
-                      value={filters.projPts.operator}
-                      onChange={handleNumericFilterChange('projPts', 'operator')}
-                    >
-                      <option value="">Any</option>
-                      {NUMERIC_OPERATORS.map(op => (
-                        <option key={op} value={op}>{op}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      step="any"
-                      className="w-full px-1 py-1 border border-gray-300 rounded"
-                      placeholder="Value"
-                      value={filters.projPts.value}
-                      onChange={handleNumericFilterChange('projPts', 'value')}
-                    />
+                <th className="px-3 py-3 text-left align-top">
+                  <div className="flex items-center">
+                    {renderSortButton('Pos', 'position')}
+                    <FilterDropdown filterKey="position" widthClass="w-80">
+                      {({ close }) => (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">Positions</span>
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                              onClick={clearPositionFilters}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
+                            {availablePositions.map(position => {
+                              const included = filters.position.includes(position);
+                              const excluded = excludedPositions.includes(position);
+                              return (
+                                <div
+                                  key={position}
+                                  className="flex items-center justify-between gap-2 rounded-md border border-gray-200 px-2 py-1 text-sm"
+                                >
+                                  <label className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      className="rounded"
+                                      checked={included}
+                                      onChange={() => togglePosition(position)}
+                                    />
+                                    <span>{position}</span>
+                                  </label>
+                                  <button
+                                    type="button"
+                                    className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${excluded ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                                    onClick={() => toggleExcludedPosition(position)}
+                                  >
+                                    {excluded ? 'Excluded' : 'Exclude'}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              className="text-sm text-gray-500 hover:text-gray-700"
+                              onClick={clearPositionFilters}
+                            >
+                              Reset
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                              onClick={close}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </FilterDropdown>
+                  </div>
+                </th>
+                <th className="px-3 py-3 text-left align-top">
+                  <div className="flex items-center">
+                    {renderSortButton('Manager', 'manager')}
+                    <FilterDropdown filterKey="manager">
+                      {({ close }) => (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">Managers</span>
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                              onClick={() => clearListFilter('manager')}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                            {availableManagers.map(manager => (
+                              <label key={manager} className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                  type="checkbox"
+                                  className="rounded"
+                                  checked={filters.manager.includes(manager)}
+                                  onChange={() => toggleListFilter('manager', manager)}
+                                />
+                                <span>{manager}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                              onClick={close}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </FilterDropdown>
+                  </div>
+                </th>
+                <th className="px-3 py-3 text-right align-top">
+                  <div className="flex items-center justify-end">
+                    {renderSortButton('Draft $', 'draftCost', 'right')}
+                    <FilterDropdown filterKey="draftCost" align="right">
+                      {({ close }) => (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">Draft cost</span>
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                              onClick={() => clearNumericFilter('draftCost')}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <select
+                              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              value={filters.draftCost.operator}
+                              onChange={handleNumericFilterChange('draftCost', 'operator')}
+                            >
+                              <option value="">Any</option>
+                              {NUMERIC_OPERATORS.map(op => (
+                                <option key={op} value={op}>{op}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              className="w-full rounded-md border border-gray-300 px-2 py-1 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                              placeholder="Value"
+                              value={filters.draftCost.value}
+                              onChange={handleNumericFilterChange('draftCost', 'value')}
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              className="text-sm text-gray-500 hover:text-gray-700"
+                              onClick={() => { clearNumericFilter('draftCost'); close(); }}
+                            >
+                              Reset
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                              onClick={close}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </FilterDropdown>
+                  </div>
+                </th>
+                <th className="px-3 py-3 text-right align-top">
+                  <div className="flex items-center justify-end">
+                    {renderSortButton('Proj. Pts', 'projPts', 'right')}
+                    <FilterDropdown filterKey="projPts" align="right">
+                      {({ close }) => (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">Projected points</span>
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                              onClick={() => clearNumericFilter('projPts')}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <select
+                              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              value={filters.projPts.operator}
+                              onChange={handleNumericFilterChange('projPts', 'operator')}
+                            >
+                              <option value="">Any</option>
+                              {NUMERIC_OPERATORS.map(op => (
+                                <option key={op} value={op}>{op}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="number"
+                              step="any"
+                              className="w-full rounded-md border border-gray-300 px-2 py-1 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                              placeholder="Value"
+                              value={filters.projPts.value}
+                              onChange={handleNumericFilterChange('projPts', 'value')}
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              className="text-sm text-gray-500 hover:text-gray-700"
+                              onClick={() => { clearNumericFilter('projPts'); close(); }}
+                            >
+                              Reset
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                              onClick={close}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </FilterDropdown>
                   </div>
                 </th>
               </tr>
