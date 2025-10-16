@@ -794,15 +794,19 @@ const Analytics = ({ onBack }) => {
               overall roster value, while starter and bench averages highlight top-end talent versus depth.
             </p>
             <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 manager-ros-table">
+                <thead>
                   <tr>
-                    <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Manager</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Total ROS</th>
+                    <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
+                      Manager
+                    </th>
+                    <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
+                      Total ROS
+                    </th>
                     {positionColumns.map(position => (
                       <th
                         key={position}
-                        className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600"
+                        className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm"
                       >
                         {position}
                       </th>
@@ -856,6 +860,7 @@ const Analytics = ({ onBack }) => {
                           beadPercent: starterBeadPercent,
                           beadColor: starterBeadColor
                         } = getRankVisuals(starterRank, starterManagerTotal);
+                        const starterRankColor = starterBeadColor ?? starterFillColor ?? starterTrackColor;
                         const {
                           percent: benchPercent,
                           trackColor: benchTrackColor,
@@ -863,6 +868,7 @@ const Analytics = ({ onBack }) => {
                           beadPercent: benchBeadPercent,
                           beadColor: benchBeadColor
                         } = getRankVisuals(benchRank, benchManagerTotal);
+                        const benchRankColor = benchBeadColor ?? benchFillColor ?? benchTrackColor;
                         const benchPreview = bench.slice(0, 3);
                         const extraBench = Math.max(0, benchCount - benchPreview.length);
                         return (
@@ -900,7 +906,12 @@ const Analytics = ({ onBack }) => {
                                     ) : null}
                                   </div>
                                   {starterRank != null && starterManagerTotal ? (
-                                    <span className="text-[10px] font-semibold text-blue-600">#{starterRank}</span>
+                                    <span
+                                      className="text-[10px] font-semibold"
+                                      style={{ color: starterRankColor }}
+                                    >
+                                      #{starterRank}
+                                    </span>
                                   ) : null}
                                 </div>
                                 {starters.length > 0 && (
@@ -945,7 +956,12 @@ const Analytics = ({ onBack }) => {
                                     ) : null}
                                   </div>
                                   {benchRank != null && benchManagerTotal ? (
-                                    <span className="text-[10px] font-semibold text-purple-600">#{benchRank}</span>
+                                    <span
+                                      className="text-[10px] font-semibold"
+                                      style={{ color: benchRankColor }}
+                                    >
+                                      #{benchRank}
+                                    </span>
                                   ) : null}
                                 </div>
                                 {benchPreview.length > 0 ? (
