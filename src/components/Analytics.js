@@ -378,17 +378,45 @@ const Analytics = ({ onBack }) => {
     });
 
     const results = Array.from(managerMap.values()).map(entry => {
+      const positionData = {};
+      const flexEligiblePositions = ['RB', 'WR', 'TE'];
+
+      Object.entries(entry.positions).forEach(([position, data]) => {
+        positionData[position] = {
+          sortedPlayers: data.slice().sort((a, b) => b.projPts - a.projPts),
+          starterSlots: STARTER_SLOT_COUNT[position] ?? 1,
+          extraSlots: 0
+        };
+      });
+
+      let flexCandidate = null;
+
+      flexEligiblePositions.forEach(position => {
+        const data = positionData[position];
+        if (!data) return;
+        const baseSlots = Math.max(0, data.starterSlots);
+        if (data.sortedPlayers.length <= baseSlots) return;
+        const candidate = data.sortedPlayers[baseSlots];
+        if (!candidate) return;
+        if (!flexCandidate || candidate.projPts > flexCandidate.player.projPts) {
+          flexCandidate = { position, player: candidate };
+        }
+      });
+
+      if (flexCandidate) {
+        positionData[flexCandidate.position].extraSlots = 1;
+      }
+
       const positions = {};
       let totalStarterRos = 0;
       let totalStarterPlayers = 0;
       let totalBenchRos = 0;
       let totalBenchPlayers = 0;
 
-      Object.entries(entry.positions).forEach(([position, data]) => {
-        const sortedPlayers = data.slice().sort((a, b) => b.projPts - a.projPts);
-        const starterSlots = STARTER_SLOT_COUNT[position] ?? 1;
-        const starters = starterSlots > 0 ? sortedPlayers.slice(0, starterSlots) : [];
-        const bench = starterSlots > 0 ? sortedPlayers.slice(starterSlots) : sortedPlayers;
+      Object.entries(positionData).forEach(([position, data]) => {
+        const starterLimit = Math.max(0, data.starterSlots + (data.extraSlots || 0));
+        const starters = starterLimit > 0 ? data.sortedPlayers.slice(0, starterLimit) : [];
+        const bench = starterLimit > 0 ? data.sortedPlayers.slice(starterLimit) : data.sortedPlayers.slice();
         const starterTotal = starters.reduce((sum, player) => sum + player.projPts, 0);
         const benchTotal = bench.reduce((sum, player) => sum + player.projPts, 0);
         const starterAvg = starters.length ? starterTotal / starters.length : null;
@@ -400,9 +428,8 @@ const Analytics = ({ onBack }) => {
           benchAvg,
           starterTotal,
           benchTotal,
-          starterCount: starters.length,
           benchCount: bench.length,
-          totalCount: sortedPlayers.length
+          totalCount: data.sortedPlayers.length
         };
 
         totalStarterRos += starterTotal;
@@ -807,7 +834,6 @@ const Analytics = ({ onBack }) => {
                         const {
                           starterAvg,
                           benchAvg,
-                          starterCount,
                           benchCount,
                           starters,
                           bench
@@ -836,13 +862,8 @@ const Analytics = ({ onBack }) => {
                               <div>
                                 <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
                                   <span>Starter Avg</span>
-                                  <div className="flex items-center gap-1 text-[10px] font-semibold normal-case">
-                                    {starterRank != null && starterManagerTotal ? (
-                                      <span className="text-blue-600">#{starterRank} of {starterManagerTotal}</span>
-                                    ) : null}
-                                    <span className="text-[11px] text-gray-700">
-                                      {starterAvg != null ? formatPoints(starterAvg) : '—'}
-                                    </span>
+                                  <div className="text-[11px] text-gray-700">
+                                    {starterAvg != null ? formatPoints(starterAvg) : '—'}
                                   </div>
                                 </div>
                                 <div className="mt-1 flex items-center gap-2">
@@ -858,9 +879,9 @@ const Analytics = ({ onBack }) => {
                                       }}
                                     />
                                   </div>
-                                  <span className="text-[11px] text-gray-500">
-                                    {starterCount} {starterCount === 1 ? 'player' : 'players'}
-                                  </span>
+                                  {starterRank != null && starterManagerTotal ? (
+                                    <span className="text-[10px] font-semibold text-blue-600">#{starterRank}</span>
+                                  ) : null}
                                 </div>
                                 {starters.length > 0 && (
                                   <div className="mt-2 space-y-0.5 text-[11px] text-gray-500">
@@ -875,13 +896,8 @@ const Analytics = ({ onBack }) => {
                               <div>
                                 <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
                                   <span>Bench Avg</span>
-                                  <div className="flex items-center gap-1 text-[10px] font-semibold normal-case">
-                                    {benchRank != null && benchManagerTotal ? (
-                                      <span className="text-purple-600">#{benchRank} of {benchManagerTotal}</span>
-                                    ) : null}
-                                    <span className="text-[11px] text-gray-700">
-                                      {benchAvg != null ? formatPoints(benchAvg) : '—'}
-                                    </span>
+                                  <div className="text-[11px] text-gray-700">
+                                    {benchAvg != null ? formatPoints(benchAvg) : '—'}
                                   </div>
                                 </div>
                                 <div className="mt-1 flex items-center gap-2">
@@ -897,9 +913,9 @@ const Analytics = ({ onBack }) => {
                                       }}
                                     />
                                   </div>
-                                  <span className="text-[11px] text-gray-500">
-                                    {benchCount} {benchCount === 1 ? 'player' : 'players'}
-                                  </span>
+                                  {benchRank != null && benchManagerTotal ? (
+                                    <span className="text-[10px] font-semibold text-purple-600">#{benchRank}</span>
+                                  ) : null}
                                 </div>
                                 {benchPreview.length > 0 ? (
                                   <div className="mt-2 space-y-0.5 text-[11px] text-gray-500">
