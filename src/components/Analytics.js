@@ -21,7 +21,19 @@ function getRankVisuals(rank, total) {
     return {
       percent: 0,
       trackColor: '#e5e7eb',
-      fillColor: '#9ca3af'
+      fillColor: '#9ca3af',
+      beadPercent: null,
+      beadColor: null
+    };
+  }
+
+  if (total > 1 && rank === total) {
+    return {
+      percent: 0,
+      trackColor: '#fee2e2',
+      fillColor: '#7f1d1d',
+      beadPercent: 6,
+      beadColor: '#7f1d1d'
     };
   }
 
@@ -32,7 +44,9 @@ function getRankVisuals(rank, total) {
   return {
     percent,
     trackColor: `hsl(${hue}, 75%, 88%)`,
-    fillColor: `hsl(${hue}, 70%, 45%)`
+    fillColor: `hsl(${hue}, 70%, 45%)`,
+    beadPercent: null,
+    beadColor: null
   };
 }
 
@@ -447,6 +461,7 @@ const Analytics = ({ onBack }) => {
         manager: entry.manager,
         totalRos: entry.totalRos,
         totalPlayers: entry.totalPlayers,
+        pointsPerPlayer: entry.totalPlayers ? entry.totalRos / entry.totalPlayers : null,
         positions,
         totalStarterRos,
         totalStarterPlayers,
@@ -804,21 +819,11 @@ const Analytics = ({ onBack }) => {
                       <td className="px-3 py-3 text-sm text-gray-900">
                         <div className="font-semibold">{formatPoints(manager.totalRos)}</div>
                         <div className="mt-1 space-y-1 text-xs text-gray-600">
+                          <div>Starters: {formatPoints(manager.totalStarterRos || 0)}</div>
+                          <div>Bench: {formatPoints(manager.totalBenchRos || 0)}</div>
                           <div>
-                            Starters: {formatPoints(manager.totalStarterRos || 0)}
-                            {manager.totalStarterPlayers != null && (
-                              <span className="text-gray-500">
-                                {' '}({manager.totalStarterPlayers} {manager.totalStarterPlayers === 1 ? 'player' : 'players'})
-                              </span>
-                            )}
-                          </div>
-                          <div>
-                            Bench: {formatPoints(manager.totalBenchRos || 0)}
-                            {manager.totalBenchPlayers != null && (
-                              <span className="text-gray-500">
-                                {' '}({manager.totalBenchPlayers} {manager.totalBenchPlayers === 1 ? 'player' : 'players'})
-                              </span>
-                            )}
+                            Points / Player:{' '}
+                            {manager.pointsPerPlayer != null ? formatPoints(manager.pointsPerPlayer) : '—'}
                           </div>
                         </div>
                       </td>
@@ -847,12 +852,16 @@ const Analytics = ({ onBack }) => {
                         const {
                           percent: starterPercent,
                           trackColor: starterTrackColor,
-                          fillColor: starterFillColor
+                          fillColor: starterFillColor,
+                          beadPercent: starterBeadPercent,
+                          beadColor: starterBeadColor
                         } = getRankVisuals(starterRank, starterManagerTotal);
                         const {
                           percent: benchPercent,
                           trackColor: benchTrackColor,
-                          fillColor: benchFillColor
+                          fillColor: benchFillColor,
+                          beadPercent: benchBeadPercent,
+                          beadColor: benchBeadColor
                         } = getRankVisuals(benchRank, benchManagerTotal);
                         const benchPreview = bench.slice(0, 3);
                         const extraBench = Math.max(0, benchCount - benchPreview.length);
@@ -868,7 +877,7 @@ const Analytics = ({ onBack }) => {
                                 </div>
                                 <div className="mt-1 flex items-center gap-2">
                                   <div
-                                    className="h-2 flex-1 overflow-hidden rounded-full"
+                                    className="relative h-2 flex-1 overflow-hidden rounded-full"
                                     style={{ backgroundColor: starterTrackColor }}
                                   >
                                     <div
@@ -878,6 +887,17 @@ const Analytics = ({ onBack }) => {
                                         backgroundColor: starterFillColor
                                       }}
                                     />
+                                    {starterBeadPercent != null ? (
+                                      <div
+                                        className="absolute inset-y-0 left-0 rounded-full"
+                                        style={{
+                                          width: `${Math.max(starterBeadPercent, 4)}%`,
+                                          maxWidth: '12px',
+                                          minWidth: '6px',
+                                          backgroundColor: starterBeadColor
+                                        }}
+                                      />
+                                    ) : null}
                                   </div>
                                   {starterRank != null && starterManagerTotal ? (
                                     <span className="text-[10px] font-semibold text-blue-600">#{starterRank}</span>
@@ -902,7 +922,7 @@ const Analytics = ({ onBack }) => {
                                 </div>
                                 <div className="mt-1 flex items-center gap-2">
                                   <div
-                                    className="h-2 flex-1 overflow-hidden rounded-full"
+                                    className="relative h-2 flex-1 overflow-hidden rounded-full"
                                     style={{ backgroundColor: benchTrackColor }}
                                   >
                                     <div
@@ -912,6 +932,17 @@ const Analytics = ({ onBack }) => {
                                         backgroundColor: benchFillColor
                                       }}
                                     />
+                                    {benchBeadPercent != null ? (
+                                      <div
+                                        className="absolute inset-y-0 left-0 rounded-full"
+                                        style={{
+                                          width: `${Math.max(benchBeadPercent, 4)}%`,
+                                          maxWidth: '12px',
+                                          minWidth: '6px',
+                                          backgroundColor: benchBeadColor
+                                        }}
+                                      />
+                                    ) : null}
                                   </div>
                                   {benchRank != null && benchManagerTotal ? (
                                     <span className="text-[10px] font-semibold text-purple-600">#{benchRank}</span>
