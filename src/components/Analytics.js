@@ -16,6 +16,26 @@ const STARTER_SLOT_COUNT = {
 
 const EXCLUDED_POSITIONS = new Set(['DEF', 'DST']);
 
+function getRankVisuals(rank, total) {
+  if (!rank || !total) {
+    return {
+      percent: 0,
+      trackColor: '#e5e7eb',
+      fillColor: '#9ca3af'
+    };
+  }
+
+  const normalized = total === 1 ? 1 : Math.max(0, Math.min(1, (total - rank) / (total - 1)));
+  const percent = Math.round(normalized * 100);
+  const hue = 120 * normalized; // 0 = red, 120 = green
+
+  return {
+    percent,
+    trackColor: `hsl(${hue}, 75%, 88%)`,
+    fillColor: `hsl(${hue}, 70%, 45%)`
+  };
+}
+
 const formatPoints = (value) => Number(value || 0).toLocaleString(undefined, {
   maximumFractionDigits: 1,
   minimumFractionDigits: 0
@@ -359,6 +379,11 @@ const Analytics = ({ onBack }) => {
 
     const results = Array.from(managerMap.values()).map(entry => {
       const positions = {};
+      let totalStarterRos = 0;
+      let totalStarterPlayers = 0;
+      let totalBenchRos = 0;
+      let totalBenchPlayers = 0;
+
       Object.entries(entry.positions).forEach(([position, data]) => {
         const sortedPlayers = data.slice().sort((a, b) => b.projPts - a.projPts);
         const starterSlots = STARTER_SLOT_COUNT[position] ?? 1;
@@ -373,17 +398,33 @@ const Analytics = ({ onBack }) => {
           bench,
           starterAvg,
           benchAvg,
+          starterTotal,
+          benchTotal,
           starterCount: starters.length,
           benchCount: bench.length,
           totalCount: sortedPlayers.length
         };
+
+        totalStarterRos += starterTotal;
+        totalStarterPlayers += starters.length;
+        totalBenchRos += benchTotal;
+        totalBenchPlayers += bench.length;
       });
+
+      const benchFromExcluded = entry.totalRos - totalStarterRos - totalBenchRos;
+      const benchPlayersFromExcluded = entry.totalPlayers - totalStarterPlayers - totalBenchPlayers;
+      const benchRosWithExcluded = totalBenchRos + Math.max(0, benchFromExcluded);
+      const benchPlayersWithExcluded = totalBenchPlayers + Math.max(0, benchPlayersFromExcluded);
 
       return {
         manager: entry.manager,
         totalRos: entry.totalRos,
         totalPlayers: entry.totalPlayers,
-        positions
+        positions,
+        totalStarterRos,
+        totalStarterPlayers,
+        totalBenchRos: benchRosWithExcluded,
+        totalBenchPlayers: benchPlayersWithExcluded
       };
     });
 
@@ -414,22 +455,50 @@ const Analytics = ({ onBack }) => {
     });
   }, [managerPositionStats]);
 
-  const positionMaxAverages = useMemo(() => {
-    const maxAverages = {};
+  const positionRankings = useMemo(() => {
+    const collected = {};
+    const metrics = ['starterAvg', 'benchAvg'];
+
     managerPositionStats.forEach(manager => {
       Object.entries(manager.positions).forEach(([position, data]) => {
-        if (!maxAverages[position]) {
-          maxAverages[position] = { starter: 0, bench: 0 };
-        }
-        if (typeof data.starterAvg === 'number') {
-          maxAverages[position].starter = Math.max(maxAverages[position].starter, data.starterAvg);
-        }
-        if (typeof data.benchAvg === 'number') {
-          maxAverages[position].bench = Math.max(maxAverages[position].bench, data.benchAvg);
-        }
+        metrics.forEach(metric => {
+          const value = data[metric];
+          if (typeof value !== 'number') return;
+          if (!collected[position]) {
+            collected[position] = {};
+          }
+          if (!collected[position][metric]) {
+            collected[position][metric] = [];
+          }
+          collected[position][metric].push({ manager: manager.manager, value });
+        });
       });
     });
-    return maxAverages;
+
+    const rankings = {};
+
+    Object.entries(collected).forEach(([position, metricsData]) => {
+      rankings[position] = {};
+      Object.entries(metricsData).forEach(([metric, entries]) => {
+        if (!entries.length) return;
+        const sortedEntries = entries.slice().sort((a, b) => b.value - a.value);
+        const ranks = {};
+        let lastValue = null;
+        let rank = 0;
+        let index = 0;
+        sortedEntries.forEach(entry => {
+          index += 1;
+          if (lastValue === null || entry.value !== lastValue) {
+            rank = index;
+            lastValue = entry.value;
+          }
+          ranks[entry.manager] = rank;
+        });
+        rankings[position][metric] = { total: sortedEntries.length, ranks };
+      });
+    });
+
+    return rankings;
   }, [managerPositionStats]);
 
   const sortedPlayers = useMemo(() => {
@@ -675,13 +744,6 @@ const Analytics = ({ onBack }) => {
         {refreshMessage && (
           <div className="mb-4 text-sm text-gray-700">{refreshMessage}</div>
         )}
-        <input
-          type="text"
-          placeholder="Search players"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="mb-4 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
         {managerPositionStats.length > 0 && (
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
@@ -714,7 +776,24 @@ const Analytics = ({ onBack }) => {
                       </td>
                       <td className="px-3 py-3 text-sm text-gray-900">
                         <div className="font-semibold">{formatPoints(manager.totalRos)}</div>
-                        <div className="text-xs text-gray-500">Avg {formatPoints(manager.totalRos / manager.totalPlayers || 0)} per player</div>
+                        <div className="mt-1 space-y-1 text-xs text-gray-600">
+                          <div>
+                            Starters: {formatPoints(manager.totalStarterRos || 0)}
+                            {manager.totalStarterPlayers != null && (
+                              <span className="text-gray-500">
+                                {' '}({manager.totalStarterPlayers} {manager.totalStarterPlayers === 1 ? 'player' : 'players'})
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            Bench: {formatPoints(manager.totalBenchRos || 0)}
+                            {manager.totalBenchPlayers != null && (
+                              <span className="text-gray-500">
+                                {' '}({manager.totalBenchPlayers} {manager.totalBenchPlayers === 1 ? 'player' : 'players'})
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       {positionColumns.map(position => {
                         const positionData = manager.positions[position];
@@ -725,15 +804,30 @@ const Analytics = ({ onBack }) => {
                             </td>
                           );
                         }
-                        const { starterAvg, benchAvg, starterCount, benchCount, starters, bench } = positionData;
-                        const maxStarter = positionMaxAverages[position]?.starter || 0;
-                        const maxBench = positionMaxAverages[position]?.bench || 0;
-                        const starterPercent = starterAvg != null && maxStarter
-                          ? Math.min(100, Math.round((starterAvg / maxStarter) * 100))
-                          : 0;
-                        const benchPercent = benchAvg != null && maxBench
-                          ? Math.min(100, Math.round((benchAvg / maxBench) * 100))
-                          : 0;
+                        const {
+                          starterAvg,
+                          benchAvg,
+                          starterCount,
+                          benchCount,
+                          starters,
+                          bench
+                        } = positionData;
+                        const starterRanking = positionRankings[position]?.starterAvg;
+                        const benchRanking = positionRankings[position]?.benchAvg;
+                        const starterRank = starterRanking?.ranks?.[manager.manager];
+                        const benchRank = benchRanking?.ranks?.[manager.manager];
+                        const starterManagerTotal = starterRanking?.total;
+                        const benchManagerTotal = benchRanking?.total;
+                        const {
+                          percent: starterPercent,
+                          trackColor: starterTrackColor,
+                          fillColor: starterFillColor
+                        } = getRankVisuals(starterRank, starterManagerTotal);
+                        const {
+                          percent: benchPercent,
+                          trackColor: benchTrackColor,
+                          fillColor: benchFillColor
+                        } = getRankVisuals(benchRank, benchManagerTotal);
                         const benchPreview = bench.slice(0, 3);
                         const extraBench = Math.max(0, benchCount - benchPreview.length);
                         return (
@@ -742,13 +836,26 @@ const Analytics = ({ onBack }) => {
                               <div>
                                 <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
                                   <span>Starter Avg</span>
-                                  <span>{starterAvg != null ? formatPoints(starterAvg) : '—'}</span>
+                                  <div className="flex items-center gap-1 text-[10px] font-semibold normal-case">
+                                    {starterRank != null && starterManagerTotal ? (
+                                      <span className="text-blue-600">#{starterRank} of {starterManagerTotal}</span>
+                                    ) : null}
+                                    <span className="text-[11px] text-gray-700">
+                                      {starterAvg != null ? formatPoints(starterAvg) : '—'}
+                                    </span>
+                                  </div>
                                 </div>
                                 <div className="mt-1 flex items-center gap-2">
-                                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-blue-100">
+                                  <div
+                                    className="h-2 flex-1 overflow-hidden rounded-full"
+                                    style={{ backgroundColor: starterTrackColor }}
+                                  >
                                     <div
-                                      className="h-full rounded-full bg-blue-500"
-                                      style={{ width: `${starterPercent || (starterCount > 0 ? 6 : 0)}%` }}
+                                      className="h-full rounded-full"
+                                      style={{
+                                        width: `${starterPercent}%`,
+                                        backgroundColor: starterFillColor
+                                      }}
                                     />
                                   </div>
                                   <span className="text-[11px] text-gray-500">
@@ -768,13 +875,26 @@ const Analytics = ({ onBack }) => {
                               <div>
                                 <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
                                   <span>Bench Avg</span>
-                                  <span>{benchAvg != null ? formatPoints(benchAvg) : '—'}</span>
+                                  <div className="flex items-center gap-1 text-[10px] font-semibold normal-case">
+                                    {benchRank != null && benchManagerTotal ? (
+                                      <span className="text-purple-600">#{benchRank} of {benchManagerTotal}</span>
+                                    ) : null}
+                                    <span className="text-[11px] text-gray-700">
+                                      {benchAvg != null ? formatPoints(benchAvg) : '—'}
+                                    </span>
+                                  </div>
                                 </div>
                                 <div className="mt-1 flex items-center gap-2">
-                                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-purple-100">
+                                  <div
+                                    className="h-2 flex-1 overflow-hidden rounded-full"
+                                    style={{ backgroundColor: benchTrackColor }}
+                                  >
                                     <div
-                                      className="h-full rounded-full bg-purple-500"
-                                      style={{ width: `${benchPercent || (benchCount > 0 ? 6 : 0)}%` }}
+                                      className="h-full rounded-full"
+                                      style={{
+                                        width: `${benchPercent}%`,
+                                        backgroundColor: benchFillColor
+                                      }}
                                     />
                                   </div>
                                   <span className="text-[11px] text-gray-500">
@@ -807,6 +927,13 @@ const Analytics = ({ onBack }) => {
             </div>
           </div>
         )}
+        <input
+          type="text"
+          placeholder="Search players"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="mb-4 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
