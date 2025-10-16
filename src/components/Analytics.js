@@ -795,14 +795,18 @@ const Analytics = ({ onBack }) => {
             </p>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 manager-ros-table">
-                <thead className="bg-gray-50">
+                <thead>
                   <tr>
-                    <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Manager</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Total ROS</th>
+                    <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
+                      Manager
+                    </th>
+                    <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
+                      Total ROS
+                    </th>
                     {positionColumns.map(position => (
                       <th
                         key={position}
-                        className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600"
+                        className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm"
                       >
                         {position}
                       </th>
@@ -856,6 +860,7 @@ const Analytics = ({ onBack }) => {
                           beadPercent: starterBeadPercent,
                           beadColor: starterBeadColor
                         } = getRankVisuals(starterRank, starterManagerTotal);
+                        const starterRankColor = starterBeadColor ?? starterFillColor ?? starterTrackColor;
                         const {
                           percent: benchPercent,
                           trackColor: benchTrackColor,
@@ -863,6 +868,7 @@ const Analytics = ({ onBack }) => {
                           beadPercent: benchBeadPercent,
                           beadColor: benchBeadColor
                         } = getRankVisuals(benchRank, benchManagerTotal);
+                        const benchRankColor = benchBeadColor ?? benchFillColor ?? benchTrackColor;
                         const benchPreview = bench.slice(0, 3);
                         const extraBench = Math.max(0, benchCount - benchPreview.length);
                         return (
@@ -902,7 +908,7 @@ const Analytics = ({ onBack }) => {
                                   {starterRank != null && starterManagerTotal ? (
                                     <span
                                       className="text-[10px] font-semibold"
-                                      style={{ color: starterFillColor || starterBeadColor || starterTrackColor }}
+                                      style={{ color: starterRankColor }}
                                     >
                                       #{starterRank}
                                     </span>
@@ -952,7 +958,7 @@ const Analytics = ({ onBack }) => {
                                   {benchRank != null && benchManagerTotal ? (
                                     <span
                                       className="text-[10px] font-semibold"
-                                      style={{ color: benchFillColor || benchBeadColor || benchTrackColor }}
+                                      style={{ color: benchRankColor }}
                                     >
                                       #{benchRank}
                                     </span>
