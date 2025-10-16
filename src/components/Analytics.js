@@ -7,6 +7,15 @@ const NUMERIC_OPERATORS = ['>', '>=', '<', '<=', '='];
 const STRING_SORT_FIELDS = ['name', 'team', 'position', 'manager'];
 const POSITION_DISPLAY_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'SF', 'SUPERFLEX', 'OP', 'WR/RB', 'WR/RB/TE', 'RB/WR', 'RB/WR/TE', 'WR/TE', 'RB/TE', 'QB/RB/WR/TE', 'K', 'DEF', 'DST', 'IDP', 'DL', 'LB', 'DB', 'BN', 'BENCH'];
 
+const STARTER_SLOT_COUNT = {
+  QB: 1,
+  RB: 2,
+  WR: 3,
+  TE: 1
+};
+
+const EXCLUDED_POSITIONS = new Set(['DEF', 'DST']);
+
 const formatPoints = (value) => Number(value || 0).toLocaleString(undefined, {
   maximumFractionDigits: 1,
   minimumFractionDigits: 0
@@ -328,38 +337,45 @@ const Analytics = ({ onBack }) => {
       }
       const managerEntry = managerMap.get(managerKey);
       const positionKey = p.position || 'N/A';
-      managerEntry.totalRos += Number(p.projPts) || 0;
+      const projectedPoints = Number(p.projPts) || 0;
+      managerEntry.totalRos += projectedPoints;
       managerEntry.totalPlayers += 1;
 
-      if (!managerEntry.positions[positionKey]) {
-        managerEntry.positions[positionKey] = {
-          total: 0,
-          count: 0,
-          players: []
-        };
+      if (EXCLUDED_POSITIONS.has(positionKey)) {
+        return;
       }
 
-      const positionEntry = managerEntry.positions[positionKey];
-      positionEntry.total += Number(p.projPts) || 0;
-      positionEntry.count += 1;
-      positionEntry.players.push({
+      if (!managerEntry.positions[positionKey]) {
+        managerEntry.positions[positionKey] = [];
+      }
+
+      managerEntry.positions[positionKey].push({
         id: p.id,
         name: p.name,
         team: p.team,
-        projPts: Number(p.projPts) || 0
+        projPts: projectedPoints
       });
     });
 
     const results = Array.from(managerMap.values()).map(entry => {
       const positions = {};
       Object.entries(entry.positions).forEach(([position, data]) => {
-        const sortedPlayers = data.players.slice().sort((a, b) => b.projPts - a.projPts);
-        const topPlayers = sortedPlayers.slice(0, 3);
+        const sortedPlayers = data.slice().sort((a, b) => b.projPts - a.projPts);
+        const starterSlots = STARTER_SLOT_COUNT[position] ?? 1;
+        const starters = starterSlots > 0 ? sortedPlayers.slice(0, starterSlots) : [];
+        const bench = starterSlots > 0 ? sortedPlayers.slice(starterSlots) : sortedPlayers;
+        const starterTotal = starters.reduce((sum, player) => sum + player.projPts, 0);
+        const benchTotal = bench.reduce((sum, player) => sum + player.projPts, 0);
+        const starterAvg = starters.length ? starterTotal / starters.length : null;
+        const benchAvg = bench.length ? benchTotal / bench.length : null;
         positions[position] = {
-          total: data.total,
-          count: data.count,
-          avg: data.count ? data.total / data.count : 0,
-          topPlayers
+          starters,
+          bench,
+          starterAvg,
+          benchAvg,
+          starterCount: starters.length,
+          benchCount: bench.length,
+          totalCount: sortedPlayers.length
         };
       });
 
@@ -398,16 +414,22 @@ const Analytics = ({ onBack }) => {
     });
   }, [managerPositionStats]);
 
-  const positionMaxTotals = useMemo(() => {
-    const maxTotals = {};
+  const positionMaxAverages = useMemo(() => {
+    const maxAverages = {};
     managerPositionStats.forEach(manager => {
       Object.entries(manager.positions).forEach(([position, data]) => {
-        if (!maxTotals[position] || data.total > maxTotals[position]) {
-          maxTotals[position] = data.total;
+        if (!maxAverages[position]) {
+          maxAverages[position] = { starter: 0, bench: 0 };
+        }
+        if (typeof data.starterAvg === 'number') {
+          maxAverages[position].starter = Math.max(maxAverages[position].starter, data.starterAvg);
+        }
+        if (typeof data.benchAvg === 'number') {
+          maxAverages[position].bench = Math.max(maxAverages[position].bench, data.benchAvg);
         }
       });
     });
-    return maxTotals;
+    return maxAverages;
   }, [managerPositionStats]);
 
   const sortedPlayers = useMemo(() => {
@@ -665,7 +687,7 @@ const Analytics = ({ onBack }) => {
             <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
             <p className="mt-1 text-sm text-gray-600">
               Compare how each roster stacks up by position using FantasyPros rest-of-season projections. Totals show
-              accumulated points, while averages and top players highlight concentrated star power.
+              overall roster value, while starter and bench averages highlight top-end talent versus depth.
             </p>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -703,33 +725,75 @@ const Analytics = ({ onBack }) => {
                             </td>
                           );
                         }
-                        const maxTotal = positionMaxTotals[position] || 0;
-                        const percent = maxTotal ? Math.min(100, Math.round((positionData.total / maxTotal) * 100)) : 0;
+                        const { starterAvg, benchAvg, starterCount, benchCount, starters, bench } = positionData;
+                        const maxStarter = positionMaxAverages[position]?.starter || 0;
+                        const maxBench = positionMaxAverages[position]?.bench || 0;
+                        const starterPercent = starterAvg != null && maxStarter
+                          ? Math.min(100, Math.round((starterAvg / maxStarter) * 100))
+                          : 0;
+                        const benchPercent = benchAvg != null && maxBench
+                          ? Math.min(100, Math.round((benchAvg / maxBench) * 100))
+                          : 0;
+                        const benchPreview = bench.slice(0, 3);
+                        const extraBench = Math.max(0, benchCount - benchPreview.length);
                         return (
                           <td key={position} className="px-3 py-3 align-top">
-                            <div className="rounded-lg border border-gray-200 p-2">
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 flex-1 overflow-hidden rounded-full bg-blue-100">
-                                  <div
-                                    className="h-full rounded-full bg-blue-500"
-                                    style={{ width: `${percent || (positionData.total > 0 ? 6 : 0)}%` }}
-                                  />
+                            <div className="rounded-lg border border-gray-200 p-2 space-y-3">
+                              <div>
+                                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+                                  <span>Starter Avg</span>
+                                  <span>{starterAvg != null ? formatPoints(starterAvg) : '—'}</span>
                                 </div>
-                                <span className="text-xs font-semibold text-gray-700">{formatPoints(positionData.total)}</span>
-                              </div>
-                              <div className="mt-2 text-xs text-gray-600">
-                                Avg {formatPoints(positionData.avg)} • {positionData.count} players
-                              </div>
-                              <div className="mt-2 space-y-0.5 text-[11px] text-gray-500">
-                                {positionData.topPlayers.map(player => (
-                                  <div key={`${manager.manager}-${position}-${player.id}`} className="truncate">
-                                    {player.name} ({formatPoints(player.projPts)})
+                                <div className="mt-1 flex items-center gap-2">
+                                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-blue-100">
+                                    <div
+                                      className="h-full rounded-full bg-blue-500"
+                                      style={{ width: `${starterPercent || (starterCount > 0 ? 6 : 0)}%` }}
+                                    />
                                   </div>
-                                ))}
-                                {positionData.count > positionData.topPlayers.length && (
-                                  <div className="text-[11px] text-gray-400">
-                                    +{positionData.count - positionData.topPlayers.length} more
+                                  <span className="text-[11px] text-gray-500">
+                                    {starterCount} {starterCount === 1 ? 'player' : 'players'}
+                                  </span>
+                                </div>
+                                {starters.length > 0 && (
+                                  <div className="mt-2 space-y-0.5 text-[11px] text-gray-500">
+                                    {starters.map(player => (
+                                      <div key={`${manager.manager}-${position}-starter-${player.id}`} className="truncate">
+                                        {player.name} ({formatPoints(player.projPts)})
+                                      </div>
+                                    ))}
                                   </div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+                                  <span>Bench Avg</span>
+                                  <span>{benchAvg != null ? formatPoints(benchAvg) : '—'}</span>
+                                </div>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-purple-100">
+                                    <div
+                                      className="h-full rounded-full bg-purple-500"
+                                      style={{ width: `${benchPercent || (benchCount > 0 ? 6 : 0)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[11px] text-gray-500">
+                                    {benchCount} {benchCount === 1 ? 'player' : 'players'}
+                                  </span>
+                                </div>
+                                {benchPreview.length > 0 ? (
+                                  <div className="mt-2 space-y-0.5 text-[11px] text-gray-500">
+                                    {benchPreview.map(player => (
+                                      <div key={`${manager.manager}-${position}-bench-${player.id}`} className="truncate">
+                                        {player.name} ({formatPoints(player.projPts)})
+                                      </div>
+                                    ))}
+                                    {extraBench > 0 && (
+                                      <div className="text-[11px] text-gray-400">+{extraBench} more</div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="mt-2 text-[11px] text-gray-400">No bench players</div>
                                 )}
                               </div>
                             </div>
