@@ -794,7 +794,7 @@ const Analytics = ({ onBack }) => {
               overall roster value, while starter and bench averages highlight top-end talent versus depth.
             </p>
             <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 manager-ros-table">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Manager</th>
@@ -900,7 +900,12 @@ const Analytics = ({ onBack }) => {
                                     ) : null}
                                   </div>
                                   {starterRank != null && starterManagerTotal ? (
-                                    <span className="text-[10px] font-semibold text-blue-600">#{starterRank}</span>
+                                    <span
+                                      className="text-[10px] font-semibold"
+                                      style={{ color: starterFillColor || starterBeadColor || starterTrackColor }}
+                                    >
+                                      #{starterRank}
+                                    </span>
                                   ) : null}
                                 </div>
                                 {starters.length > 0 && (
@@ -945,7 +950,12 @@ const Analytics = ({ onBack }) => {
                                     ) : null}
                                   </div>
                                   {benchRank != null && benchManagerTotal ? (
-                                    <span className="text-[10px] font-semibold text-purple-600">#{benchRank}</span>
+                                    <span
+                                      className="text-[10px] font-semibold"
+                                      style={{ color: benchFillColor || benchBeadColor || benchTrackColor }}
+                                    >
+                                      #{benchRank}
+                                    </span>
                                   ) : null}
                                 </div>
                                 {benchPreview.length > 0 ? (

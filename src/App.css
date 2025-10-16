@@ -3,3 +3,10 @@
 }
 
 /* Any additional custom CSS can go here */
+
+.manager-ros-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #f9fafb;
+}
