@@ -5,6 +5,12 @@ const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
 const NUMERIC_OPERATORS = ['>', '>=', '<', '<=', '='];
 const STRING_SORT_FIELDS = ['name', 'team', 'position', 'manager'];
+const POSITION_DISPLAY_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'SF', 'SUPERFLEX', 'OP', 'WR/RB', 'WR/RB/TE', 'RB/WR', 'RB/WR/TE', 'WR/TE', 'RB/TE', 'QB/RB/WR/TE', 'K', 'DEF', 'DST', 'IDP', 'DL', 'LB', 'DB', 'BN', 'BENCH'];
+
+const formatPoints = (value) => Number(value || 0).toLocaleString(undefined, {
+  maximumFractionDigits: 1,
+  minimumFractionDigits: 0
+});
 
 function parseNumericFilterInput(filter) {
   if (!filter) return null;
@@ -306,6 +312,104 @@ const Analytics = ({ onBack }) => {
     return Array.from(managers).sort(collator.compare);
   }, [players]);
 
+  const managerPositionStats = useMemo(() => {
+    const managerMap = new Map();
+
+    players.forEach(p => {
+      if (!p.manager) return;
+      const managerKey = p.manager;
+      if (!managerMap.has(managerKey)) {
+        managerMap.set(managerKey, {
+          manager: managerKey,
+          totalRos: 0,
+          totalPlayers: 0,
+          positions: {}
+        });
+      }
+      const managerEntry = managerMap.get(managerKey);
+      const positionKey = p.position || 'N/A';
+      managerEntry.totalRos += Number(p.projPts) || 0;
+      managerEntry.totalPlayers += 1;
+
+      if (!managerEntry.positions[positionKey]) {
+        managerEntry.positions[positionKey] = {
+          total: 0,
+          count: 0,
+          players: []
+        };
+      }
+
+      const positionEntry = managerEntry.positions[positionKey];
+      positionEntry.total += Number(p.projPts) || 0;
+      positionEntry.count += 1;
+      positionEntry.players.push({
+        id: p.id,
+        name: p.name,
+        team: p.team,
+        projPts: Number(p.projPts) || 0
+      });
+    });
+
+    const results = Array.from(managerMap.values()).map(entry => {
+      const positions = {};
+      Object.entries(entry.positions).forEach(([position, data]) => {
+        const sortedPlayers = data.players.slice().sort((a, b) => b.projPts - a.projPts);
+        const topPlayers = sortedPlayers.slice(0, 3);
+        positions[position] = {
+          total: data.total,
+          count: data.count,
+          avg: data.count ? data.total / data.count : 0,
+          topPlayers
+        };
+      });
+
+      return {
+        manager: entry.manager,
+        totalRos: entry.totalRos,
+        totalPlayers: entry.totalPlayers,
+        positions
+      };
+    });
+
+    return results.sort((a, b) => {
+      if (b.totalRos !== a.totalRos) {
+        return b.totalRos - a.totalRos;
+      }
+      return collator.compare(a.manager, b.manager);
+    });
+  }, [players]);
+
+  const positionColumns = useMemo(() => {
+    const positions = new Set();
+    managerPositionStats.forEach(manager => {
+      Object.keys(manager.positions).forEach(position => {
+        positions.add(position);
+      });
+    });
+    return Array.from(positions).sort((a, b) => {
+      const aIndex = POSITION_DISPLAY_ORDER.indexOf(a);
+      const bIndex = POSITION_DISPLAY_ORDER.indexOf(b);
+      if (aIndex === -1 && bIndex === -1) {
+        return collator.compare(a, b);
+      }
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
+  }, [managerPositionStats]);
+
+  const positionMaxTotals = useMemo(() => {
+    const maxTotals = {};
+    managerPositionStats.forEach(manager => {
+      Object.entries(manager.positions).forEach(([position, data]) => {
+        if (!maxTotals[position] || data.total > maxTotals[position]) {
+          maxTotals[position] = data.total;
+        }
+      });
+    });
+    return maxTotals;
+  }, [managerPositionStats]);
+
   const sortedPlayers = useMemo(() => {
     const searchLower = debouncedSearch.toLowerCase();
     const teamFilter = new Set(filters.team.map(t => t.toLowerCase()));
@@ -556,6 +660,89 @@ const Analytics = ({ onBack }) => {
           onChange={e => setSearch(e.target.value)}
           className="mb-4 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        {managerPositionStats.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Compare how each roster stacks up by position using FantasyPros rest-of-season projections. Totals show
+              accumulated points, while averages and top players highlight concentrated star power.
+            </p>
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Manager</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Total ROS</th>
+                    {positionColumns.map(position => (
+                      <th
+                        key={position}
+                        className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600"
+                      >
+                        {position}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {managerPositionStats.map(manager => (
+                    <tr key={manager.manager} className="align-top">
+                      <td className="px-3 py-3 text-sm font-semibold text-gray-900">
+                        <div>{manager.manager}</div>
+                        <div className="text-xs font-normal text-gray-500">{manager.totalPlayers} players</div>
+                      </td>
+                      <td className="px-3 py-3 text-sm text-gray-900">
+                        <div className="font-semibold">{formatPoints(manager.totalRos)}</div>
+                        <div className="text-xs text-gray-500">Avg {formatPoints(manager.totalRos / manager.totalPlayers || 0)} per player</div>
+                      </td>
+                      {positionColumns.map(position => {
+                        const positionData = manager.positions[position];
+                        if (!positionData) {
+                          return (
+                            <td key={position} className="px-3 py-3 align-top text-center text-xs text-gray-400">
+                              —
+                            </td>
+                          );
+                        }
+                        const maxTotal = positionMaxTotals[position] || 0;
+                        const percent = maxTotal ? Math.min(100, Math.round((positionData.total / maxTotal) * 100)) : 0;
+                        return (
+                          <td key={position} className="px-3 py-3 align-top">
+                            <div className="rounded-lg border border-gray-200 p-2">
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 flex-1 overflow-hidden rounded-full bg-blue-100">
+                                  <div
+                                    className="h-full rounded-full bg-blue-500"
+                                    style={{ width: `${percent || (positionData.total > 0 ? 6 : 0)}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs font-semibold text-gray-700">{formatPoints(positionData.total)}</span>
+                              </div>
+                              <div className="mt-2 text-xs text-gray-600">
+                                Avg {formatPoints(positionData.avg)} • {positionData.count} players
+                              </div>
+                              <div className="mt-2 space-y-0.5 text-[11px] text-gray-500">
+                                {positionData.topPlayers.map(player => (
+                                  <div key={`${manager.manager}-${position}-${player.id}`} className="truncate">
+                                    {player.name} ({formatPoints(player.projPts)})
+                                  </div>
+                                ))}
+                                {positionData.count > positionData.topPlayers.length && (
+                                  <div className="text-[11px] text-gray-400">
+                                    +{positionData.count - positionData.topPlayers.length} more
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
