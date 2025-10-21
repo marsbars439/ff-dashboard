@@ -889,16 +889,23 @@ const Analytics = ({ onBack }) => {
         )}
         {managerPositionStats.length > 0 && (
           <div className="mb-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex-1">
-                <div ref={rosTableRef}>
-                  <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Compare how each roster stacks up by position using FantasyPros rest-of-season projections. Totals show
-                    overall roster value, while starter and bench averages highlight top-end talent versus depth.
-                  </p>
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 manager-ros-table">
+            <div ref={rosTableRef} className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
+                <button
+                  type="button"
+                  onClick={handleDownloadRosImage}
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition-colors hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" /> Export image
+                </button>
+              </div>
+              <p className="text-sm text-gray-600">
+                Compare how each roster stacks up by position using FantasyPros rest-of-season projections. Totals show
+                overall roster value, while starter and bench averages highlight top-end talent versus depth.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 manager-ros-table">
                       <thead>
                         <tr>
                           <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
@@ -1094,17 +1101,7 @@ const Analytics = ({ onBack }) => {
                   </div>
                 </div>
               </div>
-              <div className="sm:w-auto">
-                <button
-                  type="button"
-                  onClick={handleDownloadRosImage}
-                  className="inline-flex w-full items-center justify-center whitespace-nowrap rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
-                >
-                  <Download className="mr-2 h-4 w-4" /> Download Image
-                </button>
-              </div>
             </div>
-          </div>
         )}
         <input
           type="text"
