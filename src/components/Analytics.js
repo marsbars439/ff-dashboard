@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { BarChart3, ArrowLeft, RefreshCw, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { BarChart3, ArrowLeft, RefreshCw, Filter, ArrowUpDown, ArrowUp, ArrowDown, Download } from 'lucide-react';
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
@@ -162,6 +162,7 @@ const Analytics = ({ onBack }) => {
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
   const [refreshMessage, setRefreshMessage] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const rosTableRef = useRef(null);
 
   useEffect(() => {
     if (!activeFilterKey) return undefined;
@@ -330,6 +331,106 @@ const Analytics = ({ onBack }) => {
       setRefreshing(false);
     }
   };
+
+  const handleDownloadRosImage = useCallback(async () => {
+    const target = rosTableRef.current;
+    if (!target) {
+      return;
+    }
+
+    const cloneWithInlineStyles = (source, clone) => {
+      if (!source || !clone) return;
+      if (source.nodeType === Node.ELEMENT_NODE && clone.nodeType === Node.ELEMENT_NODE) {
+        const computed = window.getComputedStyle(source);
+        const cssText = Array.from(computed)
+          .map(property => `${property}:${computed.getPropertyValue(property)};`)
+          .join('');
+        clone.setAttribute('style', cssText);
+      }
+
+      const sourceChildren = Array.from(source.childNodes);
+      const cloneChildren = Array.from(clone.childNodes);
+      sourceChildren.forEach((child, index) => {
+        const clonedChild = cloneChildren[index];
+        if (clonedChild) {
+          cloneWithInlineStyles(child, clonedChild);
+        }
+      });
+    };
+
+    const rect = target.getBoundingClientRect();
+    const width = Math.ceil(rect.width);
+    const height = Math.ceil(rect.height);
+
+    if (!width || !height) {
+      alert('Unable to capture an empty element.');
+      return;
+    }
+
+    const scale = Math.min(2, window.devicePixelRatio || 1);
+    const clonedNode = target.cloneNode(true);
+    cloneWithInlineStyles(target, clonedNode);
+    if (clonedNode instanceof HTMLElement) {
+      clonedNode.style.backgroundColor = '#ffffff';
+      clonedNode.style.width = `${width}px`;
+      clonedNode.style.height = `${height}px`;
+    }
+    clonedNode.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNamespace, 'svg');
+    svg.setAttribute('xmlns', svgNamespace);
+    svg.setAttribute('width', String(width));
+    svg.setAttribute('height', String(height));
+
+    const foreignObject = document.createElementNS(svgNamespace, 'foreignObject');
+    foreignObject.setAttribute('width', '100%');
+    foreignObject.setAttribute('height', '100%');
+    foreignObject.setAttribute('x', '0');
+    foreignObject.setAttribute('y', '0');
+    foreignObject.appendChild(clonedNode);
+
+    svg.appendChild(foreignObject);
+    const serializedSvg = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([serializedSvg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+
+    const loadImage = () =>
+      new Promise((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = reject;
+        image.src = url;
+      });
+
+    try {
+      await loadImage();
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error('Canvas 2D context not available.');
+      }
+      context.scale(scale, scale);
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = 'manager-ros-strength.png';
+      link.click();
+    } catch (error) {
+      console.error('Failed to capture ROS table image:', error);
+      alert('Unable to download image. Please try again.');
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }, []);
 
   const availableTeams = useMemo(() => {
     const teams = new Set();
@@ -788,32 +889,34 @@ const Analytics = ({ onBack }) => {
         )}
         {managerPositionStats.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
-            <p className="mt-1 text-sm text-gray-600">
-              Compare how each roster stacks up by position using FantasyPros rest-of-season projections. Totals show
-              overall roster value, while starter and bench averages highlight top-end talent versus depth.
-            </p>
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 manager-ros-table">
-                <thead>
-                  <tr>
-                    <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
-                      Manager
-                    </th>
-                    <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
-                      Total ROS
-                    </th>
-                    {positionColumns.map(position => (
-                      <th
-                        key={position}
-                        className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm"
-                      >
-                        {position}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div ref={rosTableRef} className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
+                <p className="mt-1 text-sm text-gray-600">
+                  Compare how each roster stacks up by position using FantasyPros rest-of-season projections. Totals show
+                  overall roster value, while starter and bench averages highlight top-end talent versus depth.
+                </p>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 manager-ros-table">
+                    <thead>
+                      <tr>
+                        <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
+                          Manager
+                        </th>
+                        <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
+                          Total ROS
+                        </th>
+                        {positionColumns.map(position => (
+                          <th
+                            key={position}
+                            className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm"
+                          >
+                            {position}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
                   {managerPositionStats.map(manager => (
                     <tr key={manager.manager} className="align-top">
                       <td className="px-3 py-3 text-sm font-semibold text-gray-900">
@@ -987,6 +1090,14 @@ const Analytics = ({ onBack }) => {
                   ))}
                 </tbody>
               </table>
+            </div>
+              <button
+                type="button"
+                onClick={handleDownloadRosImage}
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                <Download className="mr-2 h-4 w-4" /> Download Image
+              </button>
             </div>
           </div>
         )}
