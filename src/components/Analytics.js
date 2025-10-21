@@ -890,245 +890,223 @@ const Analytics = ({ onBack }) => {
         {managerPositionStats.length > 0 && (
           <div className="mb-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div ref={rosTableRef} className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  Compare how each roster stacks up by position using FantasyPros rest-of-season projections. Totals show
-                  overall roster value, while starter and bench averages highlight top-end talent versus depth.
-                </p>
-                <div className="mt-4 overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 manager-ros-table">
-                    <thead>
-                      <tr>
-                        <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
-                          Manager
-                        </th>
-                        <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
-                          Total ROS
-                        </th>
-                        {positionColumns.map(position => (
-                          <th
-                            key={position}
-                            className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm"
-                          >
-                            {position}
+              <div className="flex-1">
+                <div ref={rosTableRef}>
+                  <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Compare how each roster stacks up by position using FantasyPros rest-of-season projections. Totals show
+                    overall roster value, while starter and bench averages highlight top-end talent versus depth.
+                  </p>
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 manager-ros-table">
+                      <thead>
+                        <tr>
+                          <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
+                            Manager
                           </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
-                  {managerPositionStats.map(manager => (
-                    <tr key={manager.manager} className="align-top">
-                      <td className="px-3 py-3 text-sm font-semibold text-gray-900">
-                        <div>{manager.manager}</div>
-                        <div className="text-xs font-normal text-gray-500">{manager.totalPlayers} players</div>
-                      </td>
-                      <td className="px-3 py-3 text-sm text-gray-900">
-                        <div className="font-semibold">{formatPoints(manager.totalRos)}</div>
-                        <div className="mt-1 space-y-1 text-xs text-gray-600">
-                          <div>Starters: {formatPoints(manager.totalStarterRos || 0)}</div>
-                          <div>Bench: {formatPoints(manager.totalBenchRos || 0)}</div>
-                          <div>
-                            Points / Player:{' '}
-                            {manager.pointsPerPlayer != null ? formatPoints(manager.pointsPerPlayer) : '—'}
-                          </div>
-                        </div>
-                      </td>
-                      {positionColumns.map(position => {
-                        const positionData = manager.positions[position];
-                        if (!positionData) {
-                          return (
-                            <td key={position} className="px-3 py-3 align-top text-center text-xs text-gray-400">
-                              —
+                          <th className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm">
+                            Total ROS
+                          </th>
+                          {positionColumns.map(position => (
+                            <th
+                              key={position}
+                              className="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm"
+                            >
+                              {position}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {managerPositionStats.map(manager => (
+                          <tr key={manager.manager} className="align-top">
+                            <td className="px-3 py-3 text-sm font-semibold text-gray-900">
+                              <div>{manager.manager}</div>
+                              <div className="text-xs font-normal text-gray-500">{manager.totalPlayers} players</div>
                             </td>
-                          );
-                        }
-                        const {
-                          starterAvg,
-                          benchAvg,
-                          benchCount,
-                          starters,
-                          bench
-                        } = positionData;
-                        const starterRanking = positionRankings[position]?.starterAvg;
-                        const benchRanking = positionRankings[position]?.benchAvg;
-                        const starterRank = starterRanking?.ranks?.[manager.manager];
-                        const benchRank = benchRanking?.ranks?.[manager.manager];
-                        const starterManagerTotal = starterRanking?.total;
-                        const benchManagerTotal = benchRanking?.total;
-                        const {
-                          percent: starterPercent,
-                          trackColor: starterTrackColor,
-                          fillColor: starterFillColor,
-                          beadPercent: starterBeadPercent,
-                          beadColor: starterBeadColor
-                        } = getRankVisuals(starterRank, starterManagerTotal);
-                        const starterRankColor = starterBeadColor ?? starterFillColor ?? starterTrackColor;
-                        const {
-                          percent: benchPercent,
-                          trackColor: benchTrackColor,
-                          fillColor: benchFillColor,
-                          beadPercent: benchBeadPercent,
-                          beadColor: benchBeadColor
-                        } = getRankVisuals(benchRank, benchManagerTotal);
-                        const benchRankColor = benchBeadColor ?? benchFillColor ?? benchTrackColor;
-                        const benchPreview = bench.slice(0, 3);
-                        const extraBench = Math.max(0, benchCount - benchPreview.length);
-                        return (
-                          <td key={position} className="px-3 py-3 align-top">
-                            <div className="rounded-lg border border-gray-200 p-2 space-y-3">
-                              <div>
-                                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
-                                  <span>Starter Avg</span>
-                                  <div className="text-[11px] text-gray-700">
-                                    {starterAvg != null ? formatPoints(starterAvg) : '—'}
-                                  </div>
+                            <td className="px-3 py-3 text-sm text-gray-900">
+                              <div className="font-semibold">{formatPoints(manager.totalRos)}</div>
+                              <div className="mt-1 space-y-1 text-xs text-gray-600">
+                                <div>Starters: {formatPoints(manager.totalStarterRos || 0)}</div>
+                                <div>Bench: {formatPoints(manager.totalBenchRos || 0)}</div>
+                                <div>
+                                  Points / Player{' '}
+                                  {manager.pointsPerPlayer != null ? formatPoints(manager.pointsPerPlayer) : '—'}
                                 </div>
-                                <div className="mt-1 flex items-center gap-2">
-                                  <div
-                                    className="relative h-2 flex-1 overflow-hidden rounded-full"
-                                    style={{ backgroundColor: starterTrackColor }}
-                                  >
-                                    <div
-                                      className="h-full rounded-full"
-                                      style={{
-                                        width: `${starterPercent}%`,
-                                        backgroundColor: starterFillColor
-                                      }}
-                                    />
-                                    {starterBeadPercent != null ? (
-                                      <div
-                                        className="absolute inset-y-0 left-0 rounded-full"
-                                        style={{
-                                          width: `${Math.max(starterBeadPercent, 4)}%`,
-                                          maxWidth: '12px',
-                                          minWidth: '6px',
-                                          backgroundColor: starterBeadColor
-                                        }}
-                                      />
-                                    ) : null}
-                                  </div>
-                                  {starterRank != null && starterManagerTotal ? (
-                                    <span
-                                      className="text-[10px] font-semibold"
-                                      style={{ color: starterRankColor }}
-                                    >
-                                      #{starterRank}
-                                    </span>
-                                  ) : null}
-                                </div>
-                                {starters.length > 0 && (
-                                  <div className="mt-2 space-y-0.5 text-[11px] text-gray-500">
-                                    {starters.map(player => (
-                                      <div key={`${manager.manager}-${position}-starter-${player.id}`} className="truncate">
-                                        {player.name} ({formatPoints(player.projPts)})
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
                               </div>
-                              <div>
-                                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
-                                  <span>Bench Avg</span>
-                                  <div className="text-[11px] text-gray-700">
-                                    {benchAvg != null ? formatPoints(benchAvg) : '—'}
-                                  </div>
-                                </div>
-                                <div className="mt-1 flex items-center gap-2">
-                                  <div
-                                    className="relative h-2 flex-1 overflow-hidden rounded-full"
-                                    style={{ backgroundColor: benchTrackColor }}
-                                  >
-                                    <div
-                                      className="h-full rounded-full"
-                                      style={{
-                                        width: `${benchPercent}%`,
-                                        backgroundColor: benchFillColor
-                                      }}
-                                    />
-                                    {benchBeadPercent != null ? (
-                                      <div
-                                        className="absolute inset-y-0 left-0 rounded-full"
-                                        style={{
-                                          width: `${Math.max(benchBeadPercent, 4)}%`,
-                                          maxWidth: '12px',
-                                          minWidth: '6px',
-                                          backgroundColor: benchBeadColor
-                                        }}
-                                      />
-                                    ) : null}
-                                  </div>
-                                  {benchRank != null && benchManagerTotal ? (
-                                    <span
-                                      className="text-[10px] font-semibold"
-                                      style={{ color: benchRankColor }}
-                                    >
-                                      #{benchRank}
-                                    </span>
-                                  ) : null}
-                                </div>
-                                {benchPreview.length > 0 ? (
-                                  <div className="mt-2 space-y-0.5 text-[11px] text-gray-500">
-                                    {benchPreview.map(player => (
-                                      <div key={`${manager.manager}-${position}-bench-${player.id}`} className="truncate">
-                                        {player.name} ({formatPoints(player.projPts)})
+                            </td>
+                            {positionColumns.map(position => {
+                              const positionData = manager.positions[position];
+                              if (!positionData) {
+                                return (
+                                  <td key={position} className="px-3 py-3 align-top text-center text-xs text-gray-400">
+                                    —
+                                  </td>
+                                );
+                              }
+                              const {
+                                starterAvg,
+                                benchAvg,
+                                benchCount,
+                                starters,
+                                bench
+                              } = positionData;
+                              const starterRanking = positionRankings[position]?.starterAvg;
+                              const benchRanking = positionRankings[position]?.benchAvg;
+                              const starterRank = starterRanking?.ranks?.[manager.manager];
+                              const benchRank = benchRanking?.ranks?.[manager.manager];
+                              const starterManagerTotal = starterRanking?.total;
+                              const benchManagerTotal = benchRanking?.total;
+                              const {
+                                percent: starterPercent,
+                                trackColor: starterTrackColor,
+                                fillColor: starterFillColor,
+                                beadPercent: starterBeadPercent,
+                                beadColor: starterBeadColor
+                              } = getRankVisuals(starterRank, starterManagerTotal);
+                              const starterRankColor = starterBeadColor ?? starterFillColor ?? starterTrackColor;
+                              const {
+                                percent: benchPercent,
+                                trackColor: benchTrackColor,
+                                fillColor: benchFillColor,
+                                beadPercent: benchBeadPercent,
+                                beadColor: benchBeadColor
+                              } = getRankVisuals(benchRank, benchManagerTotal);
+                              const benchRankColor = benchBeadColor ?? benchFillColor ?? benchTrackColor;
+                              const benchPreview = bench.slice(0, 3);
+                              const extraBench = Math.max(0, benchCount - benchPreview.length);
+                              return (
+                                <td key={position} className="px-3 py-3 align-top">
+                                  <div className="rounded-lg border border-gray-200 p-2 space-y-3">
+                                    <div>
+                                      <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+                                        <span>Starter Avg</span>
+                                        <div className="text-[11px] text-gray-700">
+                                          {starterAvg != null ? formatPoints(starterAvg) : '—'}
+                                        </div>
                                       </div>
-                                    ))}
-                                    {extraBench > 0 && (
-                                      <div className="text-[11px] text-gray-400">+{extraBench} more</div>
-                                    )}
+                                      <div className="mt-1 flex items-center gap-2">
+                                        <div
+                                          className="relative h-2 flex-1 overflow-hidden rounded-full"
+                                          style={{ backgroundColor: starterTrackColor }}
+                                        >
+                                          <div
+                                            className="h-full rounded-full"
+                                            style={{
+                                              width: `${starterPercent}%`,
+                                              backgroundColor: starterFillColor
+                                            }}
+                                          />
+                                          {starterBeadPercent != null ? (
+                                            <div
+                                              className="absolute inset-y-0 left-0 rounded-full"
+                                              style={{
+                                                width: `${Math.max(starterBeadPercent, 4)}%`,
+                                                maxWidth: '12px',
+                                                minWidth: '6px',
+                                                backgroundColor: starterBeadColor
+                                              }}
+                                            />
+                                          ) : null}
+                                        </div>
+                                        {starterRank != null && starterManagerTotal ? (
+                                          <span
+                                            className="text-[10px] font-semibold"
+                                            style={{ color: starterRankColor }}
+                                          >
+                                            #{starterRank}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      {starters.length > 0 && (
+                                        <div className="mt-2 space-y-0.5 text-[11px] text-gray-500">
+                                          {starters.map(player => (
+                                            <div key={`${manager.manager}-${position}-starter-${player.id}`} className="truncate">
+                                              {player.name} ({formatPoints(player.projPts)})
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+                                        <span>Bench Avg</span>
+                                        <div className="text-[11px] text-gray-700">
+                                          {benchAvg != null ? formatPoints(benchAvg) : '—'}
+                                        </div>
+                                      </div>
+                                      <div className="mt-1 flex items-center gap-2">
+                                        <div
+                                          className="relative h-2 flex-1 overflow-hidden rounded-full"
+                                          style={{ backgroundColor: benchTrackColor }}
+                                        >
+                                          <div
+                                            className="h-full rounded-full"
+                                            style={{
+                                              width: `${benchPercent}%`,
+                                              backgroundColor: benchFillColor
+                                            }}
+                                          />
+                                          {benchBeadPercent != null ? (
+                                            <div
+                                              className="absolute inset-y-0 left-0 rounded-full"
+                                              style={{
+                                                width: `${Math.max(benchBeadPercent, 4)}%`,
+                                                maxWidth: '12px',
+                                                minWidth: '6px',
+                                                backgroundColor: benchBeadColor
+                                              }}
+                                            />
+                                          ) : null}
+                                        </div>
+                                        {benchRank != null && benchManagerTotal ? (
+                                          <span
+                                            className="text-[10px] font-semibold"
+                                            style={{ color: benchRankColor }}
+                                          >
+                                            #{benchRank}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      {benchPreview.length > 0 ? (
+                                        <div className="mt-2 space-y-0.5 text-[11px] text-gray-500">
+                                          {benchPreview.map(player => (
+                                            <div key={`${manager.manager}-${position}-bench-${player.id}`} className="truncate">
+                                              {player.name} ({formatPoints(player.projPts)})
+                                            </div>
+                                          ))}
+                                          {extraBench > 0 && (
+                                            <div className="text-[11px] text-gray-400">+{extraBench} more</div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="mt-2 text-[11px] text-gray-400">No bench players</div>
+                                      )}
+                                    </div>
                                   </div>
-                                ) : (
-                                  <div className="mt-2 text-[11px] text-gray-400">No bench players</div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-              <button
-                type="button"
-                onClick={handleDownloadRosImage}
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                <Download className="mr-2 h-4 w-4" /> Download Image
-              </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <div className="sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handleDownloadRosImage}
+                  className="inline-flex w-full items-center justify-center whitespace-nowrap rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
+                >
+                  <Download className="mr-2 h-4 w-4" /> Download Image
+                </button>
+              </div>
             </div>
           </div>
         )}
-        <input
-          type="text"
-          placeholder="Search players"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="mb-4 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-3 text-left align-top">
-                  <div className="flex items-center">
-                    {renderSortButton('Player', 'name')}
-                    <FilterDropdown filterKey="name">
-                      {({ close }) => (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-700">Player name</span>
-                            <button
-                              type="button"
-                              className="text-xs font-medium text-blue-600 hover:text-blue-700"
-                              onClick={() => setFilters(prev => ({ ...prev, name: '' }))}
-                            >
-                              Clear
-                            </button>
-                          </div>
-                          <input
+          <input
                             className="w-full rounded-md border border-gray-300 px-2 py-1 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
                             placeholder="Contains..."
                             value={filters.name}
