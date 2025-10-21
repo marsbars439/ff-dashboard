@@ -1101,7 +1101,6 @@ const Analytics = ({ onBack }) => {
                   </div>
                 </div>
               </div>
-            </div>
         )}
         <input
           type="text"
