@@ -165,6 +165,21 @@ const allAsync = (sql, params = []) =>
     });
   });
 
+const normalizeSummaryLine = line =>
+  typeof line === 'string' ? line.trim().replace(/^[-*]\s*/, '') : '';
+
+const extractSummaryLines = summary => {
+  if (typeof summary !== 'string') {
+    return [];
+  }
+
+  return summary
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(normalizeSummaryLine);
+};
+
 const refreshCachedSummary = async () => {
   const { summary } = await weeklySummaryService.generateWeeklySummary(db);
   await runAsync('INSERT INTO summaries (summary) VALUES (?)', [summary]);
@@ -1334,11 +1349,45 @@ app.get('/api/summary', async (req, res) => {
   }
 });
 
+// Save a manually edited summary
+app.put('/api/summary', async (req, res) => {
+  try {
+    const { summary } = req.body || {};
+    if (typeof summary !== 'string') {
+      return res.status(400).json({ error: 'Summary text is required.' });
+    }
+
+    const trimmed = summary.trim();
+    await runAsync('INSERT INTO summaries (summary) VALUES (?)', [trimmed]);
+    res.json({ summary: trimmed, lines: extractSummaryLines(trimmed) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Refresh summary manually
 app.post('/api/summary/refresh', async (req, res) => {
   try {
     const summary = await refreshCachedSummary();
-    res.json({ summary });
+    res.json({ summary, lines: extractSummaryLines(summary) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate a single summary line while keeping existing lines intact client-side
+app.post('/api/summary/generate-line', async (req, res) => {
+  try {
+    const index = Number.isInteger(req.body?.index)
+      ? req.body.index
+      : parseInt(req.body?.index, 10);
+    const normalizedIndex = Number.isInteger(index) && index >= 0 ? index : 0;
+
+    const { summary } = await weeklySummaryService.generateWeeklySummary(db);
+    const lines = extractSummaryLines(summary);
+    const line = lines[normalizedIndex] || '';
+
+    res.json({ line, lines, index: normalizedIndex, summary });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
