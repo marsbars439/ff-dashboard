@@ -570,22 +570,65 @@ const Analytics = ({ onBack }) => {
         manager: entry.manager,
         totalRos: entry.totalRos,
         totalPlayers: entry.totalPlayers,
-        pointsPerPlayer: entry.totalPlayers ? entry.totalRos / entry.totalPlayers : null,
         positions,
         totalStarterRos,
         totalStarterPlayers,
         totalBenchRos: benchRosWithExcluded,
-        totalBenchPlayers: benchPlayersWithExcluded
+        totalBenchPlayers: benchPlayersWithExcluded,
+        starterPointsPerPlayer: totalStarterPlayers
+          ? totalStarterRos / totalStarterPlayers
+          : null,
+        benchPointsPerPlayer: benchPlayersWithExcluded
+          ? benchRosWithExcluded / benchPlayersWithExcluded
+          : null
       };
     });
 
     return results.sort((a, b) => {
-      if (b.totalRos !== a.totalRos) {
-        return b.totalRos - a.totalRos;
+      if (b.totalStarterRos !== a.totalStarterRos) {
+        return b.totalStarterRos - a.totalStarterRos;
       }
       return collator.compare(a.manager, b.manager);
     });
   }, [players]);
+
+  const totalRosRankings = useMemo(() => {
+    const metrics = [
+      { key: 'totalStarterRos', name: 'starter' },
+      { key: 'totalBenchRos', name: 'bench' }
+    ];
+
+    const rankings = {};
+
+    metrics.forEach(({ key, name }) => {
+      const values = managerPositionStats
+        .filter(manager => typeof manager[key] === 'number')
+        .map(manager => ({ manager: manager.manager, value: manager[key] }));
+
+      if (!values.length) {
+        return;
+      }
+
+      const sortedEntries = values.slice().sort((a, b) => b.value - a.value);
+      const ranks = {};
+      let lastValue = null;
+      let rank = 0;
+      let index = 0;
+
+      sortedEntries.forEach(entry => {
+        index += 1;
+        if (lastValue === null || entry.value !== lastValue) {
+          rank = index;
+          lastValue = entry.value;
+        }
+        ranks[entry.manager] = rank;
+      });
+
+      rankings[name] = { total: sortedEntries.length, ranks };
+    });
+
+    return rankings;
+  }, [managerPositionStats]);
 
   const positionColumns = useMemo(() => {
     const positions = new Set();
@@ -935,29 +978,84 @@ const Analytics = ({ onBack }) => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 bg-white">
-                        {managerPositionStats.map(manager => (
-                          <tr key={manager.manager} className="align-top">
-                            <td className="px-3 py-3 text-sm font-semibold text-gray-900">
-                              <div>{manager.manager}</div>
-                              <div className="text-xs font-normal text-gray-500">{manager.totalPlayers} players</div>
-                            </td>
-                            <td className="px-3 py-3 text-sm text-gray-900">
-                              <div className="font-semibold">{formatPoints(manager.totalRos)}</div>
-                              <div className="mt-1 space-y-1 text-xs text-gray-600">
-                                <div>Starters: {formatPoints(manager.totalStarterRos || 0)}</div>
-                                <div>Bench: {formatPoints(manager.totalBenchRos || 0)}</div>
-                                <div>
-                                  Points / Player{' '}
-                                  {manager.pointsPerPlayer != null ? formatPoints(manager.pointsPerPlayer) : '—'}
+                        {managerPositionStats.map(manager => {
+                          const starterRanking = totalRosRankings.starter;
+                          const benchRanking = totalRosRankings.bench;
+                          const starterRank = starterRanking?.ranks?.[manager.manager];
+                          const benchRank = benchRanking?.ranks?.[manager.manager];
+                          const starterRankBadge = starterRank && starterRanking?.total
+                            ? getRankVisuals(starterRank, starterRanking.total)
+                            : null;
+                          const benchRankBadge = benchRank && benchRanking?.total
+                            ? getRankVisuals(benchRank, benchRanking.total)
+                            : null;
+
+                          return (
+                            <tr key={manager.manager} className="align-top">
+                              <td className="px-3 py-3 text-sm font-semibold text-gray-900">
+                                <div>{manager.manager}</div>
+                                <div className="text-xs font-normal text-gray-500">{manager.totalPlayers} players</div>
+                              </td>
+                              <td className="px-3 py-3 text-sm text-gray-900">
+                                <div className="space-y-3">
+                                  <div>
+                                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-600">
+                                      <span>Starters</span>
+                                      {starterRankBadge ? (
+                                        <span
+                                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                          style={{
+                                            backgroundColor: starterRankBadge.trackColor,
+                                            color: starterRankBadge.fillColor || '#1f2937'
+                                          }}
+                                        >
+                                          #{starterRank} of {starterRanking.total}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <div className="mt-1 text-sm font-semibold text-gray-900">
+                                      {formatPoints(manager.totalStarterRos || 0)}
+                                    </div>
+                                    <div className="text-xs text-gray-600">
+                                      Pts / Player{' '}
+                                      {manager.starterPointsPerPlayer != null
+                                        ? formatPoints(manager.starterPointsPerPlayer)
+                                        : '—'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-600">
+                                      <span>Bench</span>
+                                      {benchRankBadge ? (
+                                        <span
+                                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                          style={{
+                                            backgroundColor: benchRankBadge.trackColor,
+                                            color: benchRankBadge.fillColor || '#1f2937'
+                                          }}
+                                        >
+                                          #{benchRank} of {benchRanking.total}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <div className="mt-1 text-sm font-semibold text-gray-900">
+                                      {formatPoints(manager.totalBenchRos || 0)}
+                                    </div>
+                                    <div className="text-xs text-gray-600">
+                                      Pts / Player{' '}
+                                      {manager.benchPointsPerPlayer != null
+                                        ? formatPoints(manager.benchPointsPerPlayer)
+                                        : '—'}
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            {positionColumns.map(position => {
-                              const positionData = manager.positions[position];
-                              if (!positionData) {
-                                return (
-                                  <td key={position} className="px-3 py-3 align-top text-center text-xs text-gray-400">
-                                    —
+                              </td>
+                              {positionColumns.map(position => {
+                                const positionData = manager.positions[position];
+                                if (!positionData) {
+                                  return (
+                                    <td key={position} className="px-3 py-3 align-top text-center text-xs text-gray-400">
+                                      —
                                   </td>
                                 );
                               }
@@ -992,8 +1090,8 @@ const Analytics = ({ onBack }) => {
                               const benchRankColor = benchBeadColor ?? benchFillColor ?? benchTrackColor;
                               const benchPreview = bench.slice(0, 3);
                               const extraBench = Math.max(0, benchCount - benchPreview.length);
-                              return (
-                                <td key={position} className="px-3 py-3 align-top">
+                                return (
+                                  <td key={position} className="px-3 py-3 align-top">
                                   <div className="rounded-lg border border-gray-200 p-2 space-y-3">
                                     <div>
                                       <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-600">
@@ -1102,10 +1200,11 @@ const Analytics = ({ onBack }) => {
                                     </div>
                                   </div>
                                 </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
