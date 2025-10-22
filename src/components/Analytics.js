@@ -4,6 +4,8 @@ import { BarChart3, ArrowLeft, RefreshCw, Filter, ArrowUpDown, ArrowUp, ArrowDow
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
 const NUMERIC_OPERATORS = ['>', '>=', '<', '<=', '='];
+const NO_MANAGER_LABEL = 'None';
+const NO_MANAGER_FILTER_VALUE = NO_MANAGER_LABEL.toLowerCase();
 const STRING_SORT_FIELDS = ['name', 'team', 'position', 'manager'];
 const POSITION_DISPLAY_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'SF', 'SUPERFLEX', 'OP', 'WR/RB', 'WR/RB/TE', 'RB/WR', 'RB/WR/TE', 'WR/TE', 'RB/TE', 'QB/RB/WR/TE', 'K', 'DEF', 'DST', 'IDP', 'DL', 'LB', 'DB', 'BN', 'BENCH'];
 
@@ -450,10 +452,16 @@ const Analytics = ({ onBack }) => {
 
   const availableManagers = useMemo(() => {
     const managers = new Set();
+    let hasUnassigned = false;
     players.forEach(p => {
-      if (p.manager) managers.add(p.manager);
+      if (p.manager) {
+        managers.add(p.manager);
+      } else {
+        hasUnassigned = true;
+      }
     });
-    return Array.from(managers).sort(collator.compare);
+    const sortedManagers = Array.from(managers).sort(collator.compare);
+    return hasUnassigned ? [...sortedManagers, NO_MANAGER_LABEL] : sortedManagers;
   }, [players]);
 
   const managerPositionStats = useMemo(() => {
@@ -657,7 +665,9 @@ const Analytics = ({ onBack }) => {
       (!filters.name || p.nameLower.includes(filters.name.toLowerCase())) &&
       (teamFilter.size === 0 || teamFilter.has(p.teamLower)) &&
       (positionFilter.size === 0 || positionFilter.has(p.positionLower)) &&
-      (managerFilter.size === 0 || managerFilter.has(p.managerLower)) &&
+      (managerFilter.size === 0 ||
+        managerFilter.has(p.managerLower) ||
+        (managerFilter.has(NO_MANAGER_FILTER_VALUE) && !p.managerLower)) &&
       (excludedPositionFilter.size === 0 || !excludedPositionFilter.has(p.positionLower)) &&
       matchesNumericFilter(p.draftCost, draftCostFilter) &&
       matchesNumericFilter(p.projPts, projPtsFilter)
