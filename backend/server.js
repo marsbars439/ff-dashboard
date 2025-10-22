@@ -1393,21 +1393,55 @@ app.post('/api/summary/generate-line', async (req, res) => {
   }
 });
 
-// Refresh upcoming week preview
-app.post('/api/preview/refresh', async (req, res) => {
+// Get cached upcoming week preview
+app.get('/api/preview', async (req, res) => {
   try {
-    const summary = await refreshCachedPreview();
-    res.json({ summary });
+    const row = await getAsync('SELECT summary, created_at FROM previews ORDER BY created_at DESC LIMIT 1');
+    res.json({ summary: row ? row.summary : '', updated: row ? row.created_at : null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Generate upcoming week preview
-app.get('/api/preview', async (req, res) => {
+// Save a manually edited preview
+app.put('/api/preview', async (req, res) => {
   try {
-    const row = await getAsync('SELECT summary, created_at FROM previews ORDER BY created_at DESC LIMIT 1');
-    res.json({ summary: row ? row.summary : '', updated: row ? row.created_at : null });
+    const { summary } = req.body || {};
+    if (typeof summary !== 'string') {
+      return res.status(400).json({ error: 'Preview text is required.' });
+    }
+
+    const trimmed = summary.trim();
+    await runAsync('INSERT INTO previews (summary) VALUES (?)', [trimmed]);
+    res.json({ summary: trimmed, lines: extractSummaryLines(trimmed) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Refresh upcoming week preview
+app.post('/api/preview/refresh', async (req, res) => {
+  try {
+    const summary = await refreshCachedPreview();
+    res.json({ summary, lines: extractSummaryLines(summary) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate a single preview line while keeping existing lines intact client-side
+app.post('/api/preview/generate-line', async (req, res) => {
+  try {
+    const index = Number.isInteger(req.body?.index)
+      ? req.body.index
+      : parseInt(req.body?.index, 10);
+    const normalizedIndex = Number.isInteger(index) && index >= 0 ? index : 0;
+
+    const { summary } = await weeklySummaryService.generateWeeklyPreview(db);
+    const lines = extractSummaryLines(summary);
+    const line = lines[normalizedIndex] || '';
+
+    res.json({ line, lines, index: normalizedIndex, summary });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
