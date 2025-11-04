@@ -1,12 +1,9 @@
 <!DOCTYPE html>
 <html>
-  <head><title>Test DST</title></head>
+  <head><title>FantasyPros DST Fixture</title></head>
   <body>
-    <script>
+    <script type="application/javascript">
       window.__NUXT__ = {
-        "info": {
-          "something": null
-        },
         "payload": {
           "defense": {
             "groups": [
@@ -14,14 +11,28 @@
                 "category": "dst",
                 "entries": [
                   {
-                    "team_name": "San Francisco 49ers",
-                    "short_name": "SF",
-                    "points_total": 123.4
+                    "player": {
+                      "display_name": "San Francisco 49ers"
+                    },
+                    "stats": {
+                      "totals": {
+                        "fantasy_points": 123.4
+                      }
+                    }
                   },
                   {
-                    "team_name": "Buffalo Bills",
-                    "short_name": "BUF",
-                    "points_total": 110.1
+                    "player": {
+                      "display_name": "Buffalo Bills",
+                      "team": {
+                        "team_name": "Buffalo Bills",
+                        "short_name": "BUF"
+                      }
+                    },
+                    "stats": {
+                      "ros": {
+                        "points_total": 110.1
+                      }
+                    }
                   }
                 ]
               }
