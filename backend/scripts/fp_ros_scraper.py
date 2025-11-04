@@ -115,19 +115,43 @@ class FantasyProsScraper:
 
             return candidates
 
+        def _looks_like_player_entry(entry: dict) -> bool:
+            if not isinstance(entry, dict):
+                return False
+
+            name_tokens = ["player", "name", "team_name", "display_name"]
+            projection_tokens = ["pts", "points", "proj", "fpts"]
+
+            lowered_keys = [key.lower() for key in entry.keys() if isinstance(key, str)]
+            has_name_like = any(
+                any(token in lowered for token in name_tokens)
+                for lowered in lowered_keys
+            )
+            has_projection_like = any(
+                any(token in lowered for token in projection_tokens)
+                for lowered in lowered_keys
+            )
+
+            return has_name_like and has_projection_like
+
         def _find_player_lists(data):
             player_lists: list[list[dict]] = []
+            seen: set[int] = set()
             stack = [data]
             while stack:
                 current = stack.pop()
                 if isinstance(current, dict):
-                    for key, value in current.items():
-                        if isinstance(key, str) and key.lower() == "players" and isinstance(value, list):
-                            if value and isinstance(value[0], dict):
-                                player_lists.append(value)
+                    for value in current.values():
                         if isinstance(value, (dict, list)):
                             stack.append(value)
                 elif isinstance(current, list):
+                    if id(current) not in seen:
+                        seen.add(id(current))
+                        dict_items = [item for item in current if isinstance(item, dict)]
+                        if dict_items and any(
+                            _looks_like_player_entry(item) for item in dict_items
+                        ):
+                            player_lists.append(current)
                     for item in current:
                         if isinstance(item, (dict, list)):
                             stack.append(item)
