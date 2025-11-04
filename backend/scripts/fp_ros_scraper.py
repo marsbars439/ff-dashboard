@@ -122,15 +122,26 @@ class FantasyProsScraper:
             name_tokens = ["player", "name", "team_name", "display_name"]
             projection_tokens = ["pts", "points", "proj", "fpts"]
 
-            lowered_keys = [key.lower() for key in entry.keys() if isinstance(key, str)]
-            has_name_like = any(
-                any(token in lowered for token in name_tokens)
-                for lowered in lowered_keys
-            )
-            has_projection_like = any(
-                any(token in lowered for token in projection_tokens)
-                for lowered in lowered_keys
-            )
+            def _has_token(data, tokens: list[str]) -> bool:
+                stack: list[object] = [data]
+                while stack:
+                    current = stack.pop()
+                    if isinstance(current, dict):
+                        for key, value in current.items():
+                            if isinstance(key, str):
+                                lowered = key.lower()
+                                if any(token in lowered for token in tokens):
+                                    return True
+                            if isinstance(value, (dict, list)):
+                                stack.append(value)
+                    elif isinstance(current, list):
+                        for item in current:
+                            if isinstance(item, (dict, list)):
+                                stack.append(item)
+                return False
+
+            has_name_like = _has_token(entry, name_tokens)
+            has_projection_like = _has_token(entry, projection_tokens)
 
             return has_name_like and has_projection_like
 
@@ -198,44 +209,77 @@ class FantasyProsScraper:
             if position == "DST":
                 name_keys.append("team_name")
 
+            def _search_nested_value(data, tokens: list[str], validator):
+                stack: list[object] = [data]
+                while stack:
+                    current = stack.pop()
+                    if isinstance(current, dict):
+                        for key, value in current.items():
+                            if isinstance(key, str):
+                                lowered = key.lower()
+                                if any(token in lowered for token in tokens):
+                                    candidate = validator(value)
+                                    if candidate is not None:
+                                        return candidate
+                            if isinstance(value, (dict, list)):
+                                stack.append(value)
+                    elif isinstance(current, list):
+                        for item in current:
+                            if isinstance(item, (dict, list)):
+                                stack.append(item)
+                return None
+
+            def _get_string_value(data: dict, keys: list[str]) -> str:
+                # Try direct keys first for backward compatibility
+                for key in keys:
+                    value = data.get(key)
+                    if isinstance(value, str) and value.strip():
+                        return value.strip()
+
+                result = _search_nested_value(
+                    data,
+                    keys,
+                    lambda value: (
+                        value.strip()
+                        if isinstance(value, str) and value.strip()
+                        else None
+                    ),
+                )
+                return result or ""
+
+            def _get_projection_value(data: dict, keys: list[str]) -> float | None:
+                for key in keys:
+                    if key in data:
+                        proj_value = _to_float(data.get(key))
+                        if proj_value is not None:
+                            return proj_value
+
+                return _search_nested_value(data, keys, _to_float)
+
             for player in players:
                 if not isinstance(player, dict):
                     continue
 
-                player_name = ""
-                for key in name_keys:
-                    value = player.get(key)
-                    if isinstance(value, str) and value.strip():
-                        player_name = value.strip()
-                        break
-
+                player_name_raw = _get_string_value(player, name_keys)
+                player_name = (
+                    _normalize_string(player_name_raw) if player_name_raw else ""
+                )
                 if not player_name:
                     continue
 
-                team_value = ""
-                for key in team_keys:
-                    if key in player and player[key]:
-                        team_value = _normalize_string(player.get(key))
-                        break
+                team_value_raw = _get_string_value(player, team_keys)
+                team_value = _normalize_string(team_value_raw) if team_value_raw else ""
                 if position == "DST" and not team_value:
                     team_value = player_name
 
-                proj_value = None
-                for key in proj_candidates:
-                    if key in player:
-                        proj_value = _to_float(player.get(key))
-                        if proj_value is not None:
-                            break
+                proj_value = _get_projection_value(player, proj_candidates)
 
                 if proj_value is None:
-                    for key, value in player.items():
-                        if not isinstance(key, str):
-                            continue
-                        lowered = key.lower()
-                        if any(token in lowered for token in ["pts", "points", "proj"]):
-                            proj_value = _to_float(value)
-                            if proj_value is not None:
-                                break
+                    proj_value = _search_nested_value(
+                        player,
+                        ["pts", "points", "proj", "fpts"],
+                        _to_float,
+                    )
 
                 if proj_value is None:
                     continue
@@ -259,6 +303,8 @@ class FantasyProsScraper:
         soup = BeautifulSoup(html_content, "html.parser")
 
         scripts = soup.find_all("script")
+        best_extracted: list[dict] = []
+
         for script in scripts:
             candidates = _json_candidates(script)
             for candidate in candidates:
@@ -275,8 +321,11 @@ class FantasyProsScraper:
 
                 for players in _find_player_lists(json_data):
                     extracted = _extract_from_players(players)
-                    if extracted:
-                        return extracted
+                    if extracted and len(extracted) > len(best_extracted):
+                        best_extracted = extracted
+
+        if best_extracted:
+            return best_extracted
 
         self.debug_print("No player data found in JSON")
         return []

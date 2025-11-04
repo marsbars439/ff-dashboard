@@ -1,31 +1,51 @@
 <!DOCTYPE html>
 <html>
-  <head><title>Test WR</title></head>
+  <head><title>FantasyPros WR Fixture</title></head>
   <body>
-    <script>
+    <script type="application/javascript">
       window.__NUXT__ = {
-        "state": {
-          "someOtherData": []
-        },
+        "state": {},
         "data": [
           {
             "props": {
-              "content": {
-                "nested": {
-                  "wrRankings": {
-                    "rows": [
-                      {
-                        "player_name": "Justin Jefferson",
-                        "player_team_id": "MIN",
-                        "ros_pts": "230.5"
-                      },
-                      {
-                        "player_name": "CeeDee Lamb",
-                        "player_team_id": "DAL",
-                        "ros_pts": "220.0"
+              "pageProps": {
+                "dehydratedState": {
+                  "queries": [
+                    {
+                      "state": {
+                        "data": {
+                          "players": [
+                            {
+                              "player": {
+                                "name": "Justin Jefferson",
+                                "team": {
+                                  "short_name": "MIN"
+                                }
+                              },
+                              "stats": {
+                                "ros": {
+                                  "proj_pts": "230.5"
+                                }
+                              }
+                            },
+                            {
+                              "player": {
+                                "display_name": "CeeDee Lamb",
+                                "team": {
+                                  "team_name": "DAL"
+                                }
+                              },
+                              "stats": {
+                                "projections": {
+                                  "fpts": "220.0"
+                                }
+                              }
+                            }
+                          ]
+                        }
                       }
-                    ]
-                  }
+                    }
+                  ]
                 }
               }
             }
