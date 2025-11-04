@@ -18,6 +18,50 @@ const STARTER_SLOT_COUNT = {
 
 const EXCLUDED_POSITIONS = new Set(['DEF', 'DST']);
 
+const TEAM_ALIASES = {
+  JAC: 'JAX',
+  JAX: 'JAX',
+  'ARIZONA CARDINALS': 'ARI',
+  'ATLANTA FALCONS': 'ATL',
+  'BALTIMORE RAVENS': 'BAL',
+  'BUFFALO BILLS': 'BUF',
+  'CAROLINA PANTHERS': 'CAR',
+  'CHICAGO BEARS': 'CHI',
+  'CINCINNATI BENGALS': 'CIN',
+  'CLEVELAND BROWNS': 'CLE',
+  'DALLAS COWBOYS': 'DAL',
+  'DENVER BRONCOS': 'DEN',
+  'DETROIT LIONS': 'DET',
+  'GREEN BAY PACKERS': 'GB',
+  'HOUSTON TEXANS': 'HOU',
+  'INDIANAPOLIS COLTS': 'IND',
+  'JACKSONVILLE JAGUARS': 'JAX',
+  'KANSAS CITY CHIEFS': 'KC',
+  'LAS VEGAS RAIDERS': 'LV',
+  'OAKLAND RAIDERS': 'LV',
+  'LOS ANGELES CHARGERS': 'LAC',
+  'SAN DIEGO CHARGERS': 'LAC',
+  'LOS ANGELES RAMS': 'LAR',
+  'ST. LOUIS RAMS': 'LAR',
+  'ST LOUIS RAMS': 'LAR',
+  'MIAMI DOLPHINS': 'MIA',
+  'MINNESOTA VIKINGS': 'MIN',
+  'NEW ENGLAND PATRIOTS': 'NE',
+  'NEW ORLEANS SAINTS': 'NO',
+  'NEW YORK GIANTS': 'NYG',
+  'NEW YORK JETS': 'NYJ',
+  'PHILADELPHIA EAGLES': 'PHI',
+  'PITTSBURGH STEELERS': 'PIT',
+  'SAN FRANCISCO 49ERS': 'SF',
+  'SEATTLE SEAHAWKS': 'SEA',
+  'TAMPA BAY BUCCANEERS': 'TB',
+  'TENNESSEE TITANS': 'TEN',
+  'WASHINGTON COMMANDERS': 'WAS',
+  'WASHINGTON FOOTBALL TEAM': 'WAS',
+  'WASHINGTON REDSKINS': 'WAS',
+  'WASHINGTON': 'WAS'
+};
+
 function getRankVisuals(rank, total) {
   if (!rank || !total) {
     return {
@@ -107,9 +151,9 @@ function normalizeName(name = '') {
 }
 
 function normalizeTeam(team = '') {
-  const upper = team.toUpperCase();
-  if (upper === 'JAC') return 'JAX';
-  return upper;
+  const upper = team.toUpperCase().trim();
+  if (!upper) return '';
+  return TEAM_ALIASES[upper] || upper;
 }
 
 function normalizePosition(position = '') {
@@ -120,6 +164,10 @@ function normalizePosition(position = '') {
 
 function createKey(name, team, position) {
   return `${normalizeName(name)}|${normalizeTeam(team).toLowerCase()}|${normalizePosition(position).toLowerCase()}`;
+}
+
+function createNamePositionKey(name, position) {
+  return `${normalizeName(name)}|${normalizePosition(position).toLowerCase()}`;
 }
 
 function getSortFieldKey(field) {
@@ -229,6 +277,17 @@ const Analytics = ({ onBack }) => {
       const draftedPlayers = rosterRes.draftedPlayers || [];
 
       const playerMap = {};
+      const namePositionIndex = {};
+
+      const registerPlayerKey = (player, key) => {
+        const idxKey = createNamePositionKey(player.name, player.position);
+        if (!namePositionIndex[idxKey]) {
+          namePositionIndex[idxKey] = [];
+        }
+        if (!namePositionIndex[idxKey].includes(key)) {
+          namePositionIndex[idxKey].push(key);
+        }
+      };
 
       // Seed player map with roster data so players show even if ROS data fails
       rosters.forEach(r => {
@@ -236,7 +295,7 @@ const Analytics = ({ onBack }) => {
           const teamVal = normalizeTeam(p.team || '');
           const positionVal = normalizePosition(p.position || '');
           const key = createKey(p.name, teamVal, positionVal);
-          playerMap[key] = {
+          const playerEntry = {
             id: key,
             name: p.name,
             team: teamVal,
@@ -249,6 +308,8 @@ const Analytics = ({ onBack }) => {
             positionLower: positionVal.toLowerCase(),
             managerLower: (r.manager_name || '').toLowerCase()
           };
+          playerMap[key] = playerEntry;
+          registerPlayerKey(playerEntry, key);
         });
       });
 
@@ -262,7 +323,7 @@ const Analytics = ({ onBack }) => {
         if (existing) {
           if (!existing.draftCost) existing.draftCost = cost;
         } else {
-          playerMap[key] = {
+          const playerEntry = {
             id: key,
             name: p.name,
             team: teamVal,
@@ -275,6 +336,8 @@ const Analytics = ({ onBack }) => {
             positionLower: positionVal.toLowerCase(),
             managerLower: ''
           };
+          playerMap[key] = playerEntry;
+          registerPlayerKey(playerEntry, key);
         }
       });
 
@@ -283,21 +346,50 @@ const Analytics = ({ onBack }) => {
         const teamVal = normalizeTeam(p.team || '');
         const positionVal = normalizePosition(p.position || '');
         const key = createKey(p.player_name, teamVal, positionVal);
-        const existing = playerMap[key] || {
-          id: key,
-          name: p.player_name,
-          team: teamVal,
-          position: positionVal,
-          manager: '',
-          draftCost: 0,
-          projPts: 0,
-          nameLower: normalizeName(p.player_name),
-          teamLower: teamVal.toLowerCase(),
-          positionLower: positionVal.toLowerCase(),
-          managerLower: ''
-        };
-        existing.projPts = Number(p.proj_pts) || 0;
-        playerMap[key] = existing;
+        const namePosKey = createNamePositionKey(p.player_name, positionVal);
+
+        let existing = playerMap[key];
+
+        if (!existing) {
+          const candidateKeys = namePositionIndex[namePosKey] || [];
+          for (const candidateKey of candidateKeys) {
+            const candidate = playerMap[candidateKey];
+            if (!candidate) continue;
+            const candidateTeam = candidate.team || '';
+            if (
+              !teamVal ||
+              !candidateTeam ||
+              normalizeTeam(candidateTeam) === normalizeTeam(teamVal)
+            ) {
+              existing = candidate;
+              break;
+            }
+          }
+        }
+
+        if (existing) {
+          if ((!existing.team || !existing.teamLower) && teamVal) {
+            existing.team = teamVal;
+            existing.teamLower = teamVal.toLowerCase();
+          }
+          existing.projPts = Number(p.proj_pts) || 0;
+        } else {
+          const newEntry = {
+            id: key,
+            name: p.player_name,
+            team: teamVal,
+            position: positionVal,
+            manager: '',
+            draftCost: 0,
+            projPts: Number(p.proj_pts) || 0,
+            nameLower: normalizeName(p.player_name),
+            teamLower: teamVal.toLowerCase(),
+            positionLower: positionVal.toLowerCase(),
+            managerLower: ''
+          };
+          playerMap[key] = newEntry;
+          registerPlayerKey(newEntry, key);
+        }
       });
 
       const playersArr = Object.values(playerMap);
