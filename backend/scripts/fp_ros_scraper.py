@@ -6,7 +6,6 @@ Extracts: Player, Team, Position, Proj. Fpts
 
 import argparse
 import json
-import re
 import time
 from datetime import datetime
 
@@ -44,61 +43,216 @@ class FantasyProsScraper:
     # ------------------------------------------------------------------
     def extract_player_data(self, html_content: str, position: str):
         """Extract player data focusing only on the 4 required fields"""
+
+        def _normalize_string(value: str | None) -> str:
+            if value is None:
+                return ""
+            if isinstance(value, (int, float)):
+                return str(value)
+            return value.strip()
+
+        def _to_float(value) -> float | None:
+            if isinstance(value, (int, float)):
+                return float(value)
+            if isinstance(value, str):
+                cleaned = value.replace(",", "").strip()
+                if not cleaned:
+                    return None
+                try:
+                    return float(cleaned)
+                except ValueError:
+                    return None
+            return None
+
+        def _json_candidates(script_tag) -> list[str]:
+            text = script_tag.string or script_tag.text or ""
+            text = text.strip()
+            if not text:
+                return []
+
+            candidates: list[str] = []
+
+            if script_tag.get("type") == "application/json":
+                candidates.append(text)
+                return candidates
+
+            prefixes = [
+                "window.__NUXT__",
+                "window.ecrData",
+                "window.ecrDataProps",
+                "var ecrData",
+                "var data",
+                "var playerData",
+                "var rankingsData",
+                "const ecrData",
+                "const data",
+            ]
+
+            for prefix in prefixes:
+                if prefix in text:
+                    _, candidate = text.split(prefix, 1)
+                    candidate = candidate.split("=", 1)[-1].strip()
+                    if candidate.endswith(";"):
+                        candidate = candidate[:-1]
+                    brace_index = min(
+                        [
+                            idx
+                            for idx in [candidate.find("{"), candidate.find("[")]
+                            if idx != -1
+                        ]
+                        or [-1]
+                    )
+                    if brace_index > 0:
+                        candidate = candidate[brace_index:]
+                    if candidate:
+                        candidates.append(candidate)
+
+            if not candidates and "{" in text and "}" in text:
+                first = text.find("{")
+                last = text.rfind("}")
+                if first != -1 and last != -1 and last > first:
+                    candidates.append(text[first : last + 1])
+
+            return candidates
+
+        def _find_player_lists(data):
+            player_lists: list[list[dict]] = []
+            stack = [data]
+            while stack:
+                current = stack.pop()
+                if isinstance(current, dict):
+                    for key, value in current.items():
+                        if isinstance(key, str) and key.lower() == "players" and isinstance(value, list):
+                            if value and isinstance(value[0], dict):
+                                player_lists.append(value)
+                        if isinstance(value, (dict, list)):
+                            stack.append(value)
+                elif isinstance(current, list):
+                    for item in current:
+                        if isinstance(item, (dict, list)):
+                            stack.append(item)
+            return player_lists
+
+        def _extract_from_players(players: list[dict]):
+            extracted = []
+
+            if players and isinstance(players[0], dict):
+                self.debug_print(f"Found {len(players)} raw player entries")
+                sample_keys = list(players[0].keys())
+                self.debug_print(f"Available fields: {sample_keys}")
+
+            proj_candidates = [
+                "r2p_pts",
+                "ros_pts",
+                "ros_points",
+                "proj_pts",
+                "proj_fpts",
+                "pts",
+                "pts_half",
+                "points",
+                "points_total",
+                "fantasy_points",
+                "fantasy_points_total",
+                "fpts",
+            ]
+
+            team_keys = [
+                "player_team_id",
+                "team",
+                "team_name",
+                "short_name",
+                "player_team",
+                "nfl_team_id",
+            ]
+
+            name_keys = [
+                "player_name",
+                "name",
+                "player",
+                "display_name",
+            ]
+            if position == "DST":
+                name_keys.append("team_name")
+
+            for player in players:
+                if not isinstance(player, dict):
+                    continue
+
+                player_name = ""
+                for key in name_keys:
+                    value = player.get(key)
+                    if isinstance(value, str) and value.strip():
+                        player_name = value.strip()
+                        break
+
+                if not player_name:
+                    continue
+
+                team_value = ""
+                for key in team_keys:
+                    if key in player and player[key]:
+                        team_value = _normalize_string(player.get(key))
+                        break
+                if position == "DST" and not team_value:
+                    team_value = player_name
+
+                proj_value = None
+                for key in proj_candidates:
+                    if key in player:
+                        proj_value = _to_float(player.get(key))
+                        if proj_value is not None:
+                            break
+
+                if proj_value is None:
+                    for key, value in player.items():
+                        if not isinstance(key, str):
+                            continue
+                        lowered = key.lower()
+                        if any(token in lowered for token in ["pts", "points", "proj"]):
+                            proj_value = _to_float(value)
+                            if proj_value is not None:
+                                break
+
+                if proj_value is None:
+                    continue
+
+                extracted.append(
+                    {
+                        "Player": player_name,
+                        "Team": team_value,
+                        "Position": position,
+                        "Proj. Fpts": proj_value,
+                    }
+                )
+
+            if extracted:
+                self.debug_print(
+                    f"Successfully extracted {len(extracted)} players"
+                )
+
+            return extracted
+
         soup = BeautifulSoup(html_content, "html.parser")
-        players_data = []
 
         scripts = soup.find_all("script")
         for script in scripts:
-            script_text = str(script.string) if script.string else str(script)
-            if not script_text or len(script_text.strip()) < 100:
-                continue
+            candidates = _json_candidates(script)
+            for candidate in candidates:
+                cleaned_candidate = candidate.strip().rstrip(";")
+                while cleaned_candidate and cleaned_candidate[-1] not in ("}", "]"):
+                    cleaned_candidate = cleaned_candidate[:-1].rstrip()
+                if not cleaned_candidate:
+                    continue
+                try:
+                    json_data = json.loads(cleaned_candidate)
+                except json.JSONDecodeError as exc:
+                    self.debug_print(f"JSON decode error: {exc}")
+                    continue
 
-            patterns_to_check = [
-                r"var\s+ecrData\s*=\s*({.*?});",
-                r"var\s+data\s*=\s*({.*?});",
-                r"var\s+playerData\s*=\s*({.*?});",
-                r"var\s+rankingsData\s*=\s*({.*?});",
-                r"window\.ecrData\s*=\s*({.*?});",
-                r"const\s+\w+\s*=\s*({.*?\"players\".*?});",
-            ]
-
-            for pattern in patterns_to_check:
-                matches = re.finditer(pattern, script_text, re.DOTALL)
-                for match in matches:
-                    try:
-                        json_str = match.group(1)
-                        data = json.loads(json_str)
-                        if isinstance(data, dict) and "players" in data:
-                            players = data["players"]
-                            self.debug_print(f"Found {len(players)} players in JSON data")
-                            if players and isinstance(players[0], dict):
-                                sample_keys = list(players[0].keys())
-                                self.debug_print(f"Available fields: {sample_keys}")
-
-                            for player in players:
-                                if not isinstance(player, dict):
-                                    continue
-                                player_name = player.get("player_name", "").strip()
-                                team_id = player.get("player_team_id", "").strip()
-                                proj_fpts = player.get("r2p_pts", "").strip()
-                                if player_name and proj_fpts:
-                                    players_data.append(
-                                        {
-                                            "Player": player_name,
-                                            "Team": team_id,
-                                            "Position": position,
-                                            "Proj. Fpts": proj_fpts,
-                                        }
-                                    )
-
-                            if players_data:
-                                self.debug_print(
-                                    f"Successfully extracted {len(players_data)} players"
-                                )
-                                return players_data
-                    except json.JSONDecodeError as e:
-                        self.debug_print(f"JSON decode error: {e}")
-                        continue
+                for players in _find_player_lists(json_data):
+                    extracted = _extract_from_players(players)
+                    if extracted:
+                        return extracted
 
         self.debug_print("No player data found in JSON")
         return []
@@ -117,8 +271,13 @@ class FantasyProsScraper:
             players_data = self.extract_player_data(response.text, position)
             if players_data:
                 df = pd.DataFrame(players_data)
-                df = df[df["Player"].str.strip() != ""]
-                df = df[df["Proj. Fpts"].str.strip() != ""]
+                df["Player"] = df["Player"].astype(str).str.strip()
+                df = df[df["Player"] != ""]
+                df["Team"] = df["Team"].fillna("").astype(str).str.strip()
+                df["Proj. Fpts"] = pd.to_numeric(
+                    df["Proj. Fpts"], errors="coerce"
+                )
+                df = df.dropna(subset=["Proj. Fpts"])
                 df = df.drop_duplicates(subset=["Player"], keep="first")
                 if self.debug:
                     print(f"✅ Successfully scraped {len(df)} {position} players")
