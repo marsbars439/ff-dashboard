@@ -14,7 +14,9 @@ async function scrapeRosRankings() {
       }
       try {
         const data = JSON.parse(stdout.toString());
-        resolve(data);
+        const players = Array.isArray(data.players) ? data.players : [];
+        const failed = Array.isArray(data.failed) ? data.failed : [];
+        resolve({ players, failed });
       } catch (parseErr) {
         console.error('Failed to parse ROS scraper output:', parseErr);
         reject(parseErr);
