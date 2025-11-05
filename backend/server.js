@@ -194,11 +194,15 @@ const refreshCachedPreview = async () => {
 
 const refreshRosRankings = async () => {
   try {
-    const { players, failed } = await fantasyProsService.scrapeRosRankings();
+    const { players = [], failed = [] } = await fantasyProsService.scrapeRosRankings();
+
     if (!players.length) {
       console.warn('No ROS rankings retrieved.');
-      return;
+      const error = new Error('No ROS rankings retrieved.');
+      error.failed = failed;
+      throw error;
     }
+
     await runAsync('DELETE FROM ros_rankings');
     const stmt = db.prepare(
       'INSERT INTO ros_rankings (player_name, team, position, proj_pts, sos_season, sos_playoffs) VALUES (?, ?, ?, ?, ?, ?)'
@@ -208,11 +212,20 @@ const refreshRosRankings = async () => {
     });
     stmt.finalize();
     console.log(`Updated ROS rankings: ${players.length} players`);
+
     if (failed.length) {
       console.warn(`Failed to fetch rankings for: ${failed.join(', ')}`);
     }
+
+    return { updated: players.length, failed };
   } catch (err) {
+    const failureDetails = Array.isArray(err?.failed) ? err.failed : [];
     console.error('Failed to refresh ROS rankings:', err.message);
+    if (failureDetails.length) {
+      console.error(`Failure details: ${failureDetails.join(', ')}`);
+    }
+    err.failed = failureDetails;
+    throw err;
   }
 };
 
@@ -410,10 +423,11 @@ app.get('/api/ros-rankings', async (req, res) => {
 
 app.post('/api/ros-rankings/refresh', async (req, res) => {
   try {
-    await refreshRosRankings();
-    res.json({ status: 'ok' });
+    const result = await refreshRosRankings();
+    res.json({ status: 'ok', ...result });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    const failureDetails = Array.isArray(err?.failed) ? err.failed : [];
+    res.status(500).json({ error: err.message, failed: failureDetails });
   }
 });
 

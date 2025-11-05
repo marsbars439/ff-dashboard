@@ -412,15 +412,47 @@ const Analytics = ({ onBack }) => {
     setRefreshMessage('Requesting ROS data refresh...');
     try {
       const res = await fetch(`${API_BASE_URL}/ros-rankings/refresh`, { method: 'POST' });
-      if (!res.ok) {
-        throw new Error('Refresh request failed');
+      const text = await res.text();
+      let payload = null;
+      try {
+        payload = text ? JSON.parse(text) : null;
+      } catch (parseErr) {
+        console.warn('Failed to parse refresh response as JSON:', parseErr);
       }
+
+      if (!res.ok) {
+        const failed = Array.isArray(payload?.failed) ? payload.failed : [];
+        const message =
+          (payload && typeof payload.error === 'string' && payload.error) ||
+          text ||
+          'Failed to refresh ROS data.';
+        const error = new Error(message);
+        error.failed = failed;
+        throw error;
+      }
+
       setRefreshMessage('Loading updated data...');
       const success = await loadData();
-      setRefreshMessage(success ? 'ROS data refreshed successfully.' : 'Failed to load ROS data.');
+      if (!success) {
+        setRefreshMessage('Failed to load ROS data.');
+        return;
+      }
+
+      const failed = Array.isArray(payload?.failed) ? payload.failed : [];
+      if (failed.length) {
+        setRefreshMessage(`ROS data refreshed with issues: ${failed.join('; ')}`);
+      } else {
+        setRefreshMessage('ROS data refreshed successfully.');
+      }
     } catch (e) {
       console.error('Failed to refresh ROS data:', e);
-      setRefreshMessage('Failed to refresh ROS data.');
+      const failed = Array.isArray(e?.failed) ? e.failed : [];
+      const detailSuffix = failed.length ? ` (${failed.join('; ')})` : '';
+      const baseMessage =
+        e && typeof e.message === 'string' && e.message
+          ? e.message
+          : 'Failed to refresh ROS data.';
+      setRefreshMessage(`${baseMessage}${detailSuffix}`);
     } finally {
       setRefreshing(false);
     }

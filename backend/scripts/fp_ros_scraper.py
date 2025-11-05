@@ -13,11 +13,25 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
+try:
+    import brotli  # type: ignore  # noqa: F401
+
+    _HAS_BROTLI = True
+except ImportError:  # pragma: no cover - optional dependency hint
+    _HAS_BROTLI = False
+
 
 class FantasyProsScraper:
     """Simple scraper for FantasyPros Rest of Season Rankings"""
 
     def __init__(self, debug: bool = True):
+        self.debug = debug
+        self.failures: list[str] = []
+
+        encoding_values = ["gzip", "deflate"]
+        if _HAS_BROTLI:
+            encoding_values.append("br")
+
         self.headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -26,19 +40,31 @@ class FantasyProsScraper:
             ),
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": ", ".join(encoding_values),
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
         }
         self.session = requests.Session()
         self.session.headers.update(self.headers)
-        self.debug = debug
+
+        if not _HAS_BROTLI:
+            self.debug_print(
+                "Brotli module not available; requesting gzip/deflate responses"
+            )
 
     # ------------------------------------------------------------------
     def debug_print(self, message: str) -> None:
         """Print debug messages if debug mode is enabled"""
         if self.debug:
             print(f"DEBUG: {message}")
+
+    # ------------------------------------------------------------------
+    def record_failure(self, position: str, reason: str) -> None:
+        """Record a scraping failure for later reporting"""
+        message = f"{position}: {reason}"
+        self.failures.append(message)
+        if self.debug:
+            print(f"❌ {message}")
 
     # ------------------------------------------------------------------
     def extract_player_data(self, html_content: str, position: str):
@@ -393,17 +419,16 @@ class FantasyProsScraper:
                     print(df.head().to_string(index=False))
                 return df
             else:
-                if self.debug:
-                    print(f"❌ No data found for {position}")
+                self.record_failure(position, "No player data found")
                 return pd.DataFrame()
         except Exception as e:
-            if self.debug:
-                print(f"❌ Error fetching {position}: {str(e)}")
+            self.record_failure(position, str(e))
             return pd.DataFrame()
 
     # ------------------------------------------------------------------
     def scrape_all_rankings(self) -> pd.DataFrame:
         """Scrape all position rankings"""
+        self.failures = []
         urls_config = [
             {"url": "https://www.fantasypros.com/nfl/rankings/ros-qb.php", "position": "QB"},
             {"url": "https://www.fantasypros.com/nfl/rankings/ros-half-point-ppr-rb.php", "position": "RB"},
@@ -482,11 +507,17 @@ def main() -> tuple[pd.DataFrame | None, str | None]:
     scraper = FantasyProsScraper(debug=not args.json)
     df = scraper.scrape_all_rankings()
 
+    failures = scraper.failures
+
     if df.empty:
         if args.json:
-            print(json.dumps({"players": [], "failed": []}))
+            print(json.dumps({"players": [], "failed": failures}))
         else:
             print("\n❌ Failed to scrape any data")
+            if failures:
+                print("Reasons:")
+                for failure in failures:
+                    print(f"   - {failure}")
         return None, None
 
     filename = None
@@ -507,8 +538,13 @@ def main() -> tuple[pd.DataFrame | None, str | None]:
                 "Proj. Fpts": "proj_pts",
             }
         ).to_dict(orient="records")
-        payload = {"players": records, "failed": []}
+        payload = {"players": records, "failed": failures}
         print(json.dumps(payload))
+
+    if not args.json and failures:
+        print("\n⚠️ Issues encountered during scraping:")
+        for failure in failures:
+            print(f"   - {failure}")
 
     return df, filename
 
