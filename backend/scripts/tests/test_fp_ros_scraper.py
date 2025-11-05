@@ -51,6 +51,23 @@ class FantasyProsScraperTest(unittest.TestCase):
         self.assertEqual(second["Position"], "WR")
         self.assertAlmostEqual(second["Proj. Fpts"], 140.7)
 
+    def test_extract_wr_players_from_iife_assignment(self):
+        html = self._load_fixture("ros_wr_iife_fixture.html")
+        players = self.scraper.extract_player_data(html, "WR")
+        self.assertEqual(2, len(players))
+
+        first = players[0]
+        self.assertEqual(first["Player"], "Amon-Ra St. Brown")
+        self.assertEqual(first["Team"], "DET")
+        self.assertEqual(first["Position"], "WR")
+        self.assertAlmostEqual(first["Proj. Fpts"], 210.2)
+
+        second = players[1]
+        self.assertEqual(second["Player"], "Jaylen Waddle")
+        self.assertEqual(second["Team"], "MIA")
+        self.assertEqual(second["Position"], "WR")
+        self.assertAlmostEqual(second["Proj. Fpts"], 198.6)
+
     def test_extract_dst_entries_uses_team_name_when_missing_team(self):
         html = self._load_fixture("ros_dst_fixture.html")
         players = self.scraper.extract_player_data(html, "DST")
