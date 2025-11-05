@@ -98,8 +98,90 @@ class FantasyProsScraper:
 
             candidates: list[str] = []
 
+            def _balanced_json_fragment(segment: str) -> str | None:
+                if not segment:
+                    return None
+
+                opening = segment[0]
+                if opening not in "[{":
+                    return None
+
+                closing = "}" if opening == "{" else "]"
+                depth = 0
+                in_string = False
+                escape = False
+
+                for index, char in enumerate(segment):
+                    if in_string:
+                        if escape:
+                            escape = False
+                        elif char == "\\":
+                            escape = True
+                        elif char == "\"":
+                            in_string = False
+                        continue
+
+                    if char == "\"":
+                        in_string = True
+                        continue
+
+                    if char == opening:
+                        depth += 1
+                    elif char == closing:
+                        depth -= 1
+                        if depth == 0:
+                            return segment[: index + 1]
+
+                return None
+
+            def _normalize_json_candidate(raw: str) -> str | None:
+                raw = raw.strip()
+                if not raw:
+                    return None
+
+                raw = raw.rstrip(";").strip()
+                if not raw:
+                    return None
+
+                if raw[0] in "[{":
+                    fragment = _balanced_json_fragment(raw)
+                    if fragment:
+                        return fragment
+
+                lowered = raw.lower()
+                if "function" in lowered and "return" in lowered:
+                    return_index = lowered.rfind("return")
+                    if return_index != -1:
+                        after_return = raw[return_index + len("return") :].strip()
+                        while after_return.startswith("("):
+                            after_return = after_return[1:].lstrip()
+                        if after_return and after_return[0] in "[{":
+                            fragment = _balanced_json_fragment(after_return)
+                            if fragment:
+                                return fragment
+
+                brace_index = min(
+                    [
+                        idx
+                        for idx in [raw.find("{"), raw.find("[")]
+                        if idx != -1
+                    ]
+                    or [-1]
+                )
+                if brace_index >= 0:
+                    fragment = _balanced_json_fragment(raw[brace_index:])
+                    if fragment:
+                        return fragment
+
+                return None
+
+            def _add_candidate(raw: str) -> None:
+                normalized = _normalize_json_candidate(raw)
+                if normalized:
+                    candidates.append(normalized)
+
             if script_tag.get("type") == "application/json":
-                candidates.append(text)
+                _add_candidate(text)
                 return candidates
 
             prefixes = [
@@ -117,27 +199,14 @@ class FantasyProsScraper:
             for prefix in prefixes:
                 if prefix in text:
                     _, candidate = text.split(prefix, 1)
-                    candidate = candidate.split("=", 1)[-1].strip()
-                    if candidate.endswith(";"):
-                        candidate = candidate[:-1]
-                    brace_index = min(
-                        [
-                            idx
-                            for idx in [candidate.find("{"), candidate.find("[")]
-                            if idx != -1
-                        ]
-                        or [-1]
-                    )
-                    if brace_index > 0:
-                        candidate = candidate[brace_index:]
-                    if candidate:
-                        candidates.append(candidate)
+                    candidate = candidate.split("=", 1)[-1]
+                    _add_candidate(candidate)
 
             if not candidates and "{" in text and "}" in text:
                 first = text.find("{")
                 last = text.rfind("}")
                 if first != -1 and last != -1 and last > first:
-                    candidates.append(text[first : last + 1])
+                    _add_candidate(text[first : last + 1])
 
             return candidates
 
@@ -373,6 +442,8 @@ class FantasyProsScraper:
                 while cleaned_candidate and cleaned_candidate[-1] not in ("}", "]"):
                     cleaned_candidate = cleaned_candidate[:-1].rstrip()
                 if not cleaned_candidate:
+                    continue
+                if cleaned_candidate[0] not in ("{", "["):
                     continue
                 try:
                     json_data = json.loads(cleaned_candidate)
