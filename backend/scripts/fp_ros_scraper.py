@@ -209,6 +209,41 @@ class FantasyProsScraper:
             if position == "DST":
                 name_keys.append("team_name")
 
+            def _resolve_candidate(value, validator, seen: set[int] | None = None):
+                if seen is None:
+                    seen = set()
+
+                if isinstance(value, (dict, list)):
+                    obj_id = id(value)
+                    if obj_id in seen:
+                        return None
+                    seen.add(obj_id)
+
+                direct = validator(value)
+                if direct is not None:
+                    return direct
+
+                if isinstance(value, dict):
+                    prioritized_keys = ["value", "raw"]
+                    for key in prioritized_keys:
+                        if key in value:
+                            result = _resolve_candidate(value[key], validator, seen)
+                            if result is not None:
+                                return result
+                    for key, child in value.items():
+                        if key in prioritized_keys:
+                            continue
+                        result = _resolve_candidate(child, validator, seen)
+                        if result is not None:
+                            return result
+                elif isinstance(value, list):
+                    for item in value:
+                        result = _resolve_candidate(item, validator, seen)
+                        if result is not None:
+                            return result
+
+                return None
+
             def _search_nested_value(data, tokens: list[str], validator):
                 stack: list[object] = [data]
                 while stack:
@@ -218,7 +253,7 @@ class FantasyProsScraper:
                             if isinstance(key, str):
                                 lowered = key.lower()
                                 if any(token in lowered for token in tokens):
-                                    candidate = validator(value)
+                                    candidate = _resolve_candidate(value, validator)
                                     if candidate is not None:
                                         return candidate
                             if isinstance(value, (dict, list)):
@@ -250,7 +285,7 @@ class FantasyProsScraper:
             def _get_projection_value(data: dict, keys: list[str]) -> float | None:
                 for key in keys:
                     if key in data:
-                        proj_value = _to_float(data.get(key))
+                        proj_value = _resolve_candidate(data.get(key), _to_float)
                         if proj_value is not None:
                             return proj_value
 
