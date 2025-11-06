@@ -2138,13 +2138,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         <div className="text-center max-w-md w-full">
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             <p className="font-bold">Error</p>
-            <p className="text-sm">{error}</p>
-            <button
-              onClick={fetchData}
-              className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm"
-            >
-              Retry
-            </button>
+            <p className="text-sm">Dashboard is initializing, please wait a minute and refresh the page.</p>
           </div>
         </div>
       </div>
