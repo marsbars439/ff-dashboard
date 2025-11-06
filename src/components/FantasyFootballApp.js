@@ -31,8 +31,25 @@ import Analytics from './Analytics';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
 
+const VALID_TABS = new Set(['records', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
+
 const FantasyFootballApp = () => {
-  const [activeTab, setActiveTab] = useState('records');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 'records';
+    }
+
+    try {
+      const storedTab = window.localStorage?.getItem('ff-dashboard-active-tab');
+      if (storedTab && VALID_TABS.has(storedTab)) {
+        return storedTab;
+      }
+    } catch (error) {
+      console.warn('Unable to read stored active tab:', error);
+    }
+
+    return 'records';
+  });
   const [selectedManager, setSelectedManager] = useState('');
   const [managers, setManagers] = useState([]);
   const [teamSeasons, setTeamSeasons] = useState([]);
@@ -55,6 +72,9 @@ const FantasyFootballApp = () => {
   const [manualTrades, setManualTrades] = useState([]);
   const [newTrade, setNewTrade] = useState({ from: '', to: '', amount: '', note: '' });
   const [keeperSummaryView, setKeeperSummaryView] = useState('keepers');
+  const updateActiveTab = tab => {
+    setActiveTab(VALID_TABS.has(tab) ? tab : 'records');
+  };
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
   const [seasonDataPage, setSeasonDataPage] = useState(0);
   const [activeWeekMatchups, setActiveWeekMatchups] = useState(null);
@@ -73,6 +93,27 @@ const FantasyFootballApp = () => {
       seasons.every(s => (s.wins + s.losses + (s.ties || 0)) === 14)
     );
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (!VALID_TABS.has(activeTab)) {
+      try {
+        window.localStorage?.removeItem('ff-dashboard-active-tab');
+      } catch (error) {
+        console.warn('Unable to remove stored active tab:', error);
+      }
+      return;
+    }
+
+    try {
+      window.localStorage?.setItem('ff-dashboard-active-tab', activeTab);
+    } catch (error) {
+      console.warn('Unable to store active tab:', error);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     fetchData();
@@ -2141,7 +2182,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
             </div>
             <nav className="flex flex-wrap justify-center sm:justify-end items-center space-x-3 sm:space-x-6">
               <button
-                onClick={() => setActiveTab('records')}
+                onClick={() => updateActiveTab('records')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'records'
                     ? 'bg-blue-100 text-blue-700'
@@ -2151,7 +2192,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 Hall of Records
               </button>
               <button
-                onClick={() => setActiveTab('seasons')}
+                onClick={() => updateActiveTab('seasons')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'seasons'
                     ? 'bg-blue-100 text-blue-700'
@@ -2161,7 +2202,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 Seasons
               </button>
               <button
-                onClick={() => setActiveTab('preseason')}
+                onClick={() => updateActiveTab('preseason')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'preseason'
                     ? 'bg-blue-100 text-blue-700'
@@ -2171,7 +2212,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 Preseason
               </button>
               <button
-                onClick={() => setActiveTab('rules')}
+                onClick={() => updateActiveTab('rules')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'rules'
                     ? 'bg-blue-100 text-blue-700'
@@ -2181,7 +2222,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 Rules
               </button>
               <button
-                onClick={() => setActiveTab('admin')}
+                onClick={() => updateActiveTab('admin')}
                 className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'admin' || activeTab === 'analytics'
                     ? 'bg-blue-100 text-blue-700'
@@ -2997,7 +3038,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
           <div className="space-y-6 sm:space-y-8">
             <div className="flex justify-end">
               <button
-                onClick={() => setActiveTab('analytics')}
+                onClick={() => updateActiveTab('analytics')}
                 className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
               >
                 <BarChart3 className="w-4 h-4 mr-1" /> Analytics
@@ -3350,7 +3391,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         )}
 
         {activeTab === 'analytics' && (
-          <Analytics onBack={() => setActiveTab('admin')} />
+          <Analytics onBack={() => updateActiveTab('admin')} />
         )}
       </div>
     </div>
