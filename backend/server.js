@@ -266,6 +266,16 @@ const isManagerTokenValid = (managerId, token) => {
   return true;
 };
 
+const createPasscodeHash = (passcode) => {
+  if (typeof passcode !== 'string' || !passcode) {
+    throw new Error('Passcode must be a non-empty string');
+  }
+
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = crypto.scryptSync(passcode, salt, 64);
+  return `${salt}:${derived.toString('hex')}`;
+};
+
 const verifyPasscodeHash = (passcode, storedHash) => {
   if (typeof passcode !== 'string' || typeof storedHash !== 'string') {
     return false;
@@ -715,6 +725,39 @@ app.post('/api/manager-auth/login', async (req, res) => {
   } catch (error) {
     console.error('Error authenticating manager:', error);
     res.status(500).json({ error: 'Failed to authenticate manager' });
+  }
+});
+
+app.post('/api/manager-auth/passcode', async (req, res) => {
+  const { managerId, passcode } = req.body || {};
+  const normalizedManagerId = typeof managerId === 'string' ? managerId.trim() : '';
+  const normalizedPasscode = typeof passcode === 'string' ? passcode : '';
+
+  if (!normalizedManagerId || !normalizedPasscode) {
+    return res.status(400).json({ error: 'Manager ID and passcode are required' });
+  }
+
+  try {
+    const managerRow = await getAsync('SELECT name_id, full_name FROM managers WHERE name_id = ?', [normalizedManagerId]);
+
+    if (!managerRow) {
+      return res.status(404).json({ error: 'Manager not found' });
+    }
+
+    const passcodeHash = createPasscodeHash(normalizedPasscode);
+    await runAsync(
+      `INSERT INTO manager_credentials (manager_id, passcode_hash, created_at, updated_at)
+       VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT(manager_id) DO UPDATE SET
+         passcode_hash = excluded.passcode_hash,
+         updated_at = CURRENT_TIMESTAMP`,
+      [managerRow.name_id, passcodeHash]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to set manager passcode:', error);
+    res.status(500).json({ error: 'Failed to set manager passcode' });
   }
 });
 
