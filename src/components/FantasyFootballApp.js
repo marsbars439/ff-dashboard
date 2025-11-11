@@ -19,6 +19,8 @@ import {
   Trash2,
   ChevronDown,
   Gavel,
+  Loader2,
+  ShieldCheck,
 
 } from 'lucide-react';
 import SleeperAdmin from './SleeperAdmin';
@@ -33,6 +35,7 @@ import RuleChangeAdmin from './RuleChangeAdmin';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
+const MANAGER_AUTH_STORAGE_KEY = 'ff-dashboard-manager-auth';
 
 const VALID_TABS = new Set(['records', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
 
@@ -80,8 +83,17 @@ const FantasyFootballApp = () => {
   const [ruleChangeError, setRuleChangeError] = useState(null);
   const [ruleChangeUserVotes, setRuleChangeUserVotes] = useState({});
   const [ruleChangeVoteStatus, setRuleChangeVoteStatus] = useState({});
-  const [voterIdReady, setVoterIdReady] = useState(false);
-  const voterIdRef = useRef(null);
+  const [managerAuth, setManagerAuth] = useState({
+    managerId: '',
+    managerName: '',
+    token: '',
+    expiresAt: null,
+    status: 'unauthenticated'
+  });
+  const [managerAuthSelection, setManagerAuthSelection] = useState('');
+  const [managerAuthPasscode, setManagerAuthPasscode] = useState('');
+  const [managerAuthError, setManagerAuthError] = useState(null);
+  const [managerAuthLoading, setManagerAuthLoading] = useState(false);
   const updateActiveTab = tab => {
     setActiveTab(VALID_TABS.has(tab) ? tab : 'records');
   };
@@ -103,6 +115,24 @@ const FantasyFootballApp = () => {
       seasons.every(s => (s.wins + s.losses + (s.ties || 0)) === 14)
     );
   };
+
+  const managerOptions = useMemo(() => {
+    if (!Array.isArray(managers)) {
+      return [];
+    }
+
+    return managers
+      .map(manager => ({
+        id: manager?.name_id || '',
+        name:
+          manager?.full_name ||
+          manager?.manager_name ||
+          manager?.name ||
+          manager?.name_id || ''
+      }))
+      .filter(option => option.id && option.name)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [managers]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -132,38 +162,137 @@ const FantasyFootballApp = () => {
     document.title = 'The League Dashboard';
   }, []);
 
-  useEffect(() => {
+  const persistManagerAuth = useCallback((payload) => {
     if (typeof window === 'undefined') {
-      voterIdRef.current = `server-${Date.now()}`;
-      setVoterIdReady(true);
       return;
     }
 
-    let storedId = null;
+    try {
+      if (payload) {
+        window.localStorage?.setItem(MANAGER_AUTH_STORAGE_KEY, JSON.stringify(payload));
+      } else {
+        window.localStorage?.removeItem(MANAGER_AUTH_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.warn('Unable to update stored manager authentication:', error);
+    }
+  }, []);
+
+  const clearManagerAuth = useCallback(
+    (message = null) => {
+      setManagerAuth({
+        managerId: '',
+        managerName: '',
+        token: '',
+        expiresAt: null,
+        status: 'unauthenticated'
+      });
+      setManagerAuthSelection('');
+      setManagerAuthPasscode('');
+      setRuleChangeProposals([]);
+      setRuleChangeUserVotes({});
+      setManagerAuthLoading(false);
+
+      if (typeof message === 'string') {
+        setManagerAuthError(message);
+        setRuleChangeError(message);
+      } else {
+        setManagerAuthError(null);
+      }
+
+      persistManagerAuth(null);
+    },
+    [persistManagerAuth]
+  );
+
+  const parseJsonResponse = useCallback(async (response) => {
+    const text = await response.text();
+    if (!text) {
+      return {};
+    }
 
     try {
-      storedId = window.localStorage?.getItem('ff-dashboard-voter-id');
+      return JSON.parse(text);
     } catch (error) {
-      console.warn('Unable to read stored voter ID:', error);
+      console.warn('Unable to parse JSON response:', error);
+      return {};
     }
-
-    if (!storedId) {
-      const generatedId =
-        window.crypto?.randomUUID?.() ||
-        `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-      storedId = generatedId;
-
-      try {
-        window.localStorage?.setItem('ff-dashboard-voter-id', storedId);
-      } catch (error) {
-        console.warn('Unable to persist voter ID:', error);
-      }
-    }
-
-    voterIdRef.current = storedId;
-    setVoterIdReady(true);
   }, []);
+
+  const validateManagerToken = useCallback(
+    async (managerId, token) => {
+      if (!managerId || !token) {
+        clearManagerAuth();
+        return;
+      }
+
+      setManagerAuthLoading(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/manager-auth/validate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ managerId, token })
+        });
+
+        const data = await parseJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(data?.error || 'Manager token validation failed');
+        }
+
+        const normalizedAuth = {
+          managerId: data.managerId || managerId,
+          managerName: data.managerName || '',
+          token,
+          expiresAt: data.expiresAt || null,
+          status: 'authenticated'
+        };
+
+        setManagerAuth(normalizedAuth);
+        setManagerAuthSelection(normalizedAuth.managerId);
+        setManagerAuthError(null);
+        persistManagerAuth({
+          managerId: normalizedAuth.managerId,
+          managerName: normalizedAuth.managerName,
+          token: normalizedAuth.token,
+          expiresAt: normalizedAuth.expiresAt
+        });
+      } catch (error) {
+        console.warn('Manager token validation failed:', error);
+        clearManagerAuth('Your manager session has expired. Please sign in again.');
+      } finally {
+        setManagerAuthLoading(false);
+      }
+    },
+    [API_BASE_URL, clearManagerAuth, parseJsonResponse, persistManagerAuth]
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    let storedAuth = null;
+
+    try {
+      const raw = window.localStorage?.getItem(MANAGER_AUTH_STORAGE_KEY);
+      storedAuth = raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      console.warn('Unable to read stored manager authentication:', error);
+    }
+
+    if (storedAuth?.managerId && storedAuth?.token) {
+      setManagerAuth(prev => ({
+        ...prev,
+        managerId: storedAuth.managerId,
+        managerName: storedAuth.managerName || '',
+        token: storedAuth.token,
+        expiresAt: storedAuth.expiresAt || null,
+        status: 'pending'
+      }));
+      setManagerAuthSelection(storedAuth.managerId);
+      validateManagerToken(storedAuth.managerId, storedAuth.token);
+    }
+  }, [validateManagerToken]);
 
   useEffect(() => {
     if (teamSeasons.length > 0 && !selectedSeasonYear) {
@@ -278,6 +407,19 @@ const FantasyFootballApp = () => {
         return;
       }
 
+      if (
+        managerAuth.status !== 'authenticated' ||
+        !managerAuth.managerId ||
+        !managerAuth.token
+      ) {
+        if (!silent) {
+          setRuleChangeProposals([]);
+          setRuleChangeUserVotes({});
+          setRuleChangeError('Please verify your manager identity to view proposals.');
+        }
+        return;
+      }
+
       if (!silent) {
         setRuleChangeLoading(true);
       }
@@ -285,17 +427,24 @@ const FantasyFootballApp = () => {
 
       try {
         const params = new URLSearchParams({ season_year: year.toString() });
-        if (voterIdRef.current) {
-          params.append('voter_id', voterIdRef.current);
+        const response = await fetch(`${API_BASE_URL}/rule-changes?${params.toString()}`, {
+          headers: {
+            'X-Manager-Id': managerAuth.managerId,
+            'X-Manager-Token': managerAuth.token
+          }
+        });
+
+        const data = await parseJsonResponse(response);
+
+        if (response.status === 401) {
+          clearManagerAuth('Your manager session has expired. Please sign in again.');
+          throw new Error(data?.error || 'Authentication required to access rule change proposals.');
         }
 
-        const response = await fetch(`${API_BASE_URL}/rule-changes?${params.toString()}`);
         if (!response.ok) {
-          const message = await response.text();
-          throw new Error(message || 'Failed to fetch rule change proposals');
+          throw new Error(data?.error || 'Failed to fetch rule change proposals');
         }
 
-        const data = await response.json();
         const proposals = Array.isArray(data.proposals) ? data.proposals : [];
         setRuleChangeProposals(proposals);
         const voteMap = proposals.reduce((acc, proposal) => {
@@ -318,23 +467,30 @@ const FantasyFootballApp = () => {
         }
       }
     },
-    [API_BASE_URL]
+    [
+      API_BASE_URL,
+      managerAuth.managerId,
+      managerAuth.status,
+      managerAuth.token,
+      clearManagerAuth,
+      parseJsonResponse
+    ]
   );
 
   useEffect(() => {
-    if (selectedKeeperYear) {
+    if (!selectedKeeperYear) {
+      setRuleChangeProposals([]);
+      setRuleChangeUserVotes({});
+      return;
+    }
+
+    if (managerAuth.status === 'authenticated') {
       fetchRuleChangeProposals(selectedKeeperYear);
-    } else {
+    } else if (managerAuth.status === 'unauthenticated') {
       setRuleChangeProposals([]);
       setRuleChangeUserVotes({});
     }
-  }, [selectedKeeperYear, fetchRuleChangeProposals]);
-
-  useEffect(() => {
-    if (voterIdReady && selectedKeeperYear) {
-      fetchRuleChangeProposals(selectedKeeperYear, { silent: true });
-    }
-  }, [voterIdReady, selectedKeeperYear, fetchRuleChangeProposals]);
+  }, [selectedKeeperYear, managerAuth.status, fetchRuleChangeProposals]);
 
   useEffect(() => {
     setSeasonDataPage(0);
@@ -463,20 +619,6 @@ const FantasyFootballApp = () => {
     }
   };
 
-  const parseJsonResponse = async (response) => {
-    const text = await response.text();
-    if (!text) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      console.warn('Unable to parse JSON response:', error);
-      return {};
-    }
-  };
-
   const handleRuleChangeVote = async (proposalId, optionValue) => {
     if (!proposalId || !optionValue) {
       return;
@@ -487,8 +629,12 @@ const FantasyFootballApp = () => {
       return;
     }
 
-    if (!voterIdRef.current) {
-      console.warn('Unable to submit vote without voter identification.');
+    if (
+      managerAuth.status !== 'authenticated' ||
+      !managerAuth.managerId ||
+      !managerAuth.token
+    ) {
+      setRuleChangeError('Please verify your manager identity before voting.');
       return;
     }
 
@@ -498,11 +644,21 @@ const FantasyFootballApp = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/rule-changes/${proposalId}/vote`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ option: trimmedOption, voterId: voterIdRef.current })
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Manager-Id': managerAuth.managerId,
+          'X-Manager-Token': managerAuth.token
+        },
+        body: JSON.stringify({ option: trimmedOption })
       });
 
       const data = await parseJsonResponse(response);
+
+      if (response.status === 401) {
+        clearManagerAuth('Your manager session has expired. Please sign in again.');
+        throw new Error(data?.error || 'Authentication required to record vote.');
+      }
+
       if (!response.ok) {
         throw new Error(data?.error || 'Failed to record vote');
       }
@@ -529,6 +685,67 @@ const FantasyFootballApp = () => {
         return rest;
       });
     }
+  };
+
+  const handleManagerLogin = async (event) => {
+    event.preventDefault();
+
+    if (!managerAuthSelection || !managerAuthPasscode) {
+      setManagerAuthError('Select your manager name and enter your passcode.');
+      return;
+    }
+
+    setManagerAuthLoading(true);
+    setManagerAuthError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/manager-auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ managerId: managerAuthSelection, passcode: managerAuthPasscode })
+      });
+
+      const data = await parseJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to verify manager credentials');
+      }
+
+      const normalizedAuth = {
+        managerId: data.managerId,
+        managerName: data.managerName || '',
+        token: data.token,
+        expiresAt: data.expiresAt || null,
+        status: 'authenticated'
+      };
+
+      setManagerAuth(normalizedAuth);
+      setManagerAuthSelection(normalizedAuth.managerId);
+      setManagerAuthPasscode('');
+      setManagerAuthError(null);
+      persistManagerAuth({
+        managerId: normalizedAuth.managerId,
+        managerName: normalizedAuth.managerName,
+        token: normalizedAuth.token,
+        expiresAt: normalizedAuth.expiresAt
+      });
+
+      if (selectedKeeperYear) {
+        await fetchRuleChangeProposals(selectedKeeperYear);
+      }
+    } catch (error) {
+      console.error('Manager authentication failed:', error);
+      const previousSelection = managerAuthSelection;
+      clearManagerAuth();
+      setManagerAuthSelection(previousSelection);
+      setManagerAuthError(error.message || 'Failed to verify manager credentials');
+    } finally {
+      setManagerAuthLoading(false);
+    }
+  };
+
+  const handleManagerLogout = () => {
+    clearManagerAuth('Please verify your manager identity to view proposals.');
   };
 
   const createRuleChangeProposal = async ({ seasonYear, title, description, options }) => {
@@ -2711,6 +2928,83 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 ))}
               </select>
             </div>
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-blue-50 p-2 text-blue-600">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">Manager Verification</h3>
+                    <p className="text-sm text-gray-600">
+                      Authenticate as a league manager to view proposals and submit preseason votes.
+                    </p>
+                  </div>
+                </div>
+                {managerAuth.status === 'authenticated' ? (
+                  <div className="flex flex-col sm:items-end gap-2">
+                    <div className="text-sm text-gray-700">
+                      Verified as{' '}
+                      <span className="font-semibold">
+                        {managerAuth.managerName || managerAuth.managerId}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleManagerLogout}
+                      className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                ) : managerAuth.status === 'pending' ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Verifying stored manager session...</span>
+                  </div>
+                ) : (
+                  <form className="w-full sm:w-auto flex-1" onSubmit={handleManagerLogin}>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-[2fr,2fr,auto]">
+                      <select
+                        value={managerAuthSelection}
+                        onChange={e => setManagerAuthSelection(e.target.value)}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                        required
+                      >
+                        <option value="">Select manager</option>
+                        {managerOptions.map(option => (
+                          <option key={option.id} value={option.id}>
+                            {option.name}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="password"
+                        value={managerAuthPasscode}
+                        onChange={e => setManagerAuthPasscode(e.target.value)}
+                        placeholder="Manager passcode"
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={managerAuthLoading}
+                        className={`rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors ${
+                          managerAuthLoading
+                            ? 'bg-blue-300 cursor-wait'
+                            : 'bg-blue-600 hover:bg-blue-700'
+                        }`}
+                      >
+                        {managerAuthLoading ? 'Verifying…' : 'Verify Manager'}
+                      </button>
+                    </div>
+                    {managerAuthError && (
+                      <p className="mt-3 text-sm text-red-600">{managerAuthError}</p>
+                    )}
+                  </form>
+                )}
+              </div>
+            </div>
             <RuleChangeVoting
               seasonYear={selectedKeeperYear}
               proposals={ruleChangeProposals}
@@ -2719,6 +3013,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
               onVote={handleRuleChangeVote}
               userVotes={ruleChangeUserVotes}
               voteSubmitting={ruleChangeVoteStatus}
+              canVote={managerAuth.status === 'authenticated'}
             />
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">

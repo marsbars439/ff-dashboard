@@ -4,6 +4,7 @@ const sqlite3 = require('sqlite3').verbose();
 const multer = require('multer');
 const XLSX = require('xlsx');
 const path = require('path');
+const crypto = require('crypto');
 const sleeperService = require('./services/sleeperService');
 const summaryService = require('./services/summaryService');
 const weeklySummaryService = require('./services/weeklySummaryService');
@@ -160,6 +161,16 @@ db.serialize(() => {
     'CREATE INDEX IF NOT EXISTS idx_rule_change_votes_voter ON rule_change_votes(voter_id)'
   );
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS manager_credentials (
+      manager_id TEXT PRIMARY KEY,
+      passcode_hash TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (manager_id) REFERENCES managers(name_id) ON DELETE CASCADE
+    )
+  `);
+
   // Table for cached weekly AI summaries
   db.run(`
     CREATE TABLE IF NOT EXISTS summaries (
@@ -203,6 +214,121 @@ const allAsync = (sql, params = []) =>
       else resolve(rows);
     });
   });
+
+const MANAGER_TOKEN_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
+const activeManagerTokens = new Map();
+
+const cleanupExpiredManagerTokens = () => {
+  const now = Date.now();
+  for (const [token, session] of activeManagerTokens.entries()) {
+    if (!session || session.expiresAt <= now) {
+      activeManagerTokens.delete(token);
+    }
+  }
+};
+
+setInterval(cleanupExpiredManagerTokens, MANAGER_TOKEN_TTL_MS).unref?.();
+
+const createManagerToken = (managerId) => {
+  if (!managerId) {
+    throw new Error('Manager ID is required to create a token');
+  }
+
+  for (const [token, session] of activeManagerTokens.entries()) {
+    if (session.managerId === managerId) {
+      activeManagerTokens.delete(token);
+    }
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = Date.now() + MANAGER_TOKEN_TTL_MS;
+  activeManagerTokens.set(token, { managerId, expiresAt });
+  return { token, expiresAt };
+};
+
+const isManagerTokenValid = (managerId, token) => {
+  if (!managerId || !token) {
+    return false;
+  }
+
+  const session = activeManagerTokens.get(token);
+  if (!session || session.managerId !== managerId) {
+    return false;
+  }
+
+  if (session.expiresAt <= Date.now()) {
+    activeManagerTokens.delete(token);
+    return false;
+  }
+
+  session.expiresAt = Date.now() + MANAGER_TOKEN_TTL_MS;
+  activeManagerTokens.set(token, session);
+  return true;
+};
+
+const verifyPasscodeHash = (passcode, storedHash) => {
+  if (typeof passcode !== 'string' || typeof storedHash !== 'string') {
+    return false;
+  }
+
+  const [salt, hashHex] = storedHash.split(':');
+  if (!salt || !hashHex) {
+    return false;
+  }
+
+  try {
+    const derived = crypto.scryptSync(passcode, salt, 64);
+    const storedBuffer = Buffer.from(hashHex, 'hex');
+
+    if (storedBuffer.length !== derived.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(derived, storedBuffer);
+  } catch (error) {
+    console.error('Failed to verify manager passcode hash:', error);
+    return false;
+  }
+};
+
+const extractManagerAuthFromRequest = (req) => {
+  const managerIdHeader = req.headers['x-manager-id'];
+  const tokenHeader = req.headers['x-manager-token'];
+
+  const managerId = typeof managerIdHeader === 'string' ? managerIdHeader.trim() : '';
+  const token = typeof tokenHeader === 'string' ? tokenHeader.trim() : '';
+
+  return { managerId, token };
+};
+
+const requireManagerAuth = async (req, res) => {
+  const { managerId, token } = extractManagerAuthFromRequest(req);
+
+  if (!managerId || !token) {
+    res.status(401).json({ error: 'Manager authentication required' });
+    return null;
+  }
+
+  try {
+    const managerRow = await getAsync('SELECT name_id, full_name FROM managers WHERE name_id = ?', [managerId]);
+
+    if (!managerRow) {
+      res.status(401).json({ error: 'Invalid manager identifier' });
+      return null;
+    }
+
+    if (!isManagerTokenValid(managerRow.name_id, token)) {
+      res.status(401).json({ error: 'Invalid or expired manager token' });
+      return null;
+    }
+
+    return managerRow;
+  } catch (error) {
+    console.error('Error verifying manager authentication:', error);
+    res.status(500).json({ error: 'Failed to verify manager authentication' });
+    return null;
+  }
+};
 
 const sanitizeRuleChangeOptions = (rawOptions) => {
   if (Array.isArray(rawOptions)) {
@@ -283,7 +409,7 @@ const formatRuleChangeProposal = (row, voteIndex = {}, userVoteIndex = {}) => {
   };
 };
 
-const getRuleChangeProposalsForYear = async (seasonYear, voterId = null) => {
+const getRuleChangeProposalsForYear = async (seasonYear, managerId = null) => {
   const proposals = await allAsync(
     'SELECT * FROM rule_change_proposals WHERE season_year = ? ORDER BY created_at DESC',
     [seasonYear]
@@ -302,10 +428,10 @@ const getRuleChangeProposalsForYear = async (seasonYear, voterId = null) => {
   );
 
   let userVoteRows = [];
-  if (voterId) {
+  if (managerId) {
     userVoteRows = await allAsync(
       `SELECT proposal_id, option FROM rule_change_votes WHERE proposal_id IN (${placeholders}) AND voter_id = ?`,
-      [...proposalIds, voterId]
+      [...proposalIds, managerId]
     );
   }
 
@@ -546,6 +672,84 @@ const syncCurrentSeasonFromSleeper = async () => {
 const upload = multer({ dest: 'uploads/' });
 
 // Routes
+
+app.post('/api/manager-auth/login', async (req, res) => {
+  const { managerId, passcode } = req.body || {};
+  const normalizedManagerId = typeof managerId === 'string' ? managerId.trim() : '';
+  const normalizedPasscode = typeof passcode === 'string' ? passcode : '';
+
+  if (!normalizedManagerId || !normalizedPasscode) {
+    return res.status(400).json({ error: 'Manager ID and passcode are required' });
+  }
+
+  try {
+    const managerRow = await getAsync('SELECT name_id, full_name FROM managers WHERE name_id = ?', [normalizedManagerId]);
+
+    if (!managerRow) {
+      return res.status(401).json({ error: 'Invalid manager credentials' });
+    }
+
+    const credentialRow = await getAsync(
+      'SELECT passcode_hash FROM manager_credentials WHERE manager_id = ?',
+      [normalizedManagerId]
+    );
+
+    if (!credentialRow || !credentialRow.passcode_hash) {
+      return res.status(401).json({ error: 'Manager credentials not configured' });
+    }
+
+    const passcodeIsValid = verifyPasscodeHash(normalizedPasscode, credentialRow.passcode_hash);
+
+    if (!passcodeIsValid) {
+      return res.status(401).json({ error: 'Invalid manager credentials' });
+    }
+
+    const { token, expiresAt } = createManagerToken(managerRow.name_id);
+
+    res.json({
+      managerId: managerRow.name_id,
+      managerName: managerRow.full_name,
+      token,
+      expiresAt: new Date(expiresAt).toISOString()
+    });
+  } catch (error) {
+    console.error('Error authenticating manager:', error);
+    res.status(500).json({ error: 'Failed to authenticate manager' });
+  }
+});
+
+app.post('/api/manager-auth/validate', async (req, res) => {
+  const { managerId, token } = req.body || {};
+  const normalizedManagerId = typeof managerId === 'string' ? managerId.trim() : '';
+  const normalizedToken = typeof token === 'string' ? token.trim() : '';
+
+  if (!normalizedManagerId || !normalizedToken) {
+    return res.status(400).json({ error: 'Manager ID and token are required' });
+  }
+
+  try {
+    const managerRow = await getAsync('SELECT name_id, full_name FROM managers WHERE name_id = ?', [normalizedManagerId]);
+
+    if (!managerRow) {
+      return res.status(401).json({ error: 'Invalid manager identifier' });
+    }
+
+    if (!isManagerTokenValid(managerRow.name_id, normalizedToken)) {
+      return res.status(401).json({ error: 'Invalid or expired manager token' });
+    }
+
+    const session = activeManagerTokens.get(normalizedToken);
+
+    res.json({
+      managerId: managerRow.name_id,
+      managerName: managerRow.full_name,
+      expiresAt: session ? new Date(session.expiresAt).toISOString() : null
+    });
+  } catch (error) {
+    console.error('Error validating manager token:', error);
+    res.status(500).json({ error: 'Failed to validate manager token' });
+  }
+});
 
 // Get all managers
 app.get('/api/managers', (req, res) => {
@@ -1388,14 +1592,18 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
 
 app.get('/api/rule-changes', async (req, res) => {
   const seasonYear = parseInt(req.query.season_year, 10);
-  const voterId = typeof req.query.voter_id === 'string' ? req.query.voter_id : null;
 
   if (Number.isNaN(seasonYear)) {
     return res.status(400).json({ error: 'season_year is required' });
   }
 
   try {
-    const proposals = await getRuleChangeProposalsForYear(seasonYear, voterId);
+    const manager = await requireManagerAuth(req, res);
+    if (!manager) {
+      return;
+    }
+
+    const proposals = await getRuleChangeProposalsForYear(seasonYear, manager.name_id);
     res.json({ proposals });
   } catch (error) {
     console.error('Error fetching rule change proposals:', error);
@@ -1537,15 +1745,7 @@ app.post('/api/rule-changes/:id/vote', async (req, res) => {
     return res.status(400).json({ error: 'Invalid proposal id' });
   }
 
-  const { option, voterId } = req.body || {};
-
-  let normalizedVoterId = typeof voterId === 'string' ? voterId.trim() : '';
-  if (!normalizedVoterId) {
-    return res.status(400).json({ error: 'A voterId is required to vote' });
-  }
-  if (normalizedVoterId.length > 128) {
-    normalizedVoterId = normalizedVoterId.slice(0, 128);
-  }
+  const { option } = req.body || {};
 
   const normalizedOption = typeof option === 'string' ? option.trim() : '';
   if (!normalizedOption) {
@@ -1553,6 +1753,11 @@ app.post('/api/rule-changes/:id/vote', async (req, res) => {
   }
 
   try {
+    const manager = await requireManagerAuth(req, res);
+    if (!manager) {
+      return;
+    }
+
     const proposalRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [proposalId]);
 
     if (!proposalRow) {
@@ -1568,7 +1773,7 @@ app.post('/api/rule-changes/:id/vote', async (req, res) => {
       `INSERT INTO rule_change_votes (proposal_id, voter_id, option, created_at, updated_at)
        VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        ON CONFLICT(proposal_id, voter_id) DO UPDATE SET option = excluded.option, updated_at = CURRENT_TIMESTAMP`,
-      [proposalId, normalizedVoterId, normalizedOption]
+      [proposalId, manager.name_id, normalizedOption]
     );
 
     const voteRows = await allAsync(
