@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Gavel, Loader2, RefreshCcw } from 'lucide-react';
 
 const RuleChangeVoting = ({
@@ -12,15 +12,41 @@ const RuleChangeVoting = ({
   onRefresh
 }) => {
   const displaySeason = seasonYear != null ? seasonYear + 1 : null;
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [proposals]);
+
+  const totalProposals = Array.isArray(proposals) ? proposals.length : 0;
+  const clampedIndex = totalProposals > 0 ? Math.min(Math.max(activeIndex, 0), totalProposals - 1) : 0;
+  const activeProposal = totalProposals > 0 ? proposals[clampedIndex] : null;
+  const hasPrevious = clampedIndex > 0;
+  const hasNext = clampedIndex < totalProposals - 1;
+  const currentQuestion = activeProposal ? clampedIndex + 1 : 0;
+  const totalVotes = activeProposal
+    ? activeProposal.options.reduce((sum, option) => sum + (option.votes || 0), 0)
+    : 0;
+  const selectedOption = activeProposal
+    ? (userVotes && userVotes[activeProposal.id]) ?? activeProposal.userVote ?? null
+    : null;
+  const isSubmitting = activeProposal ? !!voteSubmitting[activeProposal.id] : false;
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div className="flex items-center space-x-2">
-          <Gavel className="w-5 h-5 text-purple-500" />
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-            {displaySeason ? `Potential Rule Changes for the ${displaySeason} Season` : 'Potential Rule Changes'}
-          </h2>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center space-x-2">
+            <Gavel className="w-5 h-5 text-purple-500" />
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+              {displaySeason ? `Potential Rule Changes for the ${displaySeason} Season` : 'Potential Rule Changes'}
+            </h2>
+          </div>
+          {totalProposals > 0 && (
+            <p className="text-sm text-gray-500 sm:ml-7">
+              Question {currentQuestion} of {totalProposals}
+            </p>
+          )}
         </div>
         {typeof onRefresh === 'function' && (
           <button
@@ -52,75 +78,97 @@ const RuleChangeVoting = ({
         </div>
       ) : (
         <div className="space-y-6">
-          {proposals.map(proposal => {
-            const totalVotes = proposal.options.reduce((sum, option) => sum + (option.votes || 0), 0);
-            const selectedOption =
-              (userVotes && userVotes[proposal.id]) ?? proposal.userVote ?? null;
-            const isSubmitting = !!voteSubmitting[proposal.id];
-
-            return (
-              <div key={proposal.id} className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5">
-                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{proposal.title}</h3>
-                    {proposal.description && (
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">
-                        {proposal.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {totalVotes} vote{totalVotes === 1 ? '' : 's'}
-                  </div>
+          {activeProposal && (
+            <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{activeProposal.title}</h3>
+                  {activeProposal.description && (
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">
+                      {activeProposal.description}
+                    </p>
+                  )}
                 </div>
-
-                <div className="space-y-3">
-                  {proposal.options.map(option => {
-                    const votes = option.votes || 0;
-                    const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
-                    const isSelected = selectedOption === option.value;
-
-                    return (
-                      <div key={`${proposal.id}-${option.value}`} className="rounded-md border border-gray-200 bg-gray-50 p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-gray-900">{option.value}</p>
-                            <p className="text-xs text-gray-500">
-                              {votes} vote{votes === 1 ? '' : 's'}{totalVotes > 0 ? ` • ${percentage}%` : ''}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => onVote && onVote(proposal.id, option.value)}
-                            disabled={isSubmitting || (!onVote) || (isSelected && !isSubmitting)}
-                            className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors ${
-                              isSelected
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
-                            } ${isSubmitting ? 'opacity-70 cursor-wait' : ''}`}
-                          >
-                            {isSelected ? 'Voted' : 'Vote'}
-                          </button>
-                        </div>
-                        <div className="mt-2 h-2 rounded-full bg-white">
-                          <div
-                            className="h-2 rounded-full bg-blue-500 transition-all"
-                            style={{ width: totalVotes > 0 ? `${percentage}%` : '0%' }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="text-sm text-gray-500">
+                  {totalVotes} vote{totalVotes === 1 ? '' : 's'}
                 </div>
-
-                {selectedOption && (
-                  <p className="mt-3 text-xs text-green-600">
-                    You voted for <span className="font-semibold">{selectedOption}</span>.
-                  </p>
-                )}
               </div>
-            );
-          })}
+
+              <div className="space-y-3">
+                {activeProposal.options.map(option => {
+                  const votes = option.votes || 0;
+                  const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                  const isSelected = selectedOption === option.value;
+
+                  return (
+                    <div key={`${activeProposal.id}-${option.value}`} className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-gray-900">{option.value}</p>
+                          <p className="text-xs text-gray-500">
+                            {votes} vote{votes === 1 ? '' : 's'}{totalVotes > 0 ? ` • ${percentage}%` : ''}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onVote && onVote(activeProposal.id, option.value)}
+                          disabled={isSubmitting || !onVote || (isSelected && !isSubmitting)}
+                          className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
+                          } ${isSubmitting ? 'opacity-70 cursor-wait' : ''}`}
+                        >
+                          {isSelected ? 'Voted' : 'Vote'}
+                        </button>
+                      </div>
+                      <div className="mt-2 h-2 rounded-full bg-white">
+                        <div
+                          className="h-2 rounded-full bg-blue-500 transition-all"
+                          style={{ width: totalVotes > 0 ? `${percentage}%` : '0%' }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {selectedOption && (
+                <p className="mt-3 text-xs text-green-600">
+                  You voted for <span className="font-semibold">{selectedOption}</span>.
+                </p>
+              )}
+
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!hasPrevious) {
+                      return;
+                    }
+                    setActiveIndex(index => Math.max(index - 1, 0));
+                  }}
+                  disabled={!hasPrevious}
+                  className="px-3 py-1 text-xs sm:text-sm font-medium rounded-md border border-gray-300 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!hasNext) {
+                      return;
+                    }
+                    setActiveIndex(index => Math.min(index + 1, totalProposals - 1));
+                  }}
+                  disabled={!hasNext}
+                  className="px-3 py-1 text-xs sm:text-sm font-medium rounded-md border border-gray-300 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

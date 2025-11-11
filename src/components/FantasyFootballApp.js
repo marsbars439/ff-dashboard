@@ -2698,6 +2698,19 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         )}
         {activeTab === 'preseason' && (
           <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-end">
+              <select
+                value={selectedKeeperYear || ''}
+                onChange={e => setSelectedKeeperYear(Number(e.target.value))}
+                className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+              >
+                {availableYears.map(year => (
+                  <option key={year} value={year}>
+                    {`${year} Rosters / ${year + 1} Draft`}
+                  </option>
+                ))}
+              </select>
+            </div>
             <RuleChangeVoting
               seasonYear={selectedKeeperYear}
               proposals={ruleChangeProposals}
@@ -2712,19 +2725,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 }
               }}
             />
-            <div className="flex justify-end">
-              <select
-                value={selectedKeeperYear || ''}
-                onChange={e => setSelectedKeeperYear(Number(e.target.value))}
-                className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-              >
-                {availableYears.map(year => (
-                  <option key={year} value={year}>
-                    {`${year} Rosters / ${year + 1} Draft`}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-0">
