@@ -268,6 +268,59 @@ const FantasyFootballApp = () => {
     }
   }, [selectedKeeperYear]);
 
+  const fetchRuleChangeProposals = useCallback(
+    async (year, { silent = false } = {}) => {
+      if (!year) {
+        if (!silent) {
+          setRuleChangeProposals([]);
+          setRuleChangeUserVotes({});
+        }
+        return;
+      }
+
+      if (!silent) {
+        setRuleChangeLoading(true);
+      }
+      setRuleChangeError(null);
+
+      try {
+        const params = new URLSearchParams({ season_year: year.toString() });
+        if (voterIdRef.current) {
+          params.append('voter_id', voterIdRef.current);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/rule-changes?${params.toString()}`);
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(message || 'Failed to fetch rule change proposals');
+        }
+
+        const data = await response.json();
+        const proposals = Array.isArray(data.proposals) ? data.proposals : [];
+        setRuleChangeProposals(proposals);
+        const voteMap = proposals.reduce((acc, proposal) => {
+          if (proposal && proposal.userVote) {
+            acc[proposal.id] = proposal.userVote;
+          }
+          return acc;
+        }, {});
+        setRuleChangeUserVotes(voteMap);
+      } catch (error) {
+        console.error('Error fetching rule change proposals:', error);
+        setRuleChangeError(error.message || 'Failed to load rule change proposals');
+        if (!silent) {
+          setRuleChangeProposals([]);
+          setRuleChangeUserVotes({});
+        }
+      } finally {
+        if (!silent) {
+          setRuleChangeLoading(false);
+        }
+      }
+    },
+    [API_BASE_URL]
+  );
+
   useEffect(() => {
     if (selectedKeeperYear) {
       fetchRuleChangeProposals(selectedKeeperYear);
@@ -409,59 +462,6 @@ const FantasyFootballApp = () => {
       setPlayoffBracket([]);
     }
   };
-
-  const fetchRuleChangeProposals = useCallback(
-    async (year, { silent = false } = {}) => {
-      if (!year) {
-        if (!silent) {
-          setRuleChangeProposals([]);
-          setRuleChangeUserVotes({});
-        }
-        return;
-      }
-
-      if (!silent) {
-        setRuleChangeLoading(true);
-      }
-      setRuleChangeError(null);
-
-      try {
-        const params = new URLSearchParams({ season_year: year.toString() });
-        if (voterIdRef.current) {
-          params.append('voter_id', voterIdRef.current);
-        }
-
-        const response = await fetch(`${API_BASE_URL}/rule-changes?${params.toString()}`);
-        if (!response.ok) {
-          const message = await response.text();
-          throw new Error(message || 'Failed to fetch rule change proposals');
-        }
-
-        const data = await response.json();
-        const proposals = Array.isArray(data.proposals) ? data.proposals : [];
-        setRuleChangeProposals(proposals);
-        const voteMap = proposals.reduce((acc, proposal) => {
-          if (proposal && proposal.userVote) {
-            acc[proposal.id] = proposal.userVote;
-          }
-          return acc;
-        }, {});
-        setRuleChangeUserVotes(voteMap);
-      } catch (error) {
-        console.error('Error fetching rule change proposals:', error);
-        setRuleChangeError(error.message || 'Failed to load rule change proposals');
-        if (!silent) {
-          setRuleChangeProposals([]);
-          setRuleChangeUserVotes({});
-        }
-      } finally {
-        if (!silent) {
-          setRuleChangeLoading(false);
-        }
-      }
-    },
-    [API_BASE_URL]
-  );
 
   const parseJsonResponse = async (response) => {
     const text = await response.text();
