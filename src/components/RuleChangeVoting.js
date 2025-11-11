@@ -8,7 +8,8 @@ const RuleChangeVoting = ({
   error = null,
   onVote,
   userVotes = {},
-  voteSubmitting = {}
+  voteSubmitting = {},
+  canVote = true
 }) => {
   const displaySeason = seasonYear != null ? seasonYear + 1 : null;
   const [activeIndex, setActiveIndex] = useState(0);
@@ -59,6 +60,12 @@ const RuleChangeVoting = ({
         </div>
       )}
 
+      {!canVote && (
+        <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+          Verify your manager identity above to participate in voting.
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -104,7 +111,12 @@ const RuleChangeVoting = ({
                         <button
                           type="button"
                           onClick={() => onVote && onVote(activeProposal.id, option.value)}
-                          disabled={isSubmitting || !onVote || (isSelected && !isSubmitting)}
+                          disabled={
+                            isSubmitting ||
+                            !onVote ||
+                            !canVote ||
+                            (isSelected && !isSubmitting)
+                          }
                           className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                             isSelected
                               ? 'bg-blue-600 text-white'

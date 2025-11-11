@@ -81,6 +81,23 @@ db.serialize(() => {
     }
   });
 
+  console.log('📊 Creating manager_credentials table...');
+  db.run(`
+    CREATE TABLE IF NOT EXISTS manager_credentials (
+      manager_id TEXT PRIMARY KEY,
+      passcode_hash TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (manager_id) REFERENCES managers(name_id) ON DELETE CASCADE
+    )
+  `, (err) => {
+    if (err) {
+      console.error('❌ Error creating manager_credentials table:', err.message);
+    } else {
+      console.log('✅ manager_credentials table created successfully');
+    }
+  });
+
   // Create team_seasons table with dues_chumpion column
   console.log('📊 Creating team_seasons table...');
   db.run(`
