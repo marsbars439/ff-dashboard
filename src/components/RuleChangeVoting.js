@@ -34,6 +34,8 @@ const RuleChangeVoting = ({
   const selectedOption = activeProposal
     ? (userVotes && userVotes[activeProposal.id]) ?? activeProposal.userVote ?? null
     : null;
+  const hasVoted = !!selectedOption;
+  const nonVoters = Array.isArray(activeProposal?.nonVoters) ? activeProposal.nonVoters : [];
   const isSubmitting = activeProposal ? !!voteSubmitting[activeProposal.id] : false;
 
   return (
@@ -89,7 +91,9 @@ const RuleChangeVoting = ({
                   )}
                 </div>
                 <div className="text-sm text-gray-500">
-                  {totalVotes} vote{totalVotes === 1 ? '' : 's'}
+                  {hasVoted
+                    ? `${totalVotes} vote${totalVotes === 1 ? '' : 's'}`
+                    : 'Cast your vote to reveal results'}
                 </div>
               </div>
 
@@ -98,6 +102,8 @@ const RuleChangeVoting = ({
                   const votes = option.votes || 0;
                   const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
                   const isSelected = selectedOption === option.value;
+                  const voters = Array.isArray(option.voters) ? option.voters : [];
+                  const voterNames = voters.map(voter => voter.name || voter.id).join(', ');
 
                   return (
                     <div key={`${activeProposal.id}-${option.value}`} className="rounded-md border border-gray-200 bg-gray-50 p-3">
@@ -105,42 +111,68 @@ const RuleChangeVoting = ({
                         <div>
                           <p className="font-medium text-gray-900">{option.value}</p>
                           <p className="text-xs text-gray-500">
-                            {votes} vote{votes === 1 ? '' : 's'}{totalVotes > 0 ? ` • ${percentage}%` : ''}
+                            {hasVoted
+                              ? `${votes} vote${votes === 1 ? '' : 's'}${
+                                  totalVotes > 0 ? ` • ${percentage}%` : ''
+                                }`
+                              : 'Votes hidden until you vote'}
                           </p>
                         </div>
                         <button
                           type="button"
-                          onClick={() => onVote && onVote(activeProposal.id, option.value)}
-                          disabled={
-                            isSubmitting ||
-                            !onVote ||
-                            !canVote ||
-                            (isSelected && !isSubmitting)
+                          onClick={() =>
+                            onVote && onVote(activeProposal.id, isSelected ? null : option.value)
                           }
+                          disabled={isSubmitting || !onVote || !canVote}
                           className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                             isSelected
                               ? 'bg-blue-600 text-white'
                               : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
                           } ${isSubmitting ? 'opacity-70 cursor-wait' : ''}`}
+                          title={isSelected ? 'Click to remove your vote' : undefined}
                         >
-                          {isSelected ? 'Voted' : 'Vote'}
+                          {isSubmitting
+                            ? 'Updating...'
+                            : isSelected
+                            ? 'Voted'
+                            : 'Vote'}
                         </button>
                       </div>
                       <div className="mt-2 h-2 rounded-full bg-white">
                         <div
                           className="h-2 rounded-full bg-blue-500 transition-all"
-                          style={{ width: totalVotes > 0 ? `${percentage}%` : '0%' }}
+                          style={{ width: hasVoted && totalVotes > 0 ? `${percentage}%` : '0%' }}
                         ></div>
                       </div>
+                      {hasVoted && (
+                        <div className="mt-2 text-xs text-gray-600">
+                          {voters.length > 0 ? `Voted by: ${voterNames}` : 'No votes yet.'}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
 
-              {selectedOption && (
+              {hasVoted ? (
                 <p className="mt-3 text-xs text-green-600">
                   You voted for <span className="font-semibold">{selectedOption}</span>.
                 </p>
+              ) : (
+                <p className="mt-3 text-xs text-gray-500">
+                  Vote to see how the rest of the league is leaning.
+                </p>
+              )}
+
+              {hasVoted && (
+                <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-xs font-semibold text-gray-700">Managers yet to vote:</p>
+                  <p className="mt-1 text-xs text-gray-600">
+                    {nonVoters.length > 0
+                      ? nonVoters.map(manager => manager.name || manager.id).join(', ')
+                      : 'All managers have voted.'}
+                  </p>
+                </div>
               )}
 
               <div className="mt-4 flex items-center justify-between gap-3">

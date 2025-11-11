@@ -709,12 +709,15 @@ const FantasyFootballApp = () => {
   };
 
   const handleRuleChangeVote = async (proposalId, optionValue) => {
-    if (!proposalId || !optionValue) {
+    if (!proposalId) {
       return;
     }
 
-    const trimmedOption = typeof optionValue === 'string' ? optionValue.trim() : '';
-    if (!trimmedOption) {
+    const isClearingVote = optionValue == null;
+    const trimmedOption =
+      !isClearingVote && typeof optionValue === 'string' ? optionValue.trim() : '';
+
+    if (!isClearingVote && !trimmedOption) {
       return;
     }
 
@@ -732,13 +735,13 @@ const FantasyFootballApp = () => {
 
     try {
       const response = await fetch(`${API_BASE_URL}/rule-changes/${proposalId}/vote`, {
-        method: 'POST',
+        method: isClearingVote ? 'DELETE' : 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          ...(isClearingVote ? {} : { 'Content-Type': 'application/json' }),
           'X-Manager-Id': managerAuth.managerId,
           'X-Manager-Token': managerAuth.token
         },
-        body: JSON.stringify({ option: trimmedOption })
+        ...(isClearingVote ? {} : { body: JSON.stringify({ option: trimmedOption }) })
       });
 
       const data = await parseJsonResponse(response);
@@ -752,18 +755,20 @@ const FantasyFootballApp = () => {
         throw new Error(data?.error || 'Failed to record vote');
       }
 
-      if (Array.isArray(data?.options)) {
+      if (data?.proposal) {
         setRuleChangeProposals(prev =>
-          prev.map(proposal =>
-            proposal.id === proposalId
-              ? { ...proposal, options: data.options, userVote: data.userVote }
-              : proposal
-          )
+          prev.map(proposal => (proposal.id === proposalId ? data.proposal : proposal))
         );
-      }
 
-      if (data?.userVote) {
-        setRuleChangeUserVotes(prev => ({ ...prev, [proposalId]: data.userVote }));
+        setRuleChangeUserVotes(prev => {
+          const next = { ...prev };
+          if (data.proposal.userVote) {
+            next[proposalId] = data.proposal.userVote;
+          } else {
+            delete next[proposalId];
+          }
+          return next;
+        });
       }
     } catch (error) {
       console.error('Error submitting rule change vote:', error);
@@ -3065,20 +3070,31 @@ const FantasyFootballApp = () => {
           managerAuth.status === 'authenticated' ? (
             <div className="space-y-4 sm:space-y-6">
               <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-full bg-blue-50 p-2 text-blue-600">
-                      <ShieldCheck className="w-5 h-5" />
-                    </div>
-                    <div className="text-sm sm:text-base text-gray-700">
-                      Verified as{' '}
-                      <span className="font-semibold">
-                        {managerAuth.managerName || managerAuth.managerId}
-                      </span>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-full bg-blue-50 p-2 text-blue-600">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 text-sm sm:text-base text-gray-700">
+                        <span>
+                          Verified as{' '}
+                          <span className="font-semibold">
+                            {managerAuth.managerName || managerAuth.managerId}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleManagerLogout}
+                          className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          Sign out
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                    {availableYears.length > 0 && (
+                  {availableYears.length > 0 && (
+                    <div className="flex sm:justify-end">
                       <select
                         value={selectedKeeperYear || ''}
                         onChange={e => setSelectedKeeperYear(Number(e.target.value))}
@@ -3090,15 +3106,8 @@ const FantasyFootballApp = () => {
                           </option>
                         ))}
                       </select>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleManagerLogout}
-                      className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      Sign out
-                    </button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <RuleChangeVoting
