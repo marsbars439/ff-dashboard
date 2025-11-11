@@ -383,26 +383,54 @@ const parseRuleChangeOptions = (options) => {
   return [];
 };
 
-const buildVoteCountIndex = (rows = []) => {
+const mapManagersToSummaries = (rows = []) =>
+  rows.map(row => ({
+    id: row.name_id,
+    name:
+      typeof row.full_name === 'string' && row.full_name.trim()
+        ? row.full_name.trim()
+        : row.name_id
+  }));
+
+const buildProposalVoteDetails = (rows = []) => {
   return rows.reduce((acc, row) => {
     if (!acc[row.proposal_id]) {
-      acc[row.proposal_id] = {};
+      acc[row.proposal_id] = { optionMap: {}, voterIds: new Set() };
     }
-    acc[row.proposal_id][row.option] = row.votes;
+
+    const detail = acc[row.proposal_id];
+    if (!detail.optionMap[row.option]) {
+      detail.optionMap[row.option] = [];
+    }
+
+    const normalizedName =
+      typeof row.full_name === 'string' && row.full_name.trim()
+        ? row.full_name.trim()
+        : row.voter_id;
+
+    detail.optionMap[row.option].push({
+      id: row.voter_id,
+      name: normalizedName
+    });
+    detail.voterIds.add(row.voter_id);
     return acc;
   }, {});
 };
 
-const buildUserVoteMap = (rows = []) => {
-  return rows.reduce((acc, row) => {
-    acc[row.proposal_id] = row.option;
-    return acc;
-  }, {});
-};
-
-const formatRuleChangeProposal = (row, voteIndex = {}, userVoteIndex = {}) => {
+const formatRuleChangeProposal = (
+  row,
+  voteDetailIndex = {},
+  userVoteIndex = {},
+  activeManagers = []
+) => {
   const options = parseRuleChangeOptions(row.options);
-  const proposalVoteCounts = voteIndex[row.id] || {};
+  const proposalDetails = voteDetailIndex[row.id] || { optionMap: {}, voterIds: new Set() };
+  const voterIds = proposalDetails.voterIds instanceof Set ? proposalDetails.voterIds : new Set();
+  const optionMap = proposalDetails.optionMap || {};
+
+  const nonVoters = activeManagers
+    .filter(manager => !voterIds.has(manager.id))
+    .map(manager => ({ id: manager.id, name: manager.name }));
 
   return {
     id: row.id,
@@ -411,9 +439,19 @@ const formatRuleChangeProposal = (row, voteIndex = {}, userVoteIndex = {}) => {
     description: row.description || '',
     options: options.map(optionValue => ({
       value: optionValue,
-      votes: proposalVoteCounts[optionValue] || 0
+      votes: Array.isArray(optionMap[optionValue]) ? optionMap[optionValue].length : 0,
+      voters: Array.isArray(optionMap[optionValue])
+        ? optionMap[optionValue]
+            .slice()
+            .sort((a, b) =>
+              (a.name || a.id || '').localeCompare(b.name || b.id || '', undefined, {
+                sensitivity: 'base'
+              })
+            )
+        : []
     })),
     userVote: userVoteIndex[row.id] || null,
+    nonVoters,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -433,22 +471,30 @@ const getRuleChangeProposalsForYear = async (seasonYear, managerId = null) => {
   const placeholders = proposalIds.map(() => '?').join(',');
 
   const voteRows = await allAsync(
-    `SELECT proposal_id, option, COUNT(*) as votes FROM rule_change_votes WHERE proposal_id IN (${placeholders}) GROUP BY proposal_id, option`,
+    `SELECT v.proposal_id, v.option, v.voter_id, m.full_name
+     FROM rule_change_votes v
+     LEFT JOIN managers m ON v.voter_id = m.name_id
+     WHERE v.proposal_id IN (${placeholders})`,
     proposalIds
   );
 
-  let userVoteRows = [];
-  if (managerId) {
-    userVoteRows = await allAsync(
-      `SELECT proposal_id, option FROM rule_change_votes WHERE proposal_id IN (${placeholders}) AND voter_id = ?`,
-      [...proposalIds, managerId]
-    );
-  }
+  const activeManagerRows = await allAsync(
+    'SELECT name_id, full_name FROM managers WHERE active = 1 ORDER BY full_name'
+  );
 
-  const voteIndex = buildVoteCountIndex(voteRows);
-  const userVoteIndex = buildUserVoteMap(userVoteRows);
+  const voteDetailIndex = buildProposalVoteDetails(voteRows);
+  const userVoteIndex = voteRows.reduce((acc, row) => {
+    if (row.voter_id === managerId) {
+      acc[row.proposal_id] = row.option;
+    }
+    return acc;
+  }, {});
 
-  return proposals.map(proposal => formatRuleChangeProposal(proposal, voteIndex, userVoteIndex));
+  const activeManagers = mapManagersToSummaries(activeManagerRows);
+
+  return proposals.map(proposal =>
+    formatRuleChangeProposal(proposal, voteDetailIndex, userVoteIndex, activeManagers)
+  );
 };
 
 const normalizeSummaryLine = line =>
@@ -1747,11 +1793,22 @@ app.put('/api/rule-changes/:id', async (req, res) => {
 
     const updatedRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [proposalId]);
     const voteRows = await allAsync(
-      'SELECT proposal_id, option, COUNT(*) as votes FROM rule_change_votes WHERE proposal_id = ? GROUP BY option',
+      `SELECT v.proposal_id, v.option, v.voter_id, m.full_name
+       FROM rule_change_votes v
+       LEFT JOIN managers m ON v.voter_id = m.name_id
+       WHERE v.proposal_id = ?`,
       [proposalId]
     );
-    const voteIndex = buildVoteCountIndex(voteRows);
-    const formatted = formatRuleChangeProposal(updatedRow, voteIndex, {});
+    const activeManagerRows = await allAsync(
+      'SELECT name_id, full_name FROM managers WHERE active = 1 ORDER BY full_name'
+    );
+    const voteDetailIndex = buildProposalVoteDetails(voteRows);
+    const formatted = formatRuleChangeProposal(
+      updatedRow,
+      voteDetailIndex,
+      {},
+      mapManagersToSummaries(activeManagerRows)
+    );
     res.json({ proposal: formatted });
   } catch (error) {
     console.error('Error updating rule change proposal:', error);
@@ -1820,16 +1877,76 @@ app.post('/api/rule-changes/:id/vote', async (req, res) => {
     );
 
     const voteRows = await allAsync(
-      'SELECT proposal_id, option, COUNT(*) as votes FROM rule_change_votes WHERE proposal_id = ? GROUP BY option',
+      `SELECT v.proposal_id, v.option, v.voter_id, m.full_name
+       FROM rule_change_votes v
+       LEFT JOIN managers m ON v.voter_id = m.name_id
+       WHERE v.proposal_id = ?`,
       [proposalId]
     );
-    const voteIndex = buildVoteCountIndex(voteRows);
-    const formatted = formatRuleChangeProposal(proposalRow, voteIndex, { [proposalId]: normalizedOption });
+    const activeManagerRows = await allAsync(
+      'SELECT name_id, full_name FROM managers WHERE active = 1 ORDER BY full_name'
+    );
+    const voteDetailIndex = buildProposalVoteDetails(voteRows);
+    const formatted = formatRuleChangeProposal(
+      proposalRow,
+      voteDetailIndex,
+      { [proposalId]: normalizedOption },
+      mapManagersToSummaries(activeManagerRows)
+    );
 
-    res.json({ proposalId, options: formatted.options, userVote: normalizedOption });
+    res.json({ proposal: formatted });
   } catch (error) {
     console.error('Error recording rule change vote:', error);
     res.status(500).json({ error: 'Failed to record vote' });
+  }
+});
+
+app.delete('/api/rule-changes/:id/vote', async (req, res) => {
+  const proposalId = parseInt(req.params.id, 10);
+
+  if (Number.isNaN(proposalId)) {
+    return res.status(400).json({ error: 'Invalid proposal id' });
+  }
+
+  try {
+    const manager = await requireManagerAuth(req, res);
+    if (!manager) {
+      return;
+    }
+
+    const proposalRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [proposalId]);
+
+    if (!proposalRow) {
+      return res.status(404).json({ error: 'Proposal not found' });
+    }
+
+    await runAsync('DELETE FROM rule_change_votes WHERE proposal_id = ? AND voter_id = ?', [
+      proposalId,
+      manager.name_id
+    ]);
+
+    const voteRows = await allAsync(
+      `SELECT v.proposal_id, v.option, v.voter_id, m.full_name
+       FROM rule_change_votes v
+       LEFT JOIN managers m ON v.voter_id = m.name_id
+       WHERE v.proposal_id = ?`,
+      [proposalId]
+    );
+    const activeManagerRows = await allAsync(
+      'SELECT name_id, full_name FROM managers WHERE active = 1 ORDER BY full_name'
+    );
+    const voteDetailIndex = buildProposalVoteDetails(voteRows);
+    const formatted = formatRuleChangeProposal(
+      proposalRow,
+      voteDetailIndex,
+      {},
+      mapManagersToSummaries(activeManagerRows)
+    );
+
+    res.json({ proposal: formatted });
+  } catch (error) {
+    console.error('Error removing rule change vote:', error);
+    res.status(500).json({ error: 'Failed to remove vote' });
   }
 });
 
