@@ -880,7 +880,7 @@ app.get('/api/seasons/:year/matchups', (req, res) => {
     try {
       const managers = await new Promise((resolve, reject) => {
         db.all(
-          `SELECT m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+          `SELECT m.name_id, m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
            FROM managers m
            LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?`,
           [year],
@@ -964,7 +964,7 @@ app.get('/api/seasons/:year/playoffs', (req, res) => {
     try {
       const managers = await new Promise((resolve, reject) => {
         db.all(
-          `SELECT m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+          `SELECT m.name_id, m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
            FROM managers m
            LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?`,
           [year],

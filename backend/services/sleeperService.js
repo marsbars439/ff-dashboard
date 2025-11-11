@@ -1223,9 +1223,13 @@ class SleeperService {
         }
 
         const userIdToName = {};
+        const userIdToManagerId = {};
         managers.forEach(m => {
           if (m.sleeper_user_id) {
             userIdToName[m.sleeper_user_id] = m.full_name;
+            if (m.name_id) {
+              userIdToManagerId[m.sleeper_user_id] = m.name_id;
+            }
           }
         });
 
@@ -1237,6 +1241,7 @@ class SleeperService {
             user.display_name ||
             `Team ${r.roster_id}`;
           const managerName = userIdToName[r.owner_id] || teamName;
+          const managerId = userIdToManagerId[r.owner_id] || null;
 
           const playerInfos = (r.players || []).map(pid => {
             const p = players[pid] || {};
@@ -1258,6 +1263,7 @@ class SleeperService {
             roster_id: r.roster_id,
             team_name: teamName,
             manager_name: managerName,
+            manager_id: managerId,
             players: playerInfos
           };
         });
