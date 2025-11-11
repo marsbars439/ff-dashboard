@@ -3690,7 +3690,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
             >
               <SleeperAdmin
                 API_BASE_URL={API_BASE_URL}
-                onDataUpdate={fetchData}  // This will refresh your data after sync
+                onDataUpdate={fetchData}
               />
             </CollapsibleSection>
 
