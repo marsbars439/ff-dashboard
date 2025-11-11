@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Trophy,
   Crown,
@@ -18,7 +18,8 @@ import {
   X,
   Trash2,
   ChevronDown,
-  
+  Gavel,
+
 } from 'lucide-react';
 import SleeperAdmin from './SleeperAdmin';
 import PlayoffBracket from './PlayoffBracket';
@@ -27,6 +28,8 @@ import AIPreview from './AIPreview';
 import CollapsibleSection from './CollapsibleSection';
 import AISummaryConfig from './AISummaryConfig';
 import Analytics from './Analytics';
+import RuleChangeVoting from './RuleChangeVoting';
+import RuleChangeAdmin from './RuleChangeAdmin';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
@@ -72,6 +75,13 @@ const FantasyFootballApp = () => {
   const [manualTrades, setManualTrades] = useState([]);
   const [newTrade, setNewTrade] = useState({ from: '', to: '', amount: '', note: '' });
   const [keeperSummaryView, setKeeperSummaryView] = useState('keepers');
+  const [ruleChangeProposals, setRuleChangeProposals] = useState([]);
+  const [ruleChangeLoading, setRuleChangeLoading] = useState(false);
+  const [ruleChangeError, setRuleChangeError] = useState(null);
+  const [ruleChangeUserVotes, setRuleChangeUserVotes] = useState({});
+  const [ruleChangeVoteStatus, setRuleChangeVoteStatus] = useState({});
+  const [voterIdReady, setVoterIdReady] = useState(false);
+  const voterIdRef = useRef(null);
   const updateActiveTab = tab => {
     setActiveTab(VALID_TABS.has(tab) ? tab : 'records');
   };
@@ -120,6 +130,39 @@ const FantasyFootballApp = () => {
     fetchRules();
     // Set document title
     document.title = 'The League Dashboard';
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      voterIdRef.current = `server-${Date.now()}`;
+      setVoterIdReady(true);
+      return;
+    }
+
+    let storedId = null;
+
+    try {
+      storedId = window.localStorage?.getItem('ff-dashboard-voter-id');
+    } catch (error) {
+      console.warn('Unable to read stored voter ID:', error);
+    }
+
+    if (!storedId) {
+      const generatedId =
+        window.crypto?.randomUUID?.() ||
+        `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+      storedId = generatedId;
+
+      try {
+        window.localStorage?.setItem('ff-dashboard-voter-id', storedId);
+      } catch (error) {
+        console.warn('Unable to persist voter ID:', error);
+      }
+    }
+
+    voterIdRef.current = storedId;
+    setVoterIdReady(true);
   }, []);
 
   useEffect(() => {
@@ -224,6 +267,21 @@ const FantasyFootballApp = () => {
       fetchManualTrades(selectedKeeperYear);
     }
   }, [selectedKeeperYear]);
+
+  useEffect(() => {
+    if (selectedKeeperYear) {
+      fetchRuleChangeProposals(selectedKeeperYear);
+    } else {
+      setRuleChangeProposals([]);
+      setRuleChangeUserVotes({});
+    }
+  }, [selectedKeeperYear, fetchRuleChangeProposals]);
+
+  useEffect(() => {
+    if (voterIdReady && selectedKeeperYear) {
+      fetchRuleChangeProposals(selectedKeeperYear, { silent: true });
+    }
+  }, [voterIdReady, selectedKeeperYear, fetchRuleChangeProposals]);
 
   useEffect(() => {
     setSeasonDataPage(0);
@@ -349,6 +407,190 @@ const FantasyFootballApp = () => {
     } catch (error) {
       console.error('Error fetching playoff bracket:', error);
       setPlayoffBracket([]);
+    }
+  };
+
+  const fetchRuleChangeProposals = useCallback(
+    async (year, { silent = false } = {}) => {
+      if (!year) {
+        if (!silent) {
+          setRuleChangeProposals([]);
+          setRuleChangeUserVotes({});
+        }
+        return;
+      }
+
+      if (!silent) {
+        setRuleChangeLoading(true);
+      }
+      setRuleChangeError(null);
+
+      try {
+        const params = new URLSearchParams({ season_year: year.toString() });
+        if (voterIdRef.current) {
+          params.append('voter_id', voterIdRef.current);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/rule-changes?${params.toString()}`);
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(message || 'Failed to fetch rule change proposals');
+        }
+
+        const data = await response.json();
+        const proposals = Array.isArray(data.proposals) ? data.proposals : [];
+        setRuleChangeProposals(proposals);
+        const voteMap = proposals.reduce((acc, proposal) => {
+          if (proposal && proposal.userVote) {
+            acc[proposal.id] = proposal.userVote;
+          }
+          return acc;
+        }, {});
+        setRuleChangeUserVotes(voteMap);
+      } catch (error) {
+        console.error('Error fetching rule change proposals:', error);
+        setRuleChangeError(error.message || 'Failed to load rule change proposals');
+        if (!silent) {
+          setRuleChangeProposals([]);
+          setRuleChangeUserVotes({});
+        }
+      } finally {
+        if (!silent) {
+          setRuleChangeLoading(false);
+        }
+      }
+    },
+    [API_BASE_URL]
+  );
+
+  const parseJsonResponse = async (response) => {
+    const text = await response.text();
+    if (!text) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.warn('Unable to parse JSON response:', error);
+      return {};
+    }
+  };
+
+  const handleRuleChangeVote = async (proposalId, optionValue) => {
+    if (!proposalId || !optionValue) {
+      return;
+    }
+
+    const trimmedOption = typeof optionValue === 'string' ? optionValue.trim() : '';
+    if (!trimmedOption) {
+      return;
+    }
+
+    if (!voterIdRef.current) {
+      console.warn('Unable to submit vote without voter identification.');
+      return;
+    }
+
+    setRuleChangeError(null);
+    setRuleChangeVoteStatus(prev => ({ ...prev, [proposalId]: true }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/rule-changes/${proposalId}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ option: trimmedOption, voterId: voterIdRef.current })
+      });
+
+      const data = await parseJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to record vote');
+      }
+
+      if (Array.isArray(data?.options)) {
+        setRuleChangeProposals(prev =>
+          prev.map(proposal =>
+            proposal.id === proposalId
+              ? { ...proposal, options: data.options, userVote: data.userVote }
+              : proposal
+          )
+        );
+      }
+
+      if (data?.userVote) {
+        setRuleChangeUserVotes(prev => ({ ...prev, [proposalId]: data.userVote }));
+      }
+    } catch (error) {
+      console.error('Error submitting rule change vote:', error);
+      setRuleChangeError(error.message || 'Failed to submit vote');
+    } finally {
+      setRuleChangeVoteStatus(prev => {
+        const { [proposalId]: _ignored, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  const createRuleChangeProposal = async ({ seasonYear, title, description, options }) => {
+    setRuleChangeError(null);
+    const payload = {
+      seasonYear,
+      title,
+      description: description || '',
+      options
+    };
+
+    const response = await fetch(`${API_BASE_URL}/rule-changes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await parseJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Failed to create rule change proposal');
+    }
+
+    if (selectedKeeperYear && Number(seasonYear) === Number(selectedKeeperYear)) {
+      await fetchRuleChangeProposals(selectedKeeperYear);
+    }
+
+    return data?.proposal || null;
+  };
+
+  const updateRuleChangeProposal = async (proposalId, { seasonYear, title, description, options }) => {
+    setRuleChangeError(null);
+    const response = await fetch(`${API_BASE_URL}/rule-changes/${proposalId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seasonYear, title, description: description || '', options })
+    });
+
+    const data = await parseJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Failed to update rule change proposal');
+    }
+
+    if (selectedKeeperYear) {
+      await fetchRuleChangeProposals(selectedKeeperYear);
+    }
+
+    return data?.proposal || null;
+  };
+
+  const deleteRuleChangeProposal = async (proposalId) => {
+    setRuleChangeError(null);
+    const response = await fetch(`${API_BASE_URL}/rule-changes/${proposalId}`, {
+      method: 'DELETE'
+    });
+
+    const data = await parseJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Failed to delete rule change proposal');
+    }
+
+    if (selectedKeeperYear) {
+      await fetchRuleChangeProposals(selectedKeeperYear);
     }
   };
 
@@ -2456,6 +2698,20 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
         )}
         {activeTab === 'preseason' && (
           <div className="space-y-4 sm:space-y-6">
+            <RuleChangeVoting
+              seasonYear={selectedKeeperYear}
+              proposals={ruleChangeProposals}
+              loading={ruleChangeLoading}
+              error={ruleChangeError}
+              onVote={handleRuleChangeVote}
+              userVotes={ruleChangeUserVotes}
+              voteSubmitting={ruleChangeVoteStatus}
+              onRefresh={() => {
+                if (selectedKeeperYear) {
+                  fetchRuleChangeProposals(selectedKeeperYear);
+                }
+              }}
+            />
             <div className="flex justify-end">
               <select
                 value={selectedKeeperYear || ''}
@@ -3344,6 +3600,29 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
               </div>
             </CollapsibleSection>
 
+            <CollapsibleSection
+              title={
+                <div className="flex items-center space-x-2">
+                  <Gavel className="w-5 h-5 text-purple-500" />
+                  <span>Manage Rule Change Proposals</span>
+                </div>
+              }
+            >
+              <RuleChangeAdmin
+                seasonYear={selectedKeeperYear}
+                proposals={ruleChangeProposals}
+                onCreateProposal={createRuleChangeProposal}
+                onUpdateProposal={updateRuleChangeProposal}
+                onDeleteProposal={deleteRuleChangeProposal}
+                isLoading={ruleChangeLoading}
+                error={ruleChangeError}
+                onRefresh={() => {
+                  if (selectedKeeperYear) {
+                    fetchRuleChangeProposals(selectedKeeperYear);
+                  }
+                }}
+              />
+            </CollapsibleSection>
             <CollapsibleSection
               title={
                 <div className="flex items-center space-x-2">

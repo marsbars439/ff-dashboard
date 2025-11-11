@@ -37,6 +37,8 @@ const db = new sqlite3.Database(dbPath);
 
 // Ensure keepers table exists
 db.serialize(() => {
+  db.run('PRAGMA foreign_keys = ON');
+
   db.run(`
     CREATE TABLE IF NOT EXISTS keepers (
       year INTEGER,
@@ -121,6 +123,43 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS rule_change_proposals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      season_year INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      options TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS rule_change_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      proposal_id INTEGER NOT NULL,
+      voter_id TEXT NOT NULL,
+      option TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(proposal_id, voter_id),
+      FOREIGN KEY (proposal_id) REFERENCES rule_change_proposals(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.run(
+    'CREATE INDEX IF NOT EXISTS idx_rule_change_proposals_season ON rule_change_proposals(season_year)'
+  );
+
+  db.run(
+    'CREATE INDEX IF NOT EXISTS idx_rule_change_votes_proposal ON rule_change_votes(proposal_id)'
+  );
+
+  db.run(
+    'CREATE INDEX IF NOT EXISTS idx_rule_change_votes_voter ON rule_change_votes(voter_id)'
+  );
+
   // Table for cached weekly AI summaries
   db.run(`
     CREATE TABLE IF NOT EXISTS summaries (
@@ -164,6 +203,117 @@ const allAsync = (sql, params = []) =>
       else resolve(rows);
     });
   });
+
+const sanitizeRuleChangeOptions = (rawOptions) => {
+  if (Array.isArray(rawOptions)) {
+    return Array.from(
+      new Set(
+        rawOptions
+          .map(option => (typeof option === 'string' ? option.trim() : ''))
+          .filter(option => option.length > 0)
+      )
+    );
+  }
+
+  if (typeof rawOptions === 'string') {
+    return sanitizeRuleChangeOptions(rawOptions.split('\n'));
+  }
+
+  return [];
+};
+
+const parseRuleChangeOptions = (options) => {
+  if (!options) {
+    return [];
+  }
+
+  if (Array.isArray(options)) {
+    return sanitizeRuleChangeOptions(options);
+  }
+
+  if (typeof options === 'string') {
+    try {
+      const parsed = JSON.parse(options);
+      if (Array.isArray(parsed)) {
+        return sanitizeRuleChangeOptions(parsed);
+      }
+    } catch (error) {
+      console.warn('Unable to parse rule change options JSON, falling back to newline parsing.');
+    }
+
+    return sanitizeRuleChangeOptions(options.split('\n'));
+  }
+
+  return [];
+};
+
+const buildVoteCountIndex = (rows = []) => {
+  return rows.reduce((acc, row) => {
+    if (!acc[row.proposal_id]) {
+      acc[row.proposal_id] = {};
+    }
+    acc[row.proposal_id][row.option] = row.votes;
+    return acc;
+  }, {});
+};
+
+const buildUserVoteMap = (rows = []) => {
+  return rows.reduce((acc, row) => {
+    acc[row.proposal_id] = row.option;
+    return acc;
+  }, {});
+};
+
+const formatRuleChangeProposal = (row, voteIndex = {}, userVoteIndex = {}) => {
+  const options = parseRuleChangeOptions(row.options);
+  const proposalVoteCounts = voteIndex[row.id] || {};
+
+  return {
+    id: row.id,
+    seasonYear: row.season_year,
+    title: row.title,
+    description: row.description || '',
+    options: options.map(optionValue => ({
+      value: optionValue,
+      votes: proposalVoteCounts[optionValue] || 0
+    })),
+    userVote: userVoteIndex[row.id] || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+};
+
+const getRuleChangeProposalsForYear = async (seasonYear, voterId = null) => {
+  const proposals = await allAsync(
+    'SELECT * FROM rule_change_proposals WHERE season_year = ? ORDER BY created_at DESC',
+    [seasonYear]
+  );
+
+  if (!proposals.length) {
+    return [];
+  }
+
+  const proposalIds = proposals.map(proposal => proposal.id);
+  const placeholders = proposalIds.map(() => '?').join(',');
+
+  const voteRows = await allAsync(
+    `SELECT proposal_id, option, COUNT(*) as votes FROM rule_change_votes WHERE proposal_id IN (${placeholders}) GROUP BY proposal_id, option`,
+    proposalIds
+  );
+
+  let userVoteRows = [];
+  if (voterId) {
+    userVoteRows = await allAsync(
+      `SELECT proposal_id, option FROM rule_change_votes WHERE proposal_id IN (${placeholders}) AND voter_id = ?`,
+      [...proposalIds, voterId]
+    );
+  }
+
+  const voteIndex = buildVoteCountIndex(voteRows);
+  const userVoteIndex = buildUserVoteMap(userVoteRows);
+
+  return proposals.map(proposal => formatRuleChangeProposal(proposal, voteIndex, userVoteIndex));
+};
 
 const normalizeSummaryLine = line =>
   typeof line === 'string' ? line.trim().replace(/^[-*]\s*/, '') : '';
@@ -1236,10 +1386,209 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
   }
 });
 
+app.get('/api/rule-changes', async (req, res) => {
+  const seasonYear = parseInt(req.query.season_year, 10);
+  const voterId = typeof req.query.voter_id === 'string' ? req.query.voter_id : null;
+
+  if (Number.isNaN(seasonYear)) {
+    return res.status(400).json({ error: 'season_year is required' });
+  }
+
+  try {
+    const proposals = await getRuleChangeProposalsForYear(seasonYear, voterId);
+    res.json({ proposals });
+  } catch (error) {
+    console.error('Error fetching rule change proposals:', error);
+    res.status(500).json({ error: 'Failed to fetch rule change proposals' });
+  }
+});
+
+app.post('/api/rule-changes', async (req, res) => {
+  const { seasonYear, title, description = '', options } = req.body || {};
+  const numericYear = parseInt(seasonYear, 10);
+
+  if (Number.isNaN(numericYear)) {
+    return res.status(400).json({ error: 'A valid seasonYear is required' });
+  }
+
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  const normalizedOptions = sanitizeRuleChangeOptions(options);
+
+  if (normalizedOptions.length < 2) {
+    return res.status(400).json({ error: 'At least two options are required' });
+  }
+
+  try {
+    const result = await runAsync(
+      `INSERT INTO rule_change_proposals (season_year, title, description, options, created_at, updated_at)
+       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        numericYear,
+        title.trim(),
+        typeof description === 'string' ? description.trim() : '',
+        JSON.stringify(normalizedOptions)
+      ]
+    );
+
+    const newRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [result.lastID]);
+    const formatted = formatRuleChangeProposal(newRow, {}, {});
+    res.status(201).json({ proposal: formatted });
+  } catch (error) {
+    console.error('Error creating rule change proposal:', error);
+    res.status(500).json({ error: 'Failed to create rule change proposal' });
+  }
+});
+
+app.put('/api/rule-changes/:id', async (req, res) => {
+  const proposalId = parseInt(req.params.id, 10);
+
+  if (Number.isNaN(proposalId)) {
+    return res.status(400).json({ error: 'Invalid proposal id' });
+  }
+
+  const { seasonYear, title, description = '', options } = req.body || {};
+  const numericYear = parseInt(seasonYear, 10);
+
+  if (Number.isNaN(numericYear)) {
+    return res.status(400).json({ error: 'A valid seasonYear is required' });
+  }
+
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  const normalizedOptions = sanitizeRuleChangeOptions(options);
+
+  if (normalizedOptions.length < 2) {
+    return res.status(400).json({ error: 'At least two options are required' });
+  }
+
+  try {
+    const updateResult = await runAsync(
+      `UPDATE rule_change_proposals
+       SET season_year = ?, title = ?, description = ?, options = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        numericYear,
+        title.trim(),
+        typeof description === 'string' ? description.trim() : '',
+        JSON.stringify(normalizedOptions),
+        proposalId
+      ]
+    );
+
+    if (!updateResult.changes) {
+      return res.status(404).json({ error: 'Proposal not found' });
+    }
+
+    if (normalizedOptions.length) {
+      const optionPlaceholders = normalizedOptions.map(() => '?').join(',');
+      await runAsync(
+        `DELETE FROM rule_change_votes WHERE proposal_id = ? AND option NOT IN (${optionPlaceholders})`,
+        [proposalId, ...normalizedOptions]
+      );
+    } else {
+      await runAsync('DELETE FROM rule_change_votes WHERE proposal_id = ?', [proposalId]);
+    }
+
+    const updatedRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [proposalId]);
+    const voteRows = await allAsync(
+      'SELECT proposal_id, option, COUNT(*) as votes FROM rule_change_votes WHERE proposal_id = ? GROUP BY option',
+      [proposalId]
+    );
+    const voteIndex = buildVoteCountIndex(voteRows);
+    const formatted = formatRuleChangeProposal(updatedRow, voteIndex, {});
+    res.json({ proposal: formatted });
+  } catch (error) {
+    console.error('Error updating rule change proposal:', error);
+    res.status(500).json({ error: 'Failed to update rule change proposal' });
+  }
+});
+
+app.delete('/api/rule-changes/:id', async (req, res) => {
+  const proposalId = parseInt(req.params.id, 10);
+
+  if (Number.isNaN(proposalId)) {
+    return res.status(400).json({ error: 'Invalid proposal id' });
+  }
+
+  try {
+    const deleteResult = await runAsync('DELETE FROM rule_change_proposals WHERE id = ?', [proposalId]);
+
+    if (!deleteResult.changes) {
+      return res.status(404).json({ error: 'Proposal not found' });
+    }
+
+    await runAsync('DELETE FROM rule_change_votes WHERE proposal_id = ?', [proposalId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting rule change proposal:', error);
+    res.status(500).json({ error: 'Failed to delete rule change proposal' });
+  }
+});
+
+app.post('/api/rule-changes/:id/vote', async (req, res) => {
+  const proposalId = parseInt(req.params.id, 10);
+
+  if (Number.isNaN(proposalId)) {
+    return res.status(400).json({ error: 'Invalid proposal id' });
+  }
+
+  const { option, voterId } = req.body || {};
+
+  let normalizedVoterId = typeof voterId === 'string' ? voterId.trim() : '';
+  if (!normalizedVoterId) {
+    return res.status(400).json({ error: 'A voterId is required to vote' });
+  }
+  if (normalizedVoterId.length > 128) {
+    normalizedVoterId = normalizedVoterId.slice(0, 128);
+  }
+
+  const normalizedOption = typeof option === 'string' ? option.trim() : '';
+  if (!normalizedOption) {
+    return res.status(400).json({ error: 'A valid option is required' });
+  }
+
+  try {
+    const proposalRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [proposalId]);
+
+    if (!proposalRow) {
+      return res.status(404).json({ error: 'Proposal not found' });
+    }
+
+    const availableOptions = parseRuleChangeOptions(proposalRow.options);
+    if (!availableOptions.includes(normalizedOption)) {
+      return res.status(400).json({ error: 'Invalid option selected' });
+    }
+
+    await runAsync(
+      `INSERT INTO rule_change_votes (proposal_id, voter_id, option, created_at, updated_at)
+       VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT(proposal_id, voter_id) DO UPDATE SET option = excluded.option, updated_at = CURRENT_TIMESTAMP`,
+      [proposalId, normalizedVoterId, normalizedOption]
+    );
+
+    const voteRows = await allAsync(
+      'SELECT proposal_id, option, COUNT(*) as votes FROM rule_change_votes WHERE proposal_id = ? GROUP BY option',
+      [proposalId]
+    );
+    const voteIndex = buildVoteCountIndex(voteRows);
+    const formatted = formatRuleChangeProposal(proposalRow, voteIndex, { [proposalId]: normalizedOption });
+
+    res.json({ proposalId, options: formatted.options, userVote: normalizedOption });
+  } catch (error) {
+    console.error('Error recording rule change vote:', error);
+    res.status(500).json({ error: 'Failed to record vote' });
+  }
+});
+
 // Get rules - FIXED to read from database instead of hardcoded
 app.get('/api/rules', (req, res) => {
   console.log('📖 Fetching rules from database...');
-  
+
   const query = 'SELECT rules_content FROM league_rules WHERE active = 1 ORDER BY created_at DESC LIMIT 1';
   
   db.get(query, [], (err, row) => {
