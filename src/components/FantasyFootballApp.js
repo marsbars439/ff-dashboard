@@ -4048,7 +4048,7 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
               </form>
             </div>
           </div>
-        )}
+        ))}
 
         {activeTab === 'rules' && (
           <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8">
