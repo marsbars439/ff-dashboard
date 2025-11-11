@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Gavel, Loader2, RefreshCcw } from 'lucide-react';
+import { Gavel, Loader2 } from 'lucide-react';
 
 const RuleChangeVoting = ({
   seasonYear,
@@ -8,17 +8,20 @@ const RuleChangeVoting = ({
   error = null,
   onVote,
   userVotes = {},
-  voteSubmitting = {},
-  onRefresh
+  voteSubmitting = {}
 }) => {
   const displaySeason = seasonYear != null ? seasonYear + 1 : null;
   const [activeIndex, setActiveIndex] = useState(0);
 
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [proposals]);
-
   const totalProposals = Array.isArray(proposals) ? proposals.length : 0;
+  useEffect(() => {
+    setActiveIndex(prevIndex => {
+      if (totalProposals === 0) {
+        return 0;
+      }
+      return Math.min(prevIndex, totalProposals - 1);
+    });
+  }, [totalProposals]);
   const clampedIndex = totalProposals > 0 ? Math.min(Math.max(activeIndex, 0), totalProposals - 1) : 0;
   const activeProposal = totalProposals > 0 ? proposals[clampedIndex] : null;
   const hasPrevious = clampedIndex > 0;
@@ -48,17 +51,6 @@ const RuleChangeVoting = ({
             </p>
           )}
         </div>
-        {typeof onRefresh === 'function' && (
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={loading}
-            className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 disabled:opacity-60"
-          >
-            <RefreshCcw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        )}
       </div>
 
       {error && (
