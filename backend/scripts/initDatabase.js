@@ -226,6 +226,45 @@ db.serialize(() => {
     }
   });
 
+  console.log('📊 Creating rule_change_proposals table...');
+  db.run(`
+    CREATE TABLE IF NOT EXISTS rule_change_proposals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      season_year INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      options TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `, (err) => {
+    if (err) {
+      console.error('❌ Error creating rule_change_proposals table:', err.message);
+    } else {
+      console.log('✅ rule_change_proposals table created successfully');
+    }
+  });
+
+  console.log('📊 Creating rule_change_votes table...');
+  db.run(`
+    CREATE TABLE IF NOT EXISTS rule_change_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      proposal_id INTEGER NOT NULL,
+      voter_id TEXT NOT NULL,
+      option TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(proposal_id, voter_id),
+      FOREIGN KEY (proposal_id) REFERENCES rule_change_proposals(id) ON DELETE CASCADE
+    )
+  `, (err) => {
+    if (err) {
+      console.error('❌ Error creating rule_change_votes table:', err.message);
+    } else {
+      console.log('✅ rule_change_votes table created successfully');
+    }
+  });
+
   // Add dues_chumpion column if it doesn't exist (for existing databases)
   console.log('🔧 Checking for dues_chumpion column...');
   db.run(`
@@ -301,6 +340,18 @@ db.serialize(() => {
     {
       name: 'idx_manager_sleeper_ids_user',
       sql: 'CREATE INDEX IF NOT EXISTS idx_manager_sleeper_ids_user ON manager_sleeper_ids(sleeper_user_id)'
+    },
+    {
+      name: 'idx_rule_change_proposals_season',
+      sql: 'CREATE INDEX IF NOT EXISTS idx_rule_change_proposals_season ON rule_change_proposals(season_year)'
+    },
+    {
+      name: 'idx_rule_change_votes_proposal',
+      sql: 'CREATE INDEX IF NOT EXISTS idx_rule_change_votes_proposal ON rule_change_votes(proposal_id)'
+    },
+    {
+      name: 'idx_rule_change_votes_voter',
+      sql: 'CREATE INDEX IF NOT EXISTS idx_rule_change_votes_voter ON rule_change_votes(voter_id)'
     }
   ];
 
@@ -370,6 +421,22 @@ db.serialize(() => {
     }
   });
 
+  db.all("PRAGMA table_info(rule_change_proposals)", (err, columns) => {
+    if (err) {
+      console.error('❌ Error checking rule_change_proposals table:', err.message);
+    } else {
+      console.log('✅ rule_change_proposals table columns:', columns.map(col => col.name).join(', '));
+    }
+  });
+
+  db.all("PRAGMA table_info(rule_change_votes)", (err, columns) => {
+    if (err) {
+      console.error('❌ Error checking rule_change_votes table:', err.message);
+    } else {
+      console.log('✅ rule_change_votes table columns:', columns.map(col => col.name).join(', '));
+    }
+  });
+
   // Check database file size and record counts (READ ONLY)
   fs.stat(dbPath, (err, stats) => {
     if (err) {
@@ -398,9 +465,21 @@ db.serialize(() => {
     }
   });
 
+  db.get('SELECT COUNT(*) as count FROM rule_change_proposals', (err, row) => {
+    if (!err && row) {
+      console.log(`📊 Rule change proposals in database: ${row.count}`);
+    }
+  });
+
+  db.get('SELECT COUNT(*) as count FROM rule_change_votes', (err, row) => {
+    if (!err && row) {
+      console.log(`📊 Rule change votes in database: ${row.count}`);
+    }
+  });
+
   console.log('\n🎉 Database initialization completed successfully!');
   console.log('📋 Summary:');
-  console.log('   ✅ Tables created/verified: managers, manager_sleeper_ids, team_seasons, league_rules');
+  console.log('   ✅ Tables created/verified: managers, manager_sleeper_ids, team_seasons, league_rules, rule_change_proposals, rule_change_votes');
   console.log('   ✅ Indexes created for optimal performance');
   console.log('   ✅ dues_chumpion column added/verified');
   console.log('   ✅ GUARANTEED: No rules insertion - rules table left completely untouched');
