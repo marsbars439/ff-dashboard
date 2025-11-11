@@ -21,6 +21,7 @@ import {
   Gavel,
   Loader2,
   ShieldCheck,
+  LogOut,
 
 } from 'lucide-react';
 import SleeperAdmin from './SleeperAdmin';
@@ -36,6 +37,8 @@ import RuleChangeAdmin from './RuleChangeAdmin';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
 const MANAGER_AUTH_STORAGE_KEY = 'ff-dashboard-manager-auth';
+const ADMIN_AUTH_STORAGE_KEY = 'ff-dashboard-admin-authorized';
+const ADMIN_PASSWORD = process.env.REACT_APP_ANALYTICS_PASSWORD || 'admin';
 
 const VALID_TABS = new Set(['records', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
 
@@ -45,9 +48,19 @@ const FantasyFootballApp = () => {
       return 'records';
     }
 
+    let storedAdminAuthorized = false;
+    try {
+      storedAdminAuthorized = window.localStorage?.getItem(ADMIN_AUTH_STORAGE_KEY) === 'true';
+    } catch (error) {
+      console.warn('Unable to read stored admin authorization:', error);
+    }
+
     try {
       const storedTab = window.localStorage?.getItem('ff-dashboard-active-tab');
       if (storedTab && VALID_TABS.has(storedTab)) {
+        if (!storedAdminAuthorized && (storedTab === 'admin' || storedTab === 'analytics')) {
+          return 'records';
+        }
         return storedTab;
       }
     } catch (error) {
@@ -94,7 +107,25 @@ const FantasyFootballApp = () => {
   const [managerAuthPasscode, setManagerAuthPasscode] = useState('');
   const [managerAuthError, setManagerAuthError] = useState(null);
   const [managerAuthLoading, setManagerAuthLoading] = useState(false);
+  const [adminAuthorized, setAdminAuthorized] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    try {
+      return window.localStorage?.getItem(ADMIN_AUTH_STORAGE_KEY) === 'true';
+    } catch (error) {
+      console.warn('Unable to read stored admin authorization:', error);
+      return false;
+    }
+  });
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [adminPasswordError, setAdminPasswordError] = useState(null);
   const updateActiveTab = tab => {
+    if (tab === 'analytics' && !adminAuthorized) {
+      setActiveTab('admin');
+      return;
+    }
     setActiveTab(VALID_TABS.has(tab) ? tab : 'records');
   };
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
@@ -156,6 +187,12 @@ const FantasyFootballApp = () => {
   }, [activeTab]);
 
   useEffect(() => {
+    if (!adminAuthorized && activeTab === 'analytics') {
+      setActiveTab('admin');
+    }
+  }, [adminAuthorized, activeTab]);
+
+  useEffect(() => {
     fetchData();
     fetchRules();
     // Set document title
@@ -177,6 +214,43 @@ const FantasyFootballApp = () => {
       console.warn('Unable to update stored manager authentication:', error);
     }
   }, []);
+
+  const persistAdminAuthorization = useCallback((isAuthorized) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      if (isAuthorized) {
+        window.localStorage?.setItem(ADMIN_AUTH_STORAGE_KEY, 'true');
+      } else {
+        window.localStorage?.removeItem(ADMIN_AUTH_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.warn('Unable to update stored admin authorization:', error);
+    }
+  }, []);
+
+  const handleAdminAuthSubmit = (event) => {
+    event.preventDefault();
+    if (adminPasswordInput === ADMIN_PASSWORD) {
+      setAdminAuthorized(true);
+      persistAdminAuthorization(true);
+      setAdminPasswordInput('');
+      setAdminPasswordError(null);
+      return;
+    }
+
+    setAdminPasswordError('Incorrect password');
+  };
+
+  const handleAdminSignOut = () => {
+    setAdminAuthorized(false);
+    persistAdminAuthorization(false);
+    setAdminPasswordInput('');
+    setAdminPasswordError(null);
+    setActiveTab('admin');
+  };
 
   const clearManagerAuth = useCallback(
     (message = null) => {
@@ -3575,15 +3649,23 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
 
         
         {activeTab === 'admin' && (
-          <div className="space-y-6 sm:space-y-8">
-            <div className="flex justify-end">
-              <button
-                onClick={() => updateActiveTab('analytics')}
-                className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
-              >
-                <BarChart3 className="w-4 h-4 mr-1" /> Analytics
-              </button>
-            </div>
+          adminAuthorized ? (
+            <div className="space-y-6 sm:space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={handleAdminSignOut}
+                  className="flex items-center justify-center px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
+                >
+                  <LogOut className="w-4 h-4 mr-1" /> Sign Out
+                </button>
+                <button
+                  onClick={() => updateActiveTab('analytics')}
+                  className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                >
+                  <BarChart3 className="w-4 h-4 mr-1" /> Analytics
+                </button>
+              </div>
             <CollapsibleSection
               title={
                 <div className="flex items-center space-x-2">
@@ -3933,6 +4015,38 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 </div>
               </div>
             </CollapsibleSection>
+          </div>
+        ) : (
+          <div className="max-w-md mx-auto">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8">
+              <div className="flex items-center space-x-3 mb-6 sm:mb-8">
+                <ShieldCheck className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Admin Access</h2>
+              </div>
+              <form onSubmit={handleAdminAuthSubmit} className="space-y-4">
+                <input
+                  type="password"
+                  placeholder="Enter admin password"
+                  value={adminPasswordInput}
+                  onChange={(e) => {
+                    setAdminPasswordInput(e.target.value);
+                    if (adminPasswordError) {
+                      setAdminPasswordError(null);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {adminPasswordError && (
+                  <p className="text-sm text-red-600">{adminPasswordError}</p>
+                )}
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                >
+                  Enter
+                </button>
+              </form>
+            </div>
           </div>
         )}
 
