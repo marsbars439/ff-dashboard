@@ -191,8 +191,6 @@ function useDebounce(value, delay) {
 }
 
 const Analytics = ({ onBack }) => {
-  const [authorized, setAuthorized] = useState(false);
-  const [input, setInput] = useState('');
   const [players, setPlayers] = useState([]);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
@@ -208,7 +206,6 @@ const Analytics = ({ onBack }) => {
   });
   const [excludedPositions, setExcludedPositions] = useState([]);
   const [activeFilterKey, setActiveFilterKey] = useState(null);
-  const password = process.env.REACT_APP_ANALYTICS_PASSWORD || 'admin';
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
   const [refreshMessage, setRefreshMessage] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -239,15 +236,6 @@ const Analytics = ({ onBack }) => {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [activeFilterKey]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (input === password) {
-      setAuthorized(true);
-    } else {
-      alert('Incorrect password');
-    }
-  };
 
   const loadData = useCallback(async () => {
     const year = new Date().getFullYear();
@@ -402,10 +390,8 @@ const Analytics = ({ onBack }) => {
   }, [API_BASE_URL]);
 
   useEffect(() => {
-    if (authorized) {
-      loadData();
-    }
-  }, [authorized, loadData]);
+    loadData();
+  }, [loadData]);
 
   const refreshRosData = async () => {
     setRefreshing(true);
@@ -1014,32 +1000,6 @@ const Analytics = ({ onBack }) => {
       <td className="px-3 py-2 whitespace-nowrap text-right">{p.projPts}</td>
     </tr>
   );
-
-  if (!authorized) {
-    return (
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 max-w-md mx-auto">
-        <div className="flex items-center space-x-3 mb-6 sm:mb-8">
-          <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Analytics</h2>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="password"
-            placeholder="Enter password"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          >
-            Enter
-          </button>
-        </form>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 sm:space-y-8">

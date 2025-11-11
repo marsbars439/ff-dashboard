@@ -15,6 +15,13 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
   const [newMapping, setNewMapping] = useState({ name_id: '', season: '', sleeper_user_id: '' });
   const [editingMappingId, setEditingMappingId] = useState(null);
   const [editingMapping, setEditingMapping] = useState({});
+  const [passcodeEdit, setPasscodeEdit] = useState({
+    managerId: null,
+    passcode: '',
+    confirm: '',
+    loading: false,
+    error: null
+  });
 
   const sortedManagers = useMemo(() => {
     return [...managers].sort((a, b) => {
@@ -241,6 +248,74 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
 
   const managerNameMap = Object.fromEntries(managers.map(m => [m.name_id, m.full_name]));
 
+  const startPasscodeEdit = (manager) => {
+    setPasscodeEdit({
+      managerId: manager.name_id,
+      passcode: '',
+      confirm: '',
+      loading: false,
+      error: null
+    });
+  };
+
+  const cancelPasscodeEdit = () => {
+    setPasscodeEdit({
+      managerId: null,
+      passcode: '',
+      confirm: '',
+      loading: false,
+      error: null
+    });
+  };
+
+  const savePasscodeEdit = async () => {
+    if (!passcodeEdit.managerId) {
+      return;
+    }
+
+    if (!passcodeEdit.passcode) {
+      setPasscodeEdit(prev => ({ ...prev, error: 'Enter a passcode.' }));
+      return;
+    }
+
+    if (passcodeEdit.passcode !== passcodeEdit.confirm) {
+      setPasscodeEdit(prev => ({ ...prev, error: 'Passcodes do not match.' }));
+      return;
+    }
+
+    const targetManagerId = passcodeEdit.managerId;
+    setPasscodeEdit(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/manager-auth/passcode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          managerId: targetManagerId,
+          passcode: passcodeEdit.passcode
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to update passcode');
+      }
+
+      cancelPasscodeEdit();
+      setMessage({
+        type: 'success',
+        text: `Passcode updated for ${managerNameMap[targetManagerId] || targetManagerId}`
+      });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setPasscodeEdit(prev => ({
+        ...prev,
+        loading: false,
+        error: error.message || 'Failed to update passcode'
+      }));
+    }
+  };
+
   return (
     <div className="space-y-6">
       {message && (
@@ -367,6 +442,7 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
                 <th className="px-3 py-2 text-left">Sleeper Username</th>
                 <th className="px-3 py-2 text-left">Sleeper User ID</th>
                 <th className="px-3 py-2 text-left">Active</th>
+                <th className="px-3 py-2 text-left">Passcode</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -382,6 +458,68 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${manager.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                       {manager.active ? 'Active' : 'Inactive'}
                     </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    {passcodeEdit.managerId === manager.name_id ? (
+                      <div className="space-y-2">
+                        <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+                          <input
+                            type="password"
+                            placeholder="New passcode"
+                            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            value={passcodeEdit.passcode}
+                            onChange={(e) =>
+                              setPasscodeEdit(prev => ({
+                                ...prev,
+                                passcode: e.target.value,
+                                error: null
+                              }))
+                            }
+                            disabled={passcodeEdit.loading}
+                          />
+                          <input
+                            type="password"
+                            placeholder="Confirm passcode"
+                            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            value={passcodeEdit.confirm}
+                            onChange={(e) =>
+                              setPasscodeEdit(prev => ({
+                                ...prev,
+                                confirm: e.target.value,
+                                error: null
+                              }))
+                            }
+                            disabled={passcodeEdit.loading}
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={savePasscodeEdit}
+                              className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+                              disabled={passcodeEdit.loading}
+                            >
+                              {passcodeEdit.loading ? 'Saving…' : 'Save'}
+                            </button>
+                            <button
+                              onClick={cancelPasscodeEdit}
+                              className="text-xs font-medium text-gray-600 hover:underline"
+                              disabled={passcodeEdit.loading}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                        {passcodeEdit.error && (
+                          <div className="text-xs text-red-600">{passcodeEdit.error}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startPasscodeEdit(manager)}
+                        className="text-sm font-medium text-blue-600 hover:underline"
+                      >
+                        Set Passcode
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
