@@ -2719,11 +2719,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
               onVote={handleRuleChangeVote}
               userVotes={ruleChangeUserVotes}
               voteSubmitting={ruleChangeVoteStatus}
-              onRefresh={() => {
-                if (selectedKeeperYear) {
-                  fetchRuleChangeProposals(selectedKeeperYear);
-                }
-              }}
             />
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -3616,11 +3611,6 @@ const handleTradeAmountChange = (rosterId, playerIndex, value) => {
                 onDeleteProposal={deleteRuleChangeProposal}
                 isLoading={ruleChangeLoading}
                 error={ruleChangeError}
-                onRefresh={() => {
-                  if (selectedKeeperYear) {
-                    fetchRuleChangeProposals(selectedKeeperYear);
-                  }
-                }}
               />
             </CollapsibleSection>
             <CollapsibleSection

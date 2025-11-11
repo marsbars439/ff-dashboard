@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Loader2, Save, X, Trash2, Edit3, RefreshCcw } from 'lucide-react';
+import { Plus, Loader2, Save, X, Trash2, Edit3 } from 'lucide-react';
 
 const toUniqueOptions = (text) => {
   if (typeof text !== 'string') {
@@ -21,8 +21,7 @@ const RuleChangeAdmin = ({
   onUpdateProposal,
   onDeleteProposal,
   isLoading = false,
-  error = null,
-  onRefresh
+  error = null
 }) => {
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
@@ -256,22 +255,11 @@ const RuleChangeAdmin = ({
         <h3 className="text-lg font-semibold text-gray-900">
           Existing Proposals{seasonYear != null ? ` • ${seasonYear + 1} Season` : ''}
         </h3>
-        <div className="flex items-center gap-2">
-          {actionStatus && (
+        {actionStatus && (
+          <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">{actionStatus}</span>
-          )}
-          {typeof onRefresh === 'function' && (
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={isLoading}
-              className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100 disabled:opacity-60"
-            >
-              <RefreshCcw className={`mr-1 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {error && (
