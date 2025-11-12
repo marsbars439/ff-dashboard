@@ -1915,6 +1915,41 @@ app.post('/api/rule-changes', async (req, res) => {
   }
 });
 
+app.put('/api/rule-changes/voting-lock', async (req, res) => {
+  const adminTokenHeader = req.headers['x-admin-token'];
+  const adminToken = typeof adminTokenHeader === 'string' ? adminTokenHeader.trim() : '';
+
+  if (!adminToken || !isAdminTokenValid(adminToken)) {
+    return res.status(401).json({ error: 'Admin authentication is required' });
+  }
+
+  const { seasonYear, locked } = req.body || {};
+  const numericYear = parseInt(seasonYear, 10);
+
+  if (Number.isNaN(numericYear)) {
+    return res.status(400).json({ error: 'A valid seasonYear is required' });
+  }
+
+  const { valid, value: desiredLocked } = parseBooleanFlag(locked);
+
+  if (!valid) {
+    return res.status(400).json({ error: 'locked must be a boolean value' });
+  }
+
+  try {
+    const updatedRow = await setRuleChangeVotingLock(numericYear, desiredLocked);
+    res.json({
+      seasonYear: updatedRow?.season_year ?? numericYear,
+      locked: updatedRow ? updatedRow.locked === 1 : desiredLocked,
+      lockedAt: updatedRow?.locked_at || null,
+      updatedAt: updatedRow?.updated_at || null
+    });
+  } catch (error) {
+    console.error('Error updating rule change voting lock:', error);
+    res.status(500).json({ error: 'Failed to update voting lock' });
+  }
+});
+
 app.put('/api/rule-changes/:id', async (req, res) => {
   const proposalId = parseInt(req.params.id, 10);
 
@@ -2223,41 +2258,6 @@ app.delete('/api/rule-changes/:id/vote', async (req, res) => {
   } catch (error) {
     console.error('Error removing rule change vote:', error);
     res.status(500).json({ error: 'Failed to remove vote' });
-  }
-});
-
-app.put('/api/rule-changes/voting-lock', async (req, res) => {
-  const adminTokenHeader = req.headers['x-admin-token'];
-  const adminToken = typeof adminTokenHeader === 'string' ? adminTokenHeader.trim() : '';
-
-  if (!adminToken || !isAdminTokenValid(adminToken)) {
-    return res.status(401).json({ error: 'Admin authentication is required' });
-  }
-
-  const { seasonYear, locked } = req.body || {};
-  const numericYear = parseInt(seasonYear, 10);
-
-  if (Number.isNaN(numericYear)) {
-    return res.status(400).json({ error: 'A valid seasonYear is required' });
-  }
-
-  const { valid, value: desiredLocked } = parseBooleanFlag(locked);
-
-  if (!valid) {
-    return res.status(400).json({ error: 'locked must be a boolean value' });
-  }
-
-  try {
-    const updatedRow = await setRuleChangeVotingLock(numericYear, desiredLocked);
-    res.json({
-      seasonYear: updatedRow?.season_year ?? numericYear,
-      locked: updatedRow ? updatedRow.locked === 1 : desiredLocked,
-      lockedAt: updatedRow?.locked_at || null,
-      updatedAt: updatedRow?.updated_at || null
-    });
-  } catch (error) {
-    console.error('Error updating rule change voting lock:', error);
-    res.status(500).json({ error: 'Failed to update voting lock' });
   }
 });
 
