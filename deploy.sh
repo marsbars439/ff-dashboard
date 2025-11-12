@@ -13,12 +13,18 @@ IMAGE_TAG="${2:-latest}"
 CONTAINER_NAME="ff-dashboard"
 PORT="${3:-3000}"
 SUMMARY_RATE_LIMIT_MAX="${4:-20}"
+ADMIN_PASSWORD="${5:-}"
 
 echo "🚀 Deploying FF Dashboard"
 echo "   Registry: $REGISTRY"
 echo "   Image: $USERNAME/$REPO_NAME:$IMAGE_TAG"
 echo "   Port: $PORT"
 echo "   Summary rate limit max: $SUMMARY_RATE_LIMIT_MAX"
+if [[ -n "$ADMIN_PASSWORD" ]]; then
+    echo "   Admin password provided"
+else
+    echo "   Admin password not set (admin routes will be disabled)"
+fi
 echo ""
 
 # Function to check if container exists
@@ -53,6 +59,7 @@ docker run -d \
     -p $PORT:3000 \
     -e NODE_ENV=production \
     -e SUMMARY_RATE_LIMIT_MAX=$SUMMARY_RATE_LIMIT_MAX \
+    -e ADMIN_PASSWORD="$ADMIN_PASSWORD" \
     $REGISTRY/$USERNAME/$REPO_NAME:$IMAGE_TAG
 
 # Check if container started successfully

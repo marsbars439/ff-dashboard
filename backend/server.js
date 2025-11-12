@@ -16,6 +16,12 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const envAdminPassword =
+  process.env.ADMIN_PASSWORD !== undefined
+    ? process.env.ADMIN_PASSWORD
+    : process.env.REACT_APP_ANALYTICS_PASSWORD;
+const ADMIN_PASSWORD = typeof envAdminPassword === 'string' ? envAdminPassword : '';
+
 // Rate limiter for summary endpoint
 const summaryRateLimitWindowMs =
   parseInt(process.env.SUMMARY_RATE_LIMIT_WINDOW_MS, 10) || 60 * 1000;
@@ -215,8 +221,49 @@ const allAsync = (sql, params = []) =>
     });
   });
 
+const ADMIN_TOKEN_TTL_MS = 1000 * 60 * 15; // 15 minutes
+const activeAdminTokens = new Map();
+
 const MANAGER_TOKEN_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
 const activeManagerTokens = new Map();
+
+const cleanupExpiredAdminTokens = () => {
+  const now = Date.now();
+  for (const [token, session] of activeAdminTokens.entries()) {
+    if (!session || session.expiresAt <= now) {
+      activeAdminTokens.delete(token);
+    }
+  }
+};
+
+setInterval(cleanupExpiredAdminTokens, ADMIN_TOKEN_TTL_MS).unref?.();
+
+const createAdminToken = () => {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = Date.now() + ADMIN_TOKEN_TTL_MS;
+  activeAdminTokens.set(token, { expiresAt });
+  return { token, expiresAt };
+};
+
+const isAdminTokenValid = (token) => {
+  if (!token) {
+    return false;
+  }
+
+  const session = activeAdminTokens.get(token);
+  if (!session) {
+    return false;
+  }
+
+  if (session.expiresAt <= Date.now()) {
+    activeAdminTokens.delete(token);
+    return false;
+  }
+
+  session.expiresAt = Date.now() + ADMIN_TOKEN_TTL_MS;
+  activeAdminTokens.set(token, session);
+  return true;
+};
 
 const cleanupExpiredManagerTokens = () => {
   const now = Date.now();
@@ -728,6 +775,46 @@ const syncCurrentSeasonFromSleeper = async () => {
 const upload = multer({ dest: 'uploads/' });
 
 // Routes
+
+app.post('/api/admin-auth', (req, res) => {
+  if (!ADMIN_PASSWORD) {
+    console.warn('Admin password is not configured.');
+    return res.status(500).json({ success: false, error: 'Admin password is not configured.' });
+  }
+
+  const { password, token } = req.body || {};
+  const normalizedPassword = typeof password === 'string' ? password : '';
+  const normalizedToken = typeof token === 'string' ? token.trim() : '';
+
+  if (normalizedToken) {
+    if (!isAdminTokenValid(normalizedToken)) {
+      return res.status(401).json({ success: false, error: 'Invalid or expired admin token' });
+    }
+
+    const session = activeAdminTokens.get(normalizedToken);
+    return res.json({
+      success: true,
+      token: normalizedToken,
+      expiresAt: session ? new Date(session.expiresAt).toISOString() : null
+    });
+  }
+
+  if (!normalizedPassword) {
+    return res.status(400).json({ success: false, error: 'Password is required' });
+  }
+
+  if (normalizedPassword !== ADMIN_PASSWORD) {
+    return res.status(401).json({ success: false, error: 'Invalid admin credentials' });
+  }
+
+  const { token: adminToken, expiresAt } = createAdminToken();
+
+  res.json({
+    success: true,
+    token: adminToken,
+    expiresAt: new Date(expiresAt).toISOString()
+  });
+});
 
 app.post('/api/manager-auth/login', async (req, res) => {
   const { managerId, passcode } = req.body || {};
