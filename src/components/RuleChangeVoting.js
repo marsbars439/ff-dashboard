@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Gavel, Loader2 } from 'lucide-react';
+import { Gavel, Loader2, Lock } from 'lucide-react';
 
 const RuleChangeVoting = ({
   seasonYear,
@@ -9,7 +9,8 @@ const RuleChangeVoting = ({
   onVote,
   userVotes = {},
   voteSubmitting = {},
-  canVote = true
+  canVote = true,
+  votingLocked = false
 }) => {
   const displaySeason = seasonYear != null ? seasonYear + 1 : null;
   const [activeIndex, setActiveIndex] = useState(0);
@@ -59,6 +60,16 @@ const RuleChangeVoting = ({
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {votingLocked && (
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          <Lock className="h-4 w-4" />
+          <span>
+            Voting for the {displaySeason ? `${displaySeason} season` : 'selected season'} has been locked by the
+            commissioner.
+          </span>
         </div>
       )}
 
@@ -123,13 +134,19 @@ const RuleChangeVoting = ({
                           onClick={() =>
                             onVote && onVote(activeProposal.id, isSelected ? null : option.value)
                           }
-                          disabled={isSubmitting || !onVote || !canVote}
+                          disabled={isSubmitting || !onVote || !canVote || votingLocked}
                           className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                             isSelected
                               ? 'bg-blue-600 text-white'
                               : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
                           } ${isSubmitting ? 'opacity-70 cursor-wait' : ''}`}
-                          title={isSelected ? 'Click to remove your vote' : undefined}
+                          title={
+                            votingLocked
+                              ? 'Voting has been locked by the commissioner'
+                              : isSelected
+                              ? 'Click to remove your vote'
+                              : undefined
+                          }
                         >
                           {isSubmitting
                             ? 'Updating...'
@@ -158,6 +175,8 @@ const RuleChangeVoting = ({
                 <p className="mt-3 text-xs text-green-600">
                   You voted for <span className="font-semibold">{selectedOption}</span>.
                 </p>
+              ) : votingLocked ? (
+                <p className="mt-3 text-xs text-gray-500">Voting is locked for this season.</p>
               ) : (
                 <p className="mt-3 text-xs text-gray-500">
                   Vote to see how the rest of the league is leaning.
