@@ -22,7 +22,7 @@ import {
   Loader2,
   ShieldCheck,
   LogOut,
-  CloudCheck,
+  Cloud,
 
 } from 'lucide-react';
 import SleeperAdmin from './SleeperAdmin';
@@ -3523,7 +3523,7 @@ const FantasyFootballApp = () => {
                           </span>
                           {managerAuth.verificationSource === 'cloudflare' && (
                             <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600">
-                              <CloudCheck className="h-4 w-4" />
+                              <Cloud className="h-4 w-4" />
                               Verified via Cloudflare
                             </span>
                           )}
