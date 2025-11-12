@@ -1221,13 +1221,17 @@ app.post('/api/admin-auth', (req, res) => {
 });
 
 app.get('/api/manager-auth/cloudflare', async (req, res) => {
-  const emailHeader = req.headers['cf-access-authenticated-user-email'];
+  const cfAccessEmailHeader = req.headers['cf-access-authenticated-user-email'];
+  const fallbackEmailHeader = req.headers['manager-email'];
+  const emailHeader = cfAccessEmailHeader || fallbackEmailHeader;
   const jwtAssertionHeader = req.headers['cf-access-jwt-assertion'];
   const requestedEmail = typeof emailHeader === 'string' ? emailHeader.trim() : '';
   const normalizedEmail = requestedEmail.toLowerCase();
 
   if (!normalizedEmail) {
-    console.warn('Cloudflare Access authentication attempt missing email header');
+    console.warn(
+      'Cloudflare Access authentication attempt missing email header (expected cf-access-authenticated-user-email or manager-email)'
+    );
     return res.status(400).json({ error: 'Missing Cloudflare Access email header' });
   }
 
