@@ -9,6 +9,7 @@ const sleeperService = require('./services/sleeperService');
 const summaryService = require('./services/summaryService');
 const weeklySummaryService = require('./services/weeklySummaryService');
 const fantasyProsService = require('./services/fantasyProsService');
+const axios = require('axios');
 const rateLimit = require('express-rate-limit');
 const cron = require('node-cron');
 require('dotenv').config();
@@ -34,9 +35,186 @@ const summarizeLimiter = rateLimit({
   message: 'Too many requests, please try again later.'
 });
 
+const cloudflareAuthRateLimitWindowMs =
+  parseInt(process.env.CF_MANAGER_AUTH_RATE_LIMIT_WINDOW_MS, 10) || 60 * 1000;
+const cloudflareAuthRateLimitMax =
+  parseInt(process.env.CF_MANAGER_AUTH_RATE_LIMIT_MAX, 10) || 10;
+
+const cloudflareAccessLimiter = rateLimit({
+  windowMs: cloudflareAuthRateLimitWindowMs,
+  max: cloudflareAuthRateLimitMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many authentication attempts, please try again later.'
+});
+
+const rawCloudflareTeamDomain = (process.env.CF_ACCESS_TEAM_DOMAIN || '').trim();
+const normalizedCloudflareTeamDomain = rawCloudflareTeamDomain
+  .replace(/^https?:\/\//i, '')
+  .replace(/\/$/, '');
+const cloudflareIssuer = normalizedCloudflareTeamDomain
+  ? `https://${normalizedCloudflareTeamDomain}`
+  : '';
+const cloudflareJwksUri = cloudflareIssuer
+  ? `${cloudflareIssuer}/cdn-cgi/access/certs`
+  : '';
+
+const cloudflareJwtAudience = (process.env.CF_ACCESS_JWT_AUD || '').trim();
+const cloudflareJwtValidationFlag = (process.env.CF_ACCESS_VALIDATE_JWT || '').trim().toLowerCase();
+const shouldValidateCloudflareJwt = ['1', 'true', 'yes', 'required'].includes(cloudflareJwtValidationFlag);
+const cloudflareJwksCacheMs =
+  parseInt(process.env.CF_ACCESS_JWKS_CACHE_MS, 10) || 60 * 60 * 1000;
+
+const cloudflareJwksRequestTimeoutMs =
+  parseInt(process.env.CF_ACCESS_JWKS_TIMEOUT_MS, 10) || 5000;
+
+const cloudflareJwksCache = {
+  keys: null,
+  expiresAt: 0
+};
+
+const decodeBase64Url = (input) => {
+  if (typeof input !== 'string') {
+    return Buffer.alloc(0);
+  }
+
+  const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = normalized.length % 4 === 0 ? 0 : 4 - (normalized.length % 4);
+  return Buffer.from(normalized + '='.repeat(padding), 'base64');
+};
+
+const fetchCloudflareJwks = async () => {
+  if (!cloudflareJwksUri) {
+    throw new Error('Cloudflare Access JWKS URI is not configured');
+  }
+
+  if (cloudflareJwksCache.keys && cloudflareJwksCache.expiresAt > Date.now()) {
+    return cloudflareJwksCache.keys;
+  }
+
+  const response = await axios.get(cloudflareJwksUri, {
+    timeout: cloudflareJwksRequestTimeoutMs
+  });
+
+  const keys = Array.isArray(response?.data?.keys) ? response.data.keys : [];
+
+  if (!keys.length) {
+    throw new Error('No signing keys returned from Cloudflare Access');
+  }
+
+  cloudflareJwksCache.keys = keys;
+  cloudflareJwksCache.expiresAt = Date.now() + cloudflareJwksCacheMs;
+
+  return keys;
+};
+
+const verifyCloudflareJwtAssertion = async (token) => {
+  if (!shouldValidateCloudflareJwt) {
+    return null;
+  }
+
+  if (!token || typeof token !== 'string') {
+    throw new Error('Missing CF-Access-Jwt-Assertion header');
+  }
+
+  if (!cloudflareJwtAudience || !cloudflareIssuer) {
+    throw new Error('Cloudflare Access JWT validation requires CF_ACCESS_JWT_AUD and CF_ACCESS_TEAM_DOMAIN');
+  }
+
+  const segments = token.split('.');
+  if (segments.length !== 3) {
+    throw new Error('Malformed Cloudflare Access token');
+  }
+
+  const [headerSegment, payloadSegment, signatureSegment] = segments;
+
+  let header;
+  let payload;
+  try {
+    header = JSON.parse(decodeBase64Url(headerSegment).toString('utf8'));
+  } catch (error) {
+    throw new Error('Invalid Cloudflare Access token header');
+  }
+
+  if (!header || header.alg !== 'RS256') {
+    throw new Error('Unsupported Cloudflare Access token algorithm');
+  }
+
+  try {
+    payload = JSON.parse(decodeBase64Url(payloadSegment).toString('utf8'));
+  } catch (error) {
+    throw new Error('Invalid Cloudflare Access token payload');
+  }
+
+  let keys = await fetchCloudflareJwks();
+  let signingKeyJwk = keys.find((key) => key.kid === header.kid);
+
+  if (!signingKeyJwk) {
+    cloudflareJwksCache.keys = null;
+    cloudflareJwksCache.expiresAt = 0;
+    keys = await fetchCloudflareJwks();
+    signingKeyJwk = keys.find((key) => key.kid === header.kid);
+  }
+
+  if (!signingKeyJwk) {
+    throw new Error('Unable to locate signing key for Cloudflare Access token');
+  }
+
+  let publicKey;
+  try {
+    publicKey = crypto.createPublicKey({
+      key: {
+        kty: signingKeyJwk.kty,
+        n: signingKeyJwk.n,
+        e: signingKeyJwk.e
+      },
+      format: 'jwk'
+    });
+  } catch (error) {
+    throw new Error(`Unable to construct Cloudflare Access public key: ${error.message}`);
+  }
+
+  const verifier = crypto.createVerify('RSA-SHA256');
+  verifier.update(`${headerSegment}.${payloadSegment}`);
+  verifier.end();
+
+  const signature = decodeBase64Url(signatureSegment);
+  const isValidSignature = verifier.verify(publicKey, signature);
+
+  if (!isValidSignature) {
+    throw new Error('Invalid Cloudflare Access token signature');
+  }
+
+  const audience = payload?.aud;
+  const audienceMatches = Array.isArray(audience)
+    ? audience.includes(cloudflareJwtAudience)
+    : audience === cloudflareJwtAudience;
+
+  if (!audienceMatches) {
+    throw new Error('Cloudflare Access token audience mismatch');
+  }
+
+  if (payload?.iss !== cloudflareIssuer) {
+    throw new Error('Cloudflare Access token issuer mismatch');
+  }
+
+  const currentEpochSeconds = Math.floor(Date.now() / 1000);
+
+  if (typeof payload?.exp === 'number' && currentEpochSeconds >= payload.exp) {
+    throw new Error('Cloudflare Access token expired');
+  }
+
+  if (typeof payload?.nbf === 'number' && currentEpochSeconds < payload.nbf) {
+    throw new Error('Cloudflare Access token not yet valid');
+  }
+
+  return payload;
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use('/api/manager-auth/cloudflare', cloudflareAccessLimiter);
 
 // Database connection
 const dbPath = path.join(__dirname, 'data', 'fantasy_football.db');
@@ -883,6 +1061,62 @@ app.post('/api/admin-auth', (req, res) => {
     token: adminToken,
     expiresAt: new Date(expiresAt).toISOString()
   });
+});
+
+app.get('/api/manager-auth/cloudflare', async (req, res) => {
+  const emailHeader = req.headers['cf-access-authenticated-user-email'];
+  const jwtAssertionHeader = req.headers['cf-access-jwt-assertion'];
+  const requestedEmail = typeof emailHeader === 'string' ? emailHeader.trim() : '';
+  const normalizedEmail = requestedEmail.toLowerCase();
+
+  if (!normalizedEmail) {
+    console.warn('Cloudflare Access authentication attempt missing email header');
+    return res.status(400).json({ error: 'Missing Cloudflare Access email header' });
+  }
+
+  try {
+    if (shouldValidateCloudflareJwt) {
+      if (!jwtAssertionHeader || typeof jwtAssertionHeader !== 'string') {
+        console.warn(
+          `Cloudflare Access authentication missing JWT assertion for email ${requestedEmail || normalizedEmail}`
+        );
+        return res.status(401).json({ error: 'Invalid Cloudflare Access token' });
+      }
+
+      try {
+        await verifyCloudflareJwtAssertion(jwtAssertionHeader);
+      } catch (jwtError) {
+        console.warn(
+          `Cloudflare Access JWT validation failed for email ${requestedEmail || normalizedEmail}: ${jwtError.message}`
+        );
+        return res.status(401).json({ error: 'Invalid Cloudflare Access token' });
+      }
+    }
+
+    const managerRow = await getAsync(
+      'SELECT name_id, full_name FROM managers WHERE LOWER(email) = LOWER(?)',
+      [requestedEmail || normalizedEmail]
+    );
+
+    if (!managerRow) {
+      console.warn(
+        `Cloudflare Access authentication failed - no manager mapped for email ${requestedEmail || normalizedEmail}`
+      );
+      return res.status(404).json({ error: 'Manager not found for provided email' });
+    }
+
+    const { token, expiresAt } = createManagerToken(managerRow.name_id);
+
+    res.json({
+      managerId: managerRow.name_id,
+      managerName: managerRow.full_name,
+      token,
+      expiresAt: new Date(expiresAt).toISOString()
+    });
+  } catch (error) {
+    console.error('Error during Cloudflare Access authentication:', error);
+    res.status(500).json({ error: 'Failed to authenticate manager via Cloudflare Access' });
+  }
 });
 
 app.post('/api/manager-auth/login', async (req, res) => {
