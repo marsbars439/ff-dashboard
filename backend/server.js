@@ -117,6 +117,27 @@ const cloudflareJwksCache = {
   expiresAt: 0
 };
 
+const redactJwtAssertion = (token) => {
+  if (!token || typeof token !== 'string') {
+    return '';
+  }
+
+  if (token.length <= 16) {
+    return `${token.slice(0, 4)}...`;
+  }
+
+  return `${token.slice(0, 8)}...${token.slice(-8)}`;
+};
+
+const logCloudflareDebug = (message, details) => {
+  const prefix = '[Cloudflare Access]';
+  if (details) {
+    console.debug(`${prefix} ${message}`, details);
+  } else {
+    console.debug(`${prefix} ${message}`);
+  }
+};
+
 const decodeBase64Url = (input) => {
   if (typeof input !== 'string') {
     return Buffer.alloc(0);
@@ -133,9 +154,17 @@ const fetchCloudflareJwks = async () => {
   }
 
   if (cloudflareJwksCache.keys && cloudflareJwksCache.expiresAt > Date.now()) {
+    logCloudflareDebug('Using cached JWKS response', {
+      cachedKeyCount: cloudflareJwksCache.keys.length,
+      cacheExpiresAt: new Date(cloudflareJwksCache.expiresAt).toISOString()
+    });
     return cloudflareJwksCache.keys;
   }
 
+  logCloudflareDebug('Fetching JWKS from Cloudflare', {
+    jwksUri: cloudflareJwksUri,
+    requestTimeoutMs: cloudflareJwksRequestTimeoutMs
+  });
   const response = await axios.get(cloudflareJwksUri, {
     timeout: cloudflareJwksRequestTimeoutMs
   });
@@ -149,6 +178,11 @@ const fetchCloudflareJwks = async () => {
   cloudflareJwksCache.keys = keys;
   cloudflareJwksCache.expiresAt = Date.now() + cloudflareJwksCacheMs;
 
+  logCloudflareDebug('Received JWKS response from Cloudflare', {
+    signingKeyCount: keys.length,
+    cacheExpiresAt: new Date(cloudflareJwksCache.expiresAt).toISOString()
+  });
+
   return keys;
 };
 
@@ -158,15 +192,23 @@ const verifyCloudflareJwtAssertion = async (token) => {
   }
 
   if (!token || typeof token !== 'string') {
+    logCloudflareDebug('JWT assertion header missing or not a string');
     throw new Error('Missing CF-Access-Jwt-Assertion header');
   }
 
   if (!cloudflareJwtAudience || !cloudflareIssuer) {
+    logCloudflareDebug('JWT validation prerequisites are not configured', {
+      hasAudience: Boolean(cloudflareJwtAudience),
+      hasIssuer: Boolean(cloudflareIssuer)
+    });
     throw new Error('Cloudflare Access JWT validation requires CF_ACCESS_JWT_AUD and CF_ACCESS_TEAM_DOMAIN');
   }
 
   const segments = token.split('.');
   if (segments.length !== 3) {
+    logCloudflareDebug('JWT assertion is not in the expected three-segment format', {
+      segmentCount: segments.length
+    });
     throw new Error('Malformed Cloudflare Access token');
   }
 
@@ -177,16 +219,27 @@ const verifyCloudflareJwtAssertion = async (token) => {
   try {
     header = JSON.parse(decodeBase64Url(headerSegment).toString('utf8'));
   } catch (error) {
+    logCloudflareDebug('Failed to decode JWT header segment', {
+      error: error.message
+    });
     throw new Error('Invalid Cloudflare Access token header');
   }
 
   if (!header || header.alg !== 'RS256') {
+    logCloudflareDebug('Unsupported JWT algorithm encountered', {
+      headerAlgorithm: header?.alg,
+      headerKid: header?.kid
+    });
     throw new Error('Unsupported Cloudflare Access token algorithm');
   }
 
   try {
     payload = JSON.parse(decodeBase64Url(payloadSegment).toString('utf8'));
   } catch (error) {
+    logCloudflareDebug('Failed to decode JWT payload segment', {
+      error: error.message,
+      headerKid: header?.kid
+    });
     throw new Error('Invalid Cloudflare Access token payload');
   }
 
@@ -194,6 +247,9 @@ const verifyCloudflareJwtAssertion = async (token) => {
   let signingKeyJwk = keys.find((key) => key.kid === header.kid);
 
   if (!signingKeyJwk) {
+    logCloudflareDebug('Signing key not found in cached JWKS, refreshing', {
+      requestedKid: header.kid
+    });
     cloudflareJwksCache.keys = null;
     cloudflareJwksCache.expiresAt = 0;
     keys = await fetchCloudflareJwks();
@@ -201,6 +257,10 @@ const verifyCloudflareJwtAssertion = async (token) => {
   }
 
   if (!signingKeyJwk) {
+    logCloudflareDebug('Unable to locate signing key for JWT assertion', {
+      requestedKid: header.kid,
+      availableKids: keys.map((key) => key.kid)
+    });
     throw new Error('Unable to locate signing key for Cloudflare Access token');
   }
 
@@ -226,6 +286,9 @@ const verifyCloudflareJwtAssertion = async (token) => {
   const isValidSignature = verifier.verify(publicKey, signature);
 
   if (!isValidSignature) {
+    logCloudflareDebug('JWT signature verification failed', {
+      headerKid: header?.kid
+    });
     throw new Error('Invalid Cloudflare Access token signature');
   }
 
@@ -235,22 +298,45 @@ const verifyCloudflareJwtAssertion = async (token) => {
     : audience === cloudflareJwtAudience;
 
   if (!audienceMatches) {
+    logCloudflareDebug('JWT audience mismatch', {
+      expectedAudience: cloudflareJwtAudience,
+      providedAudience: audience
+    });
     throw new Error('Cloudflare Access token audience mismatch');
   }
 
   if (payload?.iss !== cloudflareIssuer) {
+    logCloudflareDebug('JWT issuer mismatch', {
+      expectedIssuer: cloudflareIssuer,
+      providedIssuer: payload?.iss
+    });
     throw new Error('Cloudflare Access token issuer mismatch');
   }
 
   const currentEpochSeconds = Math.floor(Date.now() / 1000);
 
   if (typeof payload?.exp === 'number' && currentEpochSeconds >= payload.exp) {
+    logCloudflareDebug('JWT has expired', {
+      expiresAt: payload?.exp,
+      now: currentEpochSeconds
+    });
     throw new Error('Cloudflare Access token expired');
   }
 
   if (typeof payload?.nbf === 'number' && currentEpochSeconds < payload.nbf) {
+    logCloudflareDebug('JWT is not yet valid', {
+      notBefore: payload?.nbf,
+      now: currentEpochSeconds
+    });
     throw new Error('Cloudflare Access token not yet valid');
   }
+
+  logCloudflareDebug('Successfully validated JWT assertion', {
+    subject: payload?.sub,
+    email: payload?.email,
+    audience: payload?.aud,
+    issuer: payload?.iss
+  });
 
   return payload;
 };
@@ -1228,7 +1314,17 @@ app.get('/api/manager-auth/cloudflare', async (req, res) => {
   const requestedEmail = typeof emailHeader === 'string' ? emailHeader.trim() : '';
   const normalizedEmail = requestedEmail.toLowerCase();
 
+  logCloudflareDebug('Received manager authentication request', {
+    requestedEmail: requestedEmail || null,
+    normalizedEmail: normalizedEmail || null,
+    hasCfAccessEmailHeader: typeof cfAccessEmailHeader === 'string',
+    hasFallbackEmailHeader: typeof fallbackEmailHeader === 'string',
+    hasJwtAssertionHeader: typeof jwtAssertionHeader === 'string',
+    shouldValidateJwt: shouldValidateCloudflareJwt
+  });
+
   if (!normalizedEmail) {
+    logCloudflareDebug('Rejecting request due to missing email header');
     console.warn(
       'Cloudflare Access authentication attempt missing email header (expected cf-access-authenticated-user-email or manager-email)'
     );
@@ -1238,6 +1334,9 @@ app.get('/api/manager-auth/cloudflare', async (req, res) => {
   try {
     if (shouldValidateCloudflareJwt) {
       if (!jwtAssertionHeader || typeof jwtAssertionHeader !== 'string') {
+        logCloudflareDebug('JWT validation required but assertion header missing', {
+          requestedEmail: requestedEmail || normalizedEmail
+        });
         console.warn(
           `Cloudflare Access authentication missing JWT assertion for email ${requestedEmail || normalizedEmail}`
         );
@@ -1245,8 +1344,19 @@ app.get('/api/manager-auth/cloudflare', async (req, res) => {
       }
 
       try {
+        logCloudflareDebug('Attempting JWT assertion verification', {
+          requestedEmail: requestedEmail || normalizedEmail,
+          jwtAssertionPreview: redactJwtAssertion(jwtAssertionHeader)
+        });
         await verifyCloudflareJwtAssertion(jwtAssertionHeader);
+        logCloudflareDebug('JWT assertion verified successfully', {
+          requestedEmail: requestedEmail || normalizedEmail
+        });
       } catch (jwtError) {
+        logCloudflareDebug('JWT assertion verification failed', {
+          requestedEmail: requestedEmail || normalizedEmail,
+          error: jwtError?.message
+        });
         console.warn(
           `Cloudflare Access JWT validation failed for email ${requestedEmail || normalizedEmail}: ${jwtError.message}`
         );
@@ -1260,6 +1370,9 @@ app.get('/api/manager-auth/cloudflare', async (req, res) => {
     );
 
     if (!managerRow) {
+      logCloudflareDebug('No manager mapping found for provided email', {
+        requestedEmail: requestedEmail || normalizedEmail
+      });
       console.warn(
         `Cloudflare Access authentication failed - no manager mapped for email ${requestedEmail || normalizedEmail}`
       );
@@ -1268,6 +1381,12 @@ app.get('/api/manager-auth/cloudflare', async (req, res) => {
 
     const { token, expiresAt } = createManagerToken(managerRow.name_id);
 
+    logCloudflareDebug('Manager authenticated successfully', {
+      managerId: managerRow.name_id,
+      managerName: managerRow.full_name,
+      requestedEmail: requestedEmail || normalizedEmail
+    });
+
     res.json({
       managerId: managerRow.name_id,
       managerName: managerRow.full_name,
@@ -1275,6 +1394,10 @@ app.get('/api/manager-auth/cloudflare', async (req, res) => {
       expiresAt: new Date(expiresAt).toISOString()
     });
   } catch (error) {
+    logCloudflareDebug('Unexpected error during manager authentication', {
+      requestedEmail: requestedEmail || normalizedEmail,
+      error: error?.message
+    });
     console.error('Error during Cloudflare Access authentication:', error);
     res.status(500).json({ error: 'Failed to authenticate manager via Cloudflare Access' });
   }
