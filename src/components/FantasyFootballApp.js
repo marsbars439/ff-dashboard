@@ -167,6 +167,13 @@ const FantasyFootballApp = () => {
   const activeWeekNumber = activeWeekMatchups?.week ?? null;
   const hasLoadedActiveWeekRef = useRef(false);
   const cloudflareAuthAttemptedRef = useRef(false);
+  const isUnmountedRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
 
   // Determine if a season's regular season is complete (all teams have 14 games)
   const isRegularSeasonComplete = year => {
@@ -572,7 +579,7 @@ const FantasyFootballApp = () => {
           expiresAt: normalizedAuth.expiresAt
         });
       } catch (error) {
-        if (controller.signal.aborted && !didTimeout) {
+        if (isUnmountedRef.current) {
           return;
         }
         console.warn('Cloudflare manager verification failed:', error);
@@ -594,7 +601,7 @@ const FantasyFootballApp = () => {
         persistManagerAuth(null);
       } finally {
         window.clearTimeout(timeoutId);
-        if (!controller.signal.aborted || didTimeout) {
+        if (!isUnmountedRef.current) {
           setManagerAuthLoading(false);
         }
       }
