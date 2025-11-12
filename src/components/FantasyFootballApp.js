@@ -203,6 +203,102 @@ const FantasyFootballApp = () => {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [managers]);
 
+  const persistManagerAuth = useCallback((payload) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      if (payload) {
+        window.localStorage?.setItem(MANAGER_AUTH_STORAGE_KEY, JSON.stringify(payload));
+      } else {
+        window.localStorage?.removeItem(MANAGER_AUTH_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.warn('Unable to update stored manager authentication:', error);
+    }
+  }, []);
+
+  const persistAdminSession = useCallback((session) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      if (session && session.token) {
+        window.localStorage?.setItem(
+          ADMIN_AUTH_STORAGE_KEY,
+          JSON.stringify({
+            token: session.token,
+            expiresAt: session.expiresAt || null
+          })
+        );
+      } else {
+        window.localStorage?.removeItem(ADMIN_AUTH_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.warn('Unable to update stored admin session:', error);
+    }
+  }, []);
+
+  const parseJsonResponse = useCallback(async (response) => {
+    const text = await response.text();
+    if (!text) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.warn('Unable to parse JSON response:', error);
+      return {};
+    }
+  }, []);
+
+  const validateAdminToken = useCallback(
+    async (token) => {
+      if (!token) {
+        setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+        persistAdminSession(null);
+        return;
+      }
+
+      setAdminAuthLoading(true);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin-auth`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+
+        const data = await parseJsonResponse(response);
+
+        if (!response.ok || !data?.success) {
+          throw new Error(data?.error || 'Admin session validation failed');
+        }
+
+        const nextSession = {
+          token: data.token || token,
+          expiresAt: data.expiresAt || null,
+          status: 'authorized'
+        };
+
+        setAdminSession(nextSession);
+        persistAdminSession(nextSession);
+        setAdminPasswordError(null);
+      } catch (error) {
+        console.warn('Admin token validation failed:', error);
+        setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+        persistAdminSession(null);
+        setAdminPasswordError('Your admin session has expired. Please sign in again.');
+      } finally {
+        setAdminAuthLoading(false);
+      }
+    },
+    [API_BASE_URL, parseJsonResponse, persistAdminSession]
+  );
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -241,44 +337,6 @@ const FantasyFootballApp = () => {
     fetchRules();
     // Set document title
     document.title = 'The League Dashboard';
-  }, []);
-
-  const persistManagerAuth = useCallback((payload) => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    try {
-      if (payload) {
-        window.localStorage?.setItem(MANAGER_AUTH_STORAGE_KEY, JSON.stringify(payload));
-      } else {
-        window.localStorage?.removeItem(MANAGER_AUTH_STORAGE_KEY);
-      }
-    } catch (error) {
-      console.warn('Unable to update stored manager authentication:', error);
-    }
-  }, []);
-
-  const persistAdminSession = useCallback((session) => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    try {
-      if (session && session.token) {
-        window.localStorage?.setItem(
-          ADMIN_AUTH_STORAGE_KEY,
-          JSON.stringify({
-            token: session.token,
-            expiresAt: session.expiresAt || null
-          })
-        );
-      } else {
-        window.localStorage?.removeItem(ADMIN_AUTH_STORAGE_KEY);
-      }
-    } catch (error) {
-      console.warn('Unable to update stored admin session:', error);
-    }
   }, []);
 
   const handleAdminAuthSubmit = async (event) => {
@@ -360,63 +418,6 @@ const FantasyFootballApp = () => {
     [persistManagerAuth]
   );
 
-  const parseJsonResponse = useCallback(async (response) => {
-    const text = await response.text();
-    if (!text) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      console.warn('Unable to parse JSON response:', error);
-      return {};
-    }
-  }, []);
-
-  const validateAdminToken = useCallback(
-    async (token) => {
-      if (!token) {
-        setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-        persistAdminSession(null);
-        return;
-      }
-
-      setAdminAuthLoading(true);
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/admin-auth`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token })
-        });
-
-        const data = await parseJsonResponse(response);
-
-        if (!response.ok || !data?.success) {
-          throw new Error(data?.error || 'Admin session validation failed');
-        }
-
-        const nextSession = {
-          token: data.token || token,
-          expiresAt: data.expiresAt || null,
-          status: 'authorized'
-        };
-
-        setAdminSession(nextSession);
-        persistAdminSession(nextSession);
-        setAdminPasswordError(null);
-      } catch (error) {
-        console.warn('Admin token validation failed:', error);
-        setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-        persistAdminSession(null);
-        setAdminPasswordError('Your admin session has expired. Please sign in again.');
-      } finally {
-        setAdminAuthLoading(false);
-      }
-    },
-    [API_BASE_URL, parseJsonResponse, persistAdminSession]
-  );
 
   const validateManagerToken = useCallback(
     async (managerId, token) => {
