@@ -1947,15 +1947,56 @@ app.post('/api/rule-changes/:id/vote', async (req, res) => {
 
   const { option } = req.body || {};
 
+  const adminTokenHeader = req.headers['x-admin-token'];
+  const adminToken = typeof adminTokenHeader === 'string' ? adminTokenHeader.trim() : '';
+  const adminAuthorized = adminToken ? isAdminTokenValid(adminToken) : false;
+
+  if (adminToken && !adminAuthorized) {
+    return res.status(401).json({ error: 'Invalid or expired admin token' });
+  }
+
   const normalizedOption = typeof option === 'string' ? option.trim() : '';
   if (!normalizedOption) {
     return res.status(400).json({ error: 'A valid option is required' });
   }
 
   try {
-    const manager = await requireManagerAuth(req, res);
-    if (!manager) {
-      return;
+    let actingManager = null;
+
+    if (adminAuthorized) {
+      const candidateManagerIds = [
+        req.body?.managerId,
+        req.body?.manager_id,
+        req.body?.voterId,
+        req.body?.voter_id
+      ];
+
+      const normalizedManagerId = candidateManagerIds
+        .map(value => (typeof value === 'string' ? value.trim() : ''))
+        .find(value => value.length > 0);
+
+      if (!normalizedManagerId) {
+        return res
+          .status(400)
+          .json({ error: 'managerId is required when casting a vote as an admin' });
+      }
+
+      const managerRow = await getAsync('SELECT name_id, full_name FROM managers WHERE name_id = ?', [
+        normalizedManagerId
+      ]);
+
+      if (!managerRow) {
+        return res.status(404).json({ error: 'Manager not found' });
+      }
+
+      actingManager = managerRow;
+    } else {
+      const manager = await requireManagerAuth(req, res);
+      if (!manager) {
+        return;
+      }
+
+      actingManager = manager;
     }
 
     const proposalRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [proposalId]);
@@ -1973,7 +2014,7 @@ app.post('/api/rule-changes/:id/vote', async (req, res) => {
       `INSERT INTO rule_change_votes (proposal_id, voter_id, option, created_at, updated_at)
        VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        ON CONFLICT(proposal_id, voter_id) DO UPDATE SET option = excluded.option, updated_at = CURRENT_TIMESTAMP`,
-      [proposalId, manager.name_id, normalizedOption]
+      [proposalId, actingManager.name_id, normalizedOption]
     );
 
     const voteRows = await allAsync(
@@ -1990,7 +2031,7 @@ app.post('/api/rule-changes/:id/vote', async (req, res) => {
     const formatted = formatRuleChangeProposal(
       proposalRow,
       voteDetailIndex,
-      { [proposalId]: normalizedOption },
+      adminAuthorized ? {} : { [proposalId]: normalizedOption },
       mapManagersToSummaries(activeManagerRows)
     );
 
@@ -2009,9 +2050,54 @@ app.delete('/api/rule-changes/:id/vote', async (req, res) => {
   }
 
   try {
-    const manager = await requireManagerAuth(req, res);
-    if (!manager) {
-      return;
+    const adminTokenHeader = req.headers['x-admin-token'];
+    const adminToken = typeof adminTokenHeader === 'string' ? adminTokenHeader.trim() : '';
+    const adminAuthorized = adminToken ? isAdminTokenValid(adminToken) : false;
+
+    if (adminToken && !adminAuthorized) {
+      return res.status(401).json({ error: 'Invalid or expired admin token' });
+    }
+
+    let voterId = '';
+
+    if (adminAuthorized) {
+      const candidateManagerIds = [
+        req.body?.managerId,
+        req.body?.manager_id,
+        req.body?.voterId,
+        req.body?.voter_id,
+        req.query?.managerId,
+        req.query?.manager_id,
+        req.query?.voterId,
+        req.query?.voter_id
+      ];
+
+      const normalizedManagerId = candidateManagerIds
+        .map(value => (typeof value === 'string' ? value.trim() : ''))
+        .find(value => value.length > 0);
+
+      if (!normalizedManagerId) {
+        return res
+          .status(400)
+          .json({ error: 'managerId is required when removing a vote as an admin' });
+      }
+
+      const managerRow = await getAsync('SELECT name_id, full_name FROM managers WHERE name_id = ?', [
+        normalizedManagerId
+      ]);
+
+      if (!managerRow) {
+        return res.status(404).json({ error: 'Manager not found' });
+      }
+
+      voterId = managerRow.name_id;
+    } else {
+      const manager = await requireManagerAuth(req, res);
+      if (!manager) {
+        return;
+      }
+
+      voterId = manager.name_id;
     }
 
     const proposalRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [proposalId]);
@@ -2022,7 +2108,7 @@ app.delete('/api/rule-changes/:id/vote', async (req, res) => {
 
     await runAsync('DELETE FROM rule_change_votes WHERE proposal_id = ? AND voter_id = ?', [
       proposalId,
-      manager.name_id
+      voterId
     ]);
 
     const voteRows = await allAsync(

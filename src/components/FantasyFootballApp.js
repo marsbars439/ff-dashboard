@@ -1042,6 +1042,111 @@ const FantasyFootballApp = () => {
     }
   };
 
+  const adminCastRuleChangeVote = async (proposalId, managerId, optionValue) => {
+    const normalizedProposalId = Number(proposalId);
+    const normalizedManagerId = typeof managerId === 'string' ? managerId.trim() : '';
+    const normalizedOption = typeof optionValue === 'string' ? optionValue.trim() : '';
+
+    if (!Number.isInteger(normalizedProposalId)) {
+      throw new Error('A valid proposal identifier is required.');
+    }
+
+    if (!normalizedManagerId) {
+      throw new Error('Select a manager to record a vote.');
+    }
+
+    if (!normalizedOption) {
+      throw new Error('Select a vote option before recording.');
+    }
+
+    if (adminSession.status !== 'authorized' || !adminSession.token) {
+      throw new Error('Admin authentication is required to record votes.');
+    }
+
+    setRuleChangeError(null);
+
+    const response = await fetch(`${API_BASE_URL}/rule-changes/${normalizedProposalId}/vote`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': adminSession.token
+      },
+      body: JSON.stringify({ option: normalizedOption, managerId: normalizedManagerId })
+    });
+
+    const data = await parseJsonResponse(response);
+
+    if (response.status === 401) {
+      setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+      persistAdminSession(null);
+      throw new Error(data?.error || 'Admin session has expired. Please sign in again.');
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || 'Failed to record vote');
+    }
+
+    if (data?.proposal) {
+      setRuleChangeProposals(prev =>
+        Array.isArray(prev)
+          ? prev.map(existing => (existing.id === data.proposal.id ? data.proposal : existing))
+          : []
+      );
+    }
+
+    return data?.proposal || null;
+  };
+
+  const adminClearRuleChangeVote = async (proposalId, managerId) => {
+    const normalizedProposalId = Number(proposalId);
+    const normalizedManagerId = typeof managerId === 'string' ? managerId.trim() : '';
+
+    if (!Number.isInteger(normalizedProposalId)) {
+      throw new Error('A valid proposal identifier is required.');
+    }
+
+    if (!normalizedManagerId) {
+      throw new Error('Select a manager to clear their vote.');
+    }
+
+    if (adminSession.status !== 'authorized' || !adminSession.token) {
+      throw new Error('Admin authentication is required to clear votes.');
+    }
+
+    setRuleChangeError(null);
+
+    const response = await fetch(`${API_BASE_URL}/rule-changes/${normalizedProposalId}/vote`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': adminSession.token
+      },
+      body: JSON.stringify({ managerId: normalizedManagerId })
+    });
+
+    const data = await parseJsonResponse(response);
+
+    if (response.status === 401) {
+      setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+      persistAdminSession(null);
+      throw new Error(data?.error || 'Admin session has expired. Please sign in again.');
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || 'Failed to remove vote');
+    }
+
+    if (data?.proposal) {
+      setRuleChangeProposals(prev =>
+        Array.isArray(prev)
+          ? prev.map(existing => (existing.id === data.proposal.id ? data.proposal : existing))
+          : []
+      );
+    }
+
+    return data?.proposal || null;
+  };
+
   const calculateCostToKeep = (previousCost, yearsKept) => {
     if (
       previousCost === undefined ||
@@ -4222,6 +4327,9 @@ const FantasyFootballApp = () => {
                 onDeleteProposal={deleteRuleChangeProposal}
                 isLoading={ruleChangeLoading}
                 error={ruleChangeError}
+                managers={managers}
+                onCastVote={adminCastRuleChangeVote}
+                onClearVote={adminClearRuleChangeVote}
               />
             </CollapsibleSection>
             <CollapsibleSection
