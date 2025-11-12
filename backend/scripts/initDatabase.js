@@ -34,6 +34,7 @@ db.serialize(() => {
       full_name TEXT NOT NULL,
       sleeper_user_id TEXT,
       sleeper_username TEXT,
+      email TEXT,
       active BOOLEAN DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -57,6 +58,19 @@ db.serialize(() => {
       console.error('❌ Error adding sleeper_user_id column:', err.message);
     } else {
       console.log('✅ Added sleeper_user_id column');
+    }
+  });
+
+  console.log('🔧 Checking for email column...');
+  db.run(`
+    ALTER TABLE managers ADD COLUMN email TEXT;
+  `, (err) => {
+    if (err && err.message.includes('duplicate column name')) {
+      console.log('ℹ️  email column already exists');
+    } else if (err) {
+      console.error('❌ Error adding email column:', err.message);
+    } else {
+      console.log('✅ Added email column');
     }
   });
 

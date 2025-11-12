@@ -12,6 +12,7 @@ const managers = [
     full_name: 'Byron Kou',
     sleeper_username: 'bsbllplyr968',
     sleeper_user_id: '',
+    email: '',
     active: 1
   },
   {
@@ -19,6 +20,7 @@ const managers = [
     full_name: 'Carlos Ortiz',
     sleeper_username: 'jcmbortiz',
     sleeper_user_id: '',
+    email: '',
     active: 1
   },
   {
@@ -26,6 +28,7 @@ const managers = [
     full_name: 'Dan Guadron/Jason Voss',
     sleeper_username: 'jvoss7',
     sleeper_user_id: '',
+    email: '',
     active: 1
   },
   {
@@ -33,6 +36,7 @@ const managers = [
     full_name: 'Dave Pasi',
     sleeper_username: 'depiii26',
     sleeper_user_id: '',
+    email: '',
     active: 1
   },
   {
@@ -40,6 +44,7 @@ const managers = [
     full_name: 'Mark Reischel',
     sleeper_username: 'markr729',
     sleeper_user_id: '',
+    email: '',
     active: 1
   },
   {
@@ -47,6 +52,7 @@ const managers = [
     full_name: 'Marshall Roshto',
     sleeper_username: 'roshto',
     sleeper_user_id: '',
+    email: '',
     active: 1
   },
   {
@@ -54,6 +60,7 @@ const managers = [
     full_name: 'Rob Colaneri',
     sleeper_username: 'raabcalamari',
     sleeper_user_id: '',
+    email: '',
     active: 1
   },
   {
@@ -61,6 +68,7 @@ const managers = [
     full_name: 'Ruairi Lynch',
     sleeper_username: 'rlynch9',
     sleeper_user_id: '',
+    email: '',
     active: 1
   },
   {
@@ -68,6 +76,7 @@ const managers = [
     full_name: 'Steve Scicchitano',
     sleeper_username: 'SteveScicc',
     sleeper_user_id: '',
+    email: '',
     active: 1
   },
   {
@@ -75,6 +84,7 @@ const managers = [
     full_name: 'Will Hubbard',
     sleeper_username: 'whubbard9',
     sleeper_user_id: '',
+    email: '',
     active: 1
   },
   {
@@ -82,6 +92,7 @@ const managers = [
     full_name: 'Sam Carlos',
     sleeper_username: 'samlols',
     sleeper_user_id: '',
+    email: '',
     active: 0
   },
   {
@@ -89,6 +100,7 @@ const managers = [
     full_name: 'Scott Zagorski',
     sleeper_username: '',
     sleeper_user_id: '',
+    email: '',
     active: 0
   },
   {
@@ -96,6 +108,7 @@ const managers = [
     full_name: 'Steve Shiffer',
     sleeper_username: 'shiffnasty',
     sleeper_user_id: '',
+    email: '',
     active: 0
   }
 ];
@@ -109,12 +122,19 @@ const managerSleeperIds = [
 function seedManagers() {
   return new Promise((resolve, reject) => {
     const stmt = db.prepare(`
-      INSERT OR REPLACE INTO managers (name_id, full_name, sleeper_username, sleeper_user_id, active)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO managers (name_id, full_name, sleeper_username, sleeper_user_id, email, active)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     managers.forEach(manager => {
-      stmt.run([manager.name_id, manager.full_name, manager.sleeper_username, manager.sleeper_user_id || '', manager.active]);
+      stmt.run([
+        manager.name_id,
+        manager.full_name,
+        manager.sleeper_username,
+        manager.sleeper_user_id || '',
+        manager.email || '',
+        manager.active
+      ]);
     });
 
     stmt.finalize((err) => {

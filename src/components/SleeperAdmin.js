@@ -15,6 +15,12 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
   const [newMapping, setNewMapping] = useState({ name_id: '', season: '', sleeper_user_id: '' });
   const [editingMappingId, setEditingMappingId] = useState(null);
   const [editingMapping, setEditingMapping] = useState({});
+  const [emailEdit, setEmailEdit] = useState({
+    managerId: null,
+    email: '',
+    loading: false,
+    error: null
+  });
   const [passcodeEdit, setPasscodeEdit] = useState({
     managerId: null,
     passcode: '',
@@ -248,6 +254,77 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
 
   const managerNameMap = Object.fromEntries(managers.map(m => [m.name_id, m.full_name]));
 
+  const startEmailEdit = (manager) => {
+    setEmailEdit({
+      managerId: manager.id,
+      email: manager.email || '',
+      loading: false,
+      error: null
+    });
+  };
+
+  const cancelEmailEdit = () => {
+    setEmailEdit({ managerId: null, email: '', loading: false, error: null });
+  };
+
+  const saveEmailEdit = async () => {
+    if (!emailEdit.managerId) {
+      return;
+    }
+
+    const managerToUpdate = managers.find(m => m.id === emailEdit.managerId);
+    if (!managerToUpdate) {
+      setEmailEdit(prev => ({ ...prev, error: 'Manager not found' }));
+      return;
+    }
+
+    const normalizedEmail = typeof emailEdit.email === 'string' ? emailEdit.email.trim() : '';
+
+    setEmailEdit(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/managers/${managerToUpdate.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name_id: managerToUpdate.name_id,
+          full_name: managerToUpdate.full_name,
+          sleeper_username: managerToUpdate.sleeper_username,
+          sleeper_user_id: managerToUpdate.sleeper_user_id,
+          email: normalizedEmail,
+          active: managerToUpdate.active
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to update email');
+      }
+
+      const data = await response.json();
+      const updatedManager = data.manager;
+
+      if (updatedManager) {
+        setManagers(prev =>
+          prev.map(m => (m.id === updatedManager.id ? { ...m, ...updatedManager } : m))
+        );
+      }
+
+      cancelEmailEdit();
+      setMessage({
+        type: 'success',
+        text: `Email updated for ${managerToUpdate.full_name}`
+      });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setEmailEdit(prev => ({
+        ...prev,
+        loading: false,
+        error: error.message || 'Failed to update email'
+      }));
+    }
+  };
+
   const startPasscodeEdit = (manager) => {
     setPasscodeEdit({
       managerId: manager.name_id,
@@ -441,6 +518,7 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
                 <th className="px-3 py-2 text-left">Full Name</th>
                 <th className="px-3 py-2 text-left">Sleeper Username</th>
                 <th className="px-3 py-2 text-left">Sleeper User ID</th>
+                <th className="px-3 py-2 text-left">Email</th>
                 <th className="px-3 py-2 text-left">Active</th>
                 <th className="px-3 py-2 text-left">Passcode</th>
               </tr>
@@ -454,6 +532,56 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
                   </td>
                   <td className="px-3 py-2 text-gray-600">{manager.sleeper_username || '-'}</td>
                   <td className="px-3 py-2 text-gray-600">{manager.sleeper_user_id || '-'}</td>
+                  <td className="px-3 py-2">
+                    {emailEdit.managerId === manager.id ? (
+                      <div className="space-y-2">
+                        <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+                          <input
+                            type="email"
+                            placeholder="Enter email"
+                            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            value={emailEdit.email}
+                            onChange={(e) =>
+                              setEmailEdit(prev => ({
+                                ...prev,
+                                email: e.target.value
+                              }))
+                            }
+                            disabled={emailEdit.loading}
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={saveEmailEdit}
+                              className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+                              disabled={emailEdit.loading}
+                            >
+                              {emailEdit.loading ? 'Saving…' : 'Save'}
+                            </button>
+                            <button
+                              onClick={cancelEmailEdit}
+                              className="text-xs font-medium text-gray-600 hover:underline"
+                              disabled={emailEdit.loading}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                        {emailEdit.error && (
+                          <div className="text-xs text-red-600">{emailEdit.error}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">{manager.email || '-'}</span>
+                        <button
+                          onClick={() => startEmailEdit(manager)}
+                          className="text-xs font-medium text-blue-600 hover:underline"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${manager.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                       {manager.active ? 'Active' : 'Inactive'}

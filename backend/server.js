@@ -1526,33 +1526,45 @@ app.post('/api/sleeper/preview/:year', async (req, res) => {
 
 // Add a new manager
 app.post('/api/managers', (req, res) => {
-  const { name_id, full_name, sleeper_username, sleeper_user_id, active } = req.body;
+  const { name_id, full_name, sleeper_username, sleeper_user_id, email, active } = req.body;
   
   if (!name_id || !full_name) {
     return res.status(400).json({ error: 'name_id and full_name are required' });
   }
 
   const query = `
-    INSERT INTO managers (name_id, full_name, sleeper_username, sleeper_user_id, active)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO managers (name_id, full_name, sleeper_username, sleeper_user_id, email, active)
+    VALUES (?, ?, ?, ?, ?, ?)
   `;
 
-  db.run(query, [name_id, full_name, sleeper_username || '', sleeper_user_id || '', active || 1], function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
+  db.run(
+    query,
+    [name_id, full_name, sleeper_username || '', sleeper_user_id || '', email || '', active || 1],
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      db.get('SELECT * FROM managers WHERE id = ?', [this.lastID], (selectErr, row) => {
+        if (selectErr) {
+          res.status(500).json({ error: selectErr.message });
+          return;
+        }
+
+        res.json({
+          message: 'Manager added successfully',
+          manager: row
+        });
+      });
     }
-    res.json({ 
-      message: 'Manager added successfully',
-      managerId: this.lastID 
-    });
-  });
+  );
 });
 
 // Update a manager
 app.put('/api/managers/:id', (req, res) => {
   const id = req.params.id;
-  const { name_id, full_name, sleeper_username, sleeper_user_id, active } = req.body;
+  const { name_id, full_name, sleeper_username, sleeper_user_id, email, active } = req.body;
 
   if (!name_id || !full_name) {
     return res.status(400).json({ error: 'name_id and full_name are required' });
@@ -1560,12 +1572,20 @@ app.put('/api/managers/:id', (req, res) => {
 
   const query = `
     UPDATE managers SET
-      name_id = ?, full_name = ?, sleeper_username = ?, sleeper_user_id = ?, active = ?, updated_at = CURRENT_TIMESTAMP
+      name_id = ?, full_name = ?, sleeper_username = ?, sleeper_user_id = ?, email = ?, active = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `;
 
-  const values = [name_id, full_name, sleeper_username || '', sleeper_user_id || '', active !== undefined ? active : 1, id];
-  
+  const values = [
+    name_id,
+    full_name,
+    sleeper_username || '',
+    sleeper_user_id || '',
+    email || '',
+    active !== undefined ? active : 1,
+    id
+  ];
+
   db.run(query, values, function(err) {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -1575,7 +1595,15 @@ app.put('/api/managers/:id', (req, res) => {
       res.status(404).json({ error: 'Manager not found' });
       return;
     }
-    res.json({ message: 'Manager updated successfully' });
+
+    db.get('SELECT * FROM managers WHERE id = ?', [id], (selectErr, row) => {
+      if (selectErr) {
+        res.status(500).json({ error: selectErr.message });
+        return;
+      }
+
+      res.json({ message: 'Manager updated successfully', manager: row });
+    });
   });
 });
 
