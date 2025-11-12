@@ -1773,13 +1773,26 @@ app.get('/api/rule-changes', async (req, res) => {
     return res.status(400).json({ error: 'season_year is required' });
   }
 
+  const adminTokenHeader = req.headers['x-admin-token'];
+  const adminToken = typeof adminTokenHeader === 'string' ? adminTokenHeader.trim() : '';
+  const adminAuthorized = adminToken ? isAdminTokenValid(adminToken) : false;
+
+  if (adminToken && !adminAuthorized) {
+    return res.status(401).json({ error: 'Invalid or expired admin token' });
+  }
+
   try {
-    const manager = await requireManagerAuth(req, res);
-    if (!manager) {
-      return;
+    let managerId = null;
+
+    if (!adminAuthorized) {
+      const manager = await requireManagerAuth(req, res);
+      if (!manager) {
+        return;
+      }
+      managerId = manager.name_id;
     }
 
-    const proposals = await getRuleChangeProposalsForYear(seasonYear, manager.name_id);
+    const proposals = await getRuleChangeProposalsForYear(seasonYear, managerId);
     res.json({ proposals });
   } catch (error) {
     console.error('Error fetching rule change proposals:', error);

@@ -607,11 +607,15 @@ const FantasyFootballApp = () => {
         return;
       }
 
-      if (
-        managerAuth.status !== 'authenticated' ||
-        !managerAuth.managerId ||
-        !managerAuth.token
-      ) {
+      const hasManagerAuth =
+        managerAuth.status === 'authenticated' &&
+        Boolean(managerAuth.managerId) &&
+        Boolean(managerAuth.token);
+
+      const hasAdminAuth =
+        adminSession.status === 'authorized' && Boolean(adminSession.token);
+
+      if (!hasManagerAuth && !hasAdminAuth) {
         if (!silent) {
           setRuleChangeProposals([]);
           setRuleChangeUserVotes({});
@@ -627,17 +631,28 @@ const FantasyFootballApp = () => {
 
       try {
         const params = new URLSearchParams({ season_year: year.toString() });
+        const headers = {};
+
+        if (hasManagerAuth) {
+          headers['X-Manager-Id'] = managerAuth.managerId;
+          headers['X-Manager-Token'] = managerAuth.token;
+        } else if (hasAdminAuth) {
+          headers['X-Admin-Token'] = adminSession.token;
+        }
+
         const response = await fetch(`${API_BASE_URL}/rule-changes?${params.toString()}`, {
-          headers: {
-            'X-Manager-Id': managerAuth.managerId,
-            'X-Manager-Token': managerAuth.token
-          }
+          headers
         });
 
         const data = await parseJsonResponse(response);
 
         if (response.status === 401) {
-          clearManagerAuth('Your manager session has expired. Please sign in again.');
+          if (hasManagerAuth) {
+            clearManagerAuth('Your manager session has expired. Please sign in again.');
+          } else if (hasAdminAuth) {
+            setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+            persistAdminSession(null);
+          }
           throw new Error(data?.error || 'Authentication required to access rule change proposals.');
         }
 
@@ -669,11 +684,14 @@ const FantasyFootballApp = () => {
     },
     [
       API_BASE_URL,
+      adminSession.status,
+      adminSession.token,
       managerAuth.managerId,
       managerAuth.status,
       managerAuth.token,
       clearManagerAuth,
-      parseJsonResponse
+      parseJsonResponse,
+      persistAdminSession
     ]
   );
 
@@ -684,13 +702,21 @@ const FantasyFootballApp = () => {
       return;
     }
 
-    if (managerAuth.status === 'authenticated') {
+    const hasManagerAuth = managerAuth.status === 'authenticated';
+    const hasAdminAuth = adminSession.status === 'authorized';
+
+    if (hasManagerAuth || hasAdminAuth) {
       fetchRuleChangeProposals(selectedKeeperYear);
-    } else if (managerAuth.status === 'unauthenticated') {
+    } else if (managerAuth.status === 'unauthenticated' && !hasAdminAuth) {
       setRuleChangeProposals([]);
       setRuleChangeUserVotes({});
     }
-  }, [selectedKeeperYear, managerAuth.status, fetchRuleChangeProposals]);
+  }, [
+    selectedKeeperYear,
+    managerAuth.status,
+    adminSession.status,
+    fetchRuleChangeProposals
+  ]);
 
   useEffect(() => {
     setSeasonDataPage(0);
