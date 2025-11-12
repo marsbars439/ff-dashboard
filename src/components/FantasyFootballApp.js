@@ -120,6 +120,9 @@ const FantasyFootballApp = () => {
   const [ruleChangeError, setRuleChangeError] = useState(null);
   const [ruleChangeUserVotes, setRuleChangeUserVotes] = useState({});
   const [ruleChangeVoteStatus, setRuleChangeVoteStatus] = useState({});
+  const [ruleChangeVotingLocked, setRuleChangeVotingLocked] = useState(false);
+  const [ruleChangeVotingLockError, setRuleChangeVotingLockError] = useState(null);
+  const [ruleChangeVotingLockUpdating, setRuleChangeVotingLockUpdating] = useState(false);
   const [managerAuth, setManagerAuth] = useState({
     managerId: '',
     managerName: '',
@@ -604,7 +607,9 @@ const FantasyFootballApp = () => {
           setRuleChangeProposals([]);
           setRuleChangeUserVotes({});
         }
-        return;
+        setRuleChangeVotingLocked(false);
+        setRuleChangeVotingLockError(null);
+        return null;
       }
 
       const hasManagerAuth =
@@ -621,7 +626,8 @@ const FantasyFootballApp = () => {
           setRuleChangeUserVotes({});
           setRuleChangeError('Please verify your manager identity to view proposals.');
         }
-        return;
+        setRuleChangeVotingLocked(false);
+        return null;
       }
 
       if (!silent) {
@@ -669,6 +675,10 @@ const FantasyFootballApp = () => {
           return acc;
         }, {});
         setRuleChangeUserVotes(voteMap);
+        const votingLocked = Boolean(data?.votingLocked);
+        setRuleChangeVotingLocked(votingLocked);
+        setRuleChangeVotingLockError(null);
+        return { proposals, votingLocked };
       } catch (error) {
         console.error('Error fetching rule change proposals:', error);
         setRuleChangeError(error.message || 'Failed to load rule change proposals');
@@ -676,11 +686,14 @@ const FantasyFootballApp = () => {
           setRuleChangeProposals([]);
           setRuleChangeUserVotes({});
         }
+        setRuleChangeVotingLocked(false);
+        return null;
       } finally {
         if (!silent) {
           setRuleChangeLoading(false);
         }
       }
+      return null;
     },
     [
       API_BASE_URL,
@@ -699,6 +712,7 @@ const FantasyFootballApp = () => {
     if (!selectedKeeperYear) {
       setRuleChangeProposals([]);
       setRuleChangeUserVotes({});
+      setRuleChangeVotingLocked(false);
       return;
     }
 
@@ -710,6 +724,7 @@ const FantasyFootballApp = () => {
     } else if (managerAuth.status === 'unauthenticated' && !hasAdminAuth) {
       setRuleChangeProposals([]);
       setRuleChangeUserVotes({});
+      setRuleChangeVotingLocked(false);
     }
   }, [
     selectedKeeperYear,
@@ -725,6 +740,10 @@ const FantasyFootballApp = () => {
   useEffect(() => {
     setExpandedWeeks({});
   }, [selectedSeasonYear]);
+
+  useEffect(() => {
+    setRuleChangeVotingLockError(null);
+  }, [selectedKeeperYear]);
 
   useEffect(() => {
     if (!Array.isArray(seasonMatchups) || seasonMatchups.length === 0) {
@@ -858,6 +877,11 @@ const FantasyFootballApp = () => {
       return;
     }
 
+    if (ruleChangeVotingLocked) {
+      setRuleChangeError('Voting has been locked by the commissioner.');
+      return;
+    }
+
     if (
       managerAuth.status !== 'authenticated' ||
       !managerAuth.managerId ||
@@ -977,6 +1001,8 @@ const FantasyFootballApp = () => {
 
   const handleManagerLogout = () => {
     clearManagerAuth('Please verify your manager identity to view proposals.');
+    setRuleChangeVotingLocked(false);
+    setRuleChangeVotingLockError(null);
   };
 
   const createRuleChangeProposal = async ({ seasonYear, title, description, options }) => {
@@ -1146,6 +1172,74 @@ const FantasyFootballApp = () => {
 
     return data?.proposal || null;
   };
+
+  const toggleRuleChangeVotingLock = useCallback(
+    async (nextLocked) => {
+      if (ruleChangeVotingLockUpdating) {
+        return;
+      }
+
+      const numericYear = Number(selectedKeeperYear);
+
+      if (!Number.isInteger(numericYear)) {
+        setRuleChangeVotingLockError('Select a season before adjusting the voting lock.');
+        return;
+      }
+
+      if (adminSession.status !== 'authorized' || !adminSession.token) {
+        setRuleChangeVotingLockError('Admin authentication is required to adjust the voting lock.');
+        return;
+      }
+
+      const desiredLocked = Boolean(nextLocked);
+      setRuleChangeVotingLockUpdating(true);
+      setRuleChangeVotingLockError(null);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/rule-changes/voting-lock`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': adminSession.token
+          },
+          body: JSON.stringify({ seasonYear: numericYear, locked: desiredLocked })
+        });
+
+        const data = await parseJsonResponse(response);
+
+        if (response.status === 401) {
+          setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+          persistAdminSession(null);
+          throw new Error(data?.error || 'Admin session has expired. Please sign in again.');
+        }
+
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to update voting lock');
+        }
+
+        const locked = Boolean(data?.locked);
+        setRuleChangeVotingLocked(locked);
+        setRuleChangeVotingLockError(null);
+        await fetchRuleChangeProposals(numericYear, { silent: true });
+      } catch (error) {
+        console.error('Error updating voting lock:', error);
+        setRuleChangeVotingLockError(error.message || 'Failed to update voting lock');
+      } finally {
+        setRuleChangeVotingLockUpdating(false);
+      }
+    },
+    [
+      API_BASE_URL,
+      adminSession.status,
+      adminSession.token,
+      fetchRuleChangeProposals,
+      parseJsonResponse,
+      persistAdminSession,
+      setAdminSession,
+      ruleChangeVotingLockUpdating,
+      selectedKeeperYear
+    ]
+  );
 
   const calculateCostToKeep = (previousCost, yearsKept) => {
     if (
@@ -3361,6 +3455,7 @@ const FantasyFootballApp = () => {
                 userVotes={ruleChangeUserVotes}
                 voteSubmitting={ruleChangeVoteStatus}
                 canVote={managerAuth.status === 'authenticated'}
+                votingLocked={ruleChangeVotingLocked}
               />
               <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -4359,6 +4454,10 @@ const FantasyFootballApp = () => {
                   managers={managers}
                   onCastVote={adminCastRuleChangeVote}
                   onClearVote={adminClearRuleChangeVote}
+                  votingLocked={ruleChangeVotingLocked}
+                  onToggleVotingLock={toggleRuleChangeVotingLock}
+                  lockLoading={ruleChangeVotingLockUpdating}
+                  lockError={ruleChangeVotingLockError}
                 />
               </div>
             </CollapsibleSection>

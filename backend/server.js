@@ -155,6 +155,15 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS rule_change_voting_locks (
+      season_year INTEGER PRIMARY KEY,
+      locked INTEGER NOT NULL DEFAULT 0,
+      locked_at DATETIME,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   db.run(
     'CREATE INDEX IF NOT EXISTS idx_rule_change_proposals_season ON rule_change_proposals(season_year)'
   );
@@ -220,6 +229,66 @@ const allAsync = (sql, params = []) =>
       else resolve(rows);
     });
   });
+
+const parseBooleanFlag = (value) => {
+  if (typeof value === 'boolean') {
+    return { valid: true, value };
+  }
+
+  if (typeof value === 'number') {
+    return { valid: true, value: value !== 0 };
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'locked'].includes(normalized)) {
+      return { valid: true, value: true };
+    }
+    if (['false', '0', 'no', 'n', 'unlocked'].includes(normalized)) {
+      return { valid: true, value: false };
+    }
+    if (!normalized.length) {
+      return { valid: false, value: false };
+    }
+  }
+
+  return { valid: false, value: false };
+};
+
+const getRuleChangeVotingLockRow = async (seasonYear) =>
+  getAsync('SELECT season_year, locked, locked_at, updated_at FROM rule_change_voting_locks WHERE season_year = ?', [
+    seasonYear
+  ]);
+
+const isRuleChangeVotingLocked = async (seasonYear) => {
+  if (!Number.isInteger(seasonYear)) {
+    return false;
+  }
+
+  const row = await getRuleChangeVotingLockRow(seasonYear);
+  return row ? row.locked === 1 : false;
+};
+
+const setRuleChangeVotingLock = async (seasonYear, locked) => {
+  const numericYear = parseInt(seasonYear, 10);
+  if (Number.isNaN(numericYear)) {
+    throw new Error('A valid season year is required to update the voting lock.');
+  }
+
+  const normalizedLocked = locked ? 1 : 0;
+
+  await runAsync(
+    `INSERT INTO rule_change_voting_locks (season_year, locked, locked_at, updated_at)
+     VALUES (?, ?, CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END, CURRENT_TIMESTAMP)
+     ON CONFLICT(season_year) DO UPDATE SET
+       locked = excluded.locked,
+       locked_at = CASE WHEN excluded.locked = 1 THEN CURRENT_TIMESTAMP ELSE NULL END,
+       updated_at = CURRENT_TIMESTAMP`,
+    [numericYear, normalizedLocked, normalizedLocked]
+  );
+
+  return getRuleChangeVotingLockRow(numericYear);
+};
 
 const ADMIN_TOKEN_TTL_MS = 1000 * 60 * 15; // 15 minutes
 const activeAdminTokens = new Map();
@@ -1792,8 +1861,15 @@ app.get('/api/rule-changes', async (req, res) => {
       managerId = manager.name_id;
     }
 
-    const proposals = await getRuleChangeProposalsForYear(seasonYear, managerId);
-    res.json({ proposals });
+    const [proposals, votingLockedRow] = await Promise.all([
+      getRuleChangeProposalsForYear(seasonYear, managerId),
+      getRuleChangeVotingLockRow(seasonYear)
+    ]);
+
+    res.json({
+      proposals,
+      votingLocked: votingLockedRow ? votingLockedRow.locked === 1 : false
+    });
   } catch (error) {
     console.error('Error fetching rule change proposals:', error);
     res.status(500).json({ error: 'Failed to fetch rule change proposals' });
@@ -2005,6 +2081,13 @@ app.post('/api/rule-changes/:id/vote', async (req, res) => {
       return res.status(404).json({ error: 'Proposal not found' });
     }
 
+    if (!adminAuthorized) {
+      const votingLocked = await isRuleChangeVotingLocked(proposalRow.season_year);
+      if (votingLocked) {
+        return res.status(403).json({ error: 'Voting has been locked for this season' });
+      }
+    }
+
     const availableOptions = parseRuleChangeOptions(proposalRow.options);
     if (!availableOptions.includes(normalizedOption)) {
       return res.status(400).json({ error: 'Invalid option selected' });
@@ -2106,6 +2189,13 @@ app.delete('/api/rule-changes/:id/vote', async (req, res) => {
       return res.status(404).json({ error: 'Proposal not found' });
     }
 
+    if (!adminAuthorized) {
+      const votingLocked = await isRuleChangeVotingLocked(proposalRow.season_year);
+      if (votingLocked) {
+        return res.status(403).json({ error: 'Voting has been locked for this season' });
+      }
+    }
+
     await runAsync('DELETE FROM rule_change_votes WHERE proposal_id = ? AND voter_id = ?', [
       proposalId,
       voterId
@@ -2133,6 +2223,41 @@ app.delete('/api/rule-changes/:id/vote', async (req, res) => {
   } catch (error) {
     console.error('Error removing rule change vote:', error);
     res.status(500).json({ error: 'Failed to remove vote' });
+  }
+});
+
+app.put('/api/rule-changes/voting-lock', async (req, res) => {
+  const adminTokenHeader = req.headers['x-admin-token'];
+  const adminToken = typeof adminTokenHeader === 'string' ? adminTokenHeader.trim() : '';
+
+  if (!adminToken || !isAdminTokenValid(adminToken)) {
+    return res.status(401).json({ error: 'Admin authentication is required' });
+  }
+
+  const { seasonYear, locked } = req.body || {};
+  const numericYear = parseInt(seasonYear, 10);
+
+  if (Number.isNaN(numericYear)) {
+    return res.status(400).json({ error: 'A valid seasonYear is required' });
+  }
+
+  const { valid, value: desiredLocked } = parseBooleanFlag(locked);
+
+  if (!valid) {
+    return res.status(400).json({ error: 'locked must be a boolean value' });
+  }
+
+  try {
+    const updatedRow = await setRuleChangeVotingLock(numericYear, desiredLocked);
+    res.json({
+      seasonYear: updatedRow?.season_year ?? numericYear,
+      locked: updatedRow ? updatedRow.locked === 1 : desiredLocked,
+      lockedAt: updatedRow?.locked_at || null,
+      updatedAt: updatedRow?.updated_at || null
+    });
+  } catch (error) {
+    console.error('Error updating rule change voting lock:', error);
+    res.status(500).json({ error: 'Failed to update voting lock' });
   }
 });
 

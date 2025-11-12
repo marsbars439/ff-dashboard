@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Loader2, Save, X, Trash2, Edit3, UserCheck, Undo2 } from 'lucide-react';
+import { Plus, Loader2, Save, X, Trash2, Edit3, UserCheck, Undo2, Lock, Unlock } from 'lucide-react';
 
 const toUniqueOptions = (text) => {
   if (typeof text !== 'string') {
@@ -24,7 +24,11 @@ const RuleChangeAdmin = ({
   error = null,
   managers = [],
   onCastVote,
-  onClearVote
+  onClearVote,
+  votingLocked = false,
+  onToggleVotingLock,
+  lockLoading = false,
+  lockError = null
 }) => {
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
@@ -403,8 +407,51 @@ const RuleChangeAdmin = ({
     }
   };
 
+  const hasSelectedSeason = Number.isInteger(Number(seasonYear));
+  const lockSeasonLabel = hasSelectedSeason ? `${Number(seasonYear) + 1} season` : 'selected season';
+
   return (
     <div className="space-y-6">
+      {hasSelectedSeason && (
+        <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <div className="flex items-center gap-2 text-sm text-blue-900">
+            {votingLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+            <span>
+              Voting for the {lockSeasonLabel} is currently{' '}
+              <span className="font-semibold">{votingLocked ? 'locked' : 'open'}</span>.
+            </span>
+          </div>
+          {typeof onToggleVotingLock === 'function' && (
+            <button
+              type="button"
+              onClick={() => onToggleVotingLock(!votingLocked)}
+              disabled={lockLoading}
+              className={`mt-3 inline-flex items-center rounded-md px-3 py-1 text-sm font-medium text-white shadow-sm transition-colors sm:mt-0 ${
+                votingLocked ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
+              } disabled:cursor-not-allowed disabled:opacity-70`}
+            >
+              {lockLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
+                </>
+              ) : votingLocked ? (
+                <>
+                  <Unlock className="mr-2 h-4 w-4" /> Unlock voting
+                </>
+              ) : (
+                <>
+                  <Lock className="mr-2 h-4 w-4" /> Lock voting
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {lockError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{lockError}</div>
+      )}
+
       <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 sm:p-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
