@@ -83,14 +83,6 @@ const RuleChangeAdmin = ({
     return Number.isInteger(numeric);
   }, [seasonYear]);
 
-  const seasonLabel = useMemo(() => {
-    if (seasonYear === '' || seasonYear == null) {
-      return '';
-    }
-    const numeric = Number(seasonYear);
-    return Number.isFinite(numeric) ? `${numeric + 1} Season` : '';
-  }, [seasonYear]);
-
   useEffect(() => {
     setVoteManagerSelection({});
     setVoteOptionSelection({});
@@ -418,11 +410,6 @@ const RuleChangeAdmin = ({
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <Plus className="mr-2 h-5 w-5 text-blue-500" /> Create a New Proposal
           </h3>
-          {seasonLabel && (
-            <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              {seasonLabel}
-            </span>
-          )}
         </div>
         {formStatus && (
           <div className="mb-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
@@ -435,19 +422,6 @@ const RuleChangeAdmin = ({
           </div>
         )}
         <form onSubmit={handleCreate} className="space-y-3">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Season
-            </label>
-            <div className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
-              {seasonYear != null && Number.isFinite(Number(seasonYear))
-                ? `${Number(seasonYear) + 1} Season`
-                : 'Select a season above to create proposals.'}
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Proposals are listed on the Preseason tab as votes for the upcoming season.
-            </p>
-          </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Title</label>
             <input
@@ -496,9 +470,7 @@ const RuleChangeAdmin = ({
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Existing Proposals{seasonYear != null ? ` • ${seasonYear + 1} Season` : ''}
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-900">Existing Proposals</h3>
         {actionStatus && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">{actionStatus}</span>
@@ -543,16 +515,6 @@ const RuleChangeAdmin = ({
                     </div>
                   )}
                   <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-blue-900">
-                        Season
-                      </label>
-                      <div className="mt-1 w-full rounded-md border border-blue-200 bg-white px-3 py-2 text-sm text-blue-900">
-                        {editingSeasonYear != null && Number.isFinite(Number(editingSeasonYear))
-                          ? `${Number(editingSeasonYear) + 1} Season`
-                          : seasonLabel || 'Select a season above to edit proposals.'}
-                      </div>
-                    </div>
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wide text-blue-900">Title</label>
                       <input
