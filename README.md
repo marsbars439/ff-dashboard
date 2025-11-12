@@ -57,6 +57,27 @@ make dev
 - When using `deploy.sh`, pass the password as the fifth argument to export it
   into the container (e.g. `./deploy.sh marsbars439 latest 3000 20 mySecretPw`).
 
+### Cloudflare Access Manager Authentication
+
+- The backend exposes `GET /api/manager-auth/cloudflare`, which trusts the
+  `Cf-Access-Authenticated-User-Email` header (and optional
+  `Cf-Access-Jwt-Assertion`) injected by Cloudflare Access.
+- Configure your Access application to forward both headers to the origin. The
+  backend uses the email to look up the manager record and issue the same token
+  payload returned by the passcode flow.
+- Optional JWT validation is enabled when the following environment variables
+  are provided:
+  - `CF_ACCESS_VALIDATE_JWT=true` to enforce signature, issuer, and audience checks
+  - `CF_ACCESS_TEAM_DOMAIN` (e.g. `example.cloudflareaccess.com`)
+  - `CF_ACCESS_JWT_AUD` – the application Audience Tag from Cloudflare Access
+  - `CF_ACCESS_JWKS_CACHE_MS` (default 1 hour) and
+    `CF_ACCESS_JWKS_TIMEOUT_MS` (default 5 seconds) tune JWKS caching/fetching
+- Rate limiting for this endpoint can be customized with
+  `CF_MANAGER_AUTH_RATE_LIMIT_WINDOW_MS` (default 60 seconds) and
+  `CF_MANAGER_AUTH_RATE_LIMIT_MAX` (default 10 requests per window).
+- Ensure each manager row in the database has a valid email address so the
+  mapping succeeds; failed lookups are logged to help diagnose missing entries.
+
 ### Backend Python Dependencies
 The backend's FantasyPros scraper requires Python packages. When running the project outside of Docker, install them with:
 
