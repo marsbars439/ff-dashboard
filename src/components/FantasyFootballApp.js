@@ -38,7 +38,35 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
 const MANAGER_AUTH_STORAGE_KEY = 'ff-dashboard-manager-auth';
 const ADMIN_AUTH_STORAGE_KEY = 'ff-dashboard-admin-authorized';
-const ADMIN_PASSWORD = process.env.REACT_APP_ANALYTICS_PASSWORD || 'admin';
+
+const readStoredAdminSession = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage?.getItem(ADMIN_AUTH_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+
+    const token = typeof parsed.token === 'string' ? parsed.token : null;
+    const expiresAt = parsed.expiresAt || null;
+
+    if (token) {
+      return { token, expiresAt };
+    }
+  } catch (error) {
+    console.warn('Unable to read stored admin session:', error);
+  }
+
+  return null;
+};
 
 const VALID_TABS = new Set(['records', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
 
@@ -48,12 +76,8 @@ const FantasyFootballApp = () => {
       return 'records';
     }
 
-    let storedAdminAuthorized = false;
-    try {
-      storedAdminAuthorized = window.localStorage?.getItem(ADMIN_AUTH_STORAGE_KEY) === 'true';
-    } catch (error) {
-      console.warn('Unable to read stored admin authorization:', error);
-    }
+    const storedAdminSession = readStoredAdminSession();
+    const storedAdminAuthorized = Boolean(storedAdminSession?.token);
 
     try {
       const storedTab = window.localStorage?.getItem('ff-dashboard-active-tab');
@@ -107,18 +131,17 @@ const FantasyFootballApp = () => {
   const [managerAuthPasscode, setManagerAuthPasscode] = useState('');
   const [managerAuthError, setManagerAuthError] = useState(null);
   const [managerAuthLoading, setManagerAuthLoading] = useState(false);
-  const [adminAuthorized, setAdminAuthorized] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false;
+  const [adminSession, setAdminSession] = useState(() => {
+    const storedSession = readStoredAdminSession();
+
+    if (storedSession) {
+      return { ...storedSession, status: 'pending' };
     }
 
-    try {
-      return window.localStorage?.getItem(ADMIN_AUTH_STORAGE_KEY) === 'true';
-    } catch (error) {
-      console.warn('Unable to read stored admin authorization:', error);
-      return false;
-    }
+    return { token: null, expiresAt: null, status: 'unauthorized' };
   });
+  const [adminAuthLoading, setAdminAuthLoading] = useState(false);
+  const adminAuthorized = adminSession.status === 'authorized';
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [adminPasswordError, setAdminPasswordError] = useState(null);
   const updateActiveTab = tab => {
@@ -208,6 +231,12 @@ const FantasyFootballApp = () => {
   }, [adminAuthorized, activeTab]);
 
   useEffect(() => {
+    if (adminSession.status === 'pending' && adminSession.token) {
+      validateAdminToken(adminSession.token);
+    }
+  }, [adminSession.status, adminSession.token, validateAdminToken]);
+
+  useEffect(() => {
     fetchData();
     fetchRules();
     // Set document title
@@ -230,38 +259,75 @@ const FantasyFootballApp = () => {
     }
   }, []);
 
-  const persistAdminAuthorization = useCallback((isAuthorized) => {
+  const persistAdminSession = useCallback((session) => {
     if (typeof window === 'undefined') {
       return;
     }
 
     try {
-      if (isAuthorized) {
-        window.localStorage?.setItem(ADMIN_AUTH_STORAGE_KEY, 'true');
+      if (session && session.token) {
+        window.localStorage?.setItem(
+          ADMIN_AUTH_STORAGE_KEY,
+          JSON.stringify({
+            token: session.token,
+            expiresAt: session.expiresAt || null
+          })
+        );
       } else {
         window.localStorage?.removeItem(ADMIN_AUTH_STORAGE_KEY);
       }
     } catch (error) {
-      console.warn('Unable to update stored admin authorization:', error);
+      console.warn('Unable to update stored admin session:', error);
     }
   }, []);
 
-  const handleAdminAuthSubmit = (event) => {
+  const handleAdminAuthSubmit = async (event) => {
     event.preventDefault();
-    if (adminPasswordInput === ADMIN_PASSWORD) {
-      setAdminAuthorized(true);
-      persistAdminAuthorization(true);
-      setAdminPasswordInput('');
-      setAdminPasswordError(null);
+
+    if (!adminPasswordInput) {
+      setAdminPasswordError('Password is required');
       return;
     }
 
-    setAdminPasswordError('Incorrect password');
+    setAdminAuthLoading(true);
+    setAdminPasswordError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin-auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPasswordInput })
+      });
+
+      const data = await parseJsonResponse(response);
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || 'Unable to authenticate');
+      }
+
+      const nextSession = {
+        token: data.token || null,
+        expiresAt: data.expiresAt || null,
+        status: 'authorized'
+      };
+
+      setAdminSession(nextSession);
+      persistAdminSession(nextSession);
+      setAdminPasswordInput('');
+    } catch (error) {
+      console.warn('Admin authentication failed:', error);
+      setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+      persistAdminSession(null);
+      setAdminPasswordError(error.message || 'Authentication failed');
+    } finally {
+      setAdminAuthLoading(false);
+    }
   };
 
   const handleAdminSignOut = () => {
-    setAdminAuthorized(false);
-    persistAdminAuthorization(false);
+    setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+    persistAdminSession(null);
+    setAdminAuthLoading(false);
     setAdminPasswordInput('');
     setAdminPasswordError(null);
     setActiveTab('admin');
@@ -307,6 +373,50 @@ const FantasyFootballApp = () => {
       return {};
     }
   }, []);
+
+  const validateAdminToken = useCallback(
+    async (token) => {
+      if (!token) {
+        setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+        persistAdminSession(null);
+        return;
+      }
+
+      setAdminAuthLoading(true);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin-auth`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+
+        const data = await parseJsonResponse(response);
+
+        if (!response.ok || !data?.success) {
+          throw new Error(data?.error || 'Admin session validation failed');
+        }
+
+        const nextSession = {
+          token: data.token || token,
+          expiresAt: data.expiresAt || null,
+          status: 'authorized'
+        };
+
+        setAdminSession(nextSession);
+        persistAdminSession(nextSession);
+        setAdminPasswordError(null);
+      } catch (error) {
+        console.warn('Admin token validation failed:', error);
+        setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+        persistAdminSession(null);
+        setAdminPasswordError('Your admin session has expired. Please sign in again.');
+      } finally {
+        setAdminAuthLoading(false);
+      }
+    },
+    [API_BASE_URL, parseJsonResponse, persistAdminSession]
+  );
 
   const validateManagerToken = useCallback(
     async (managerId, token) => {
@@ -4121,6 +4231,11 @@ const FantasyFootballApp = () => {
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Admin Access</h2>
               </div>
               <form onSubmit={handleAdminAuthSubmit} className="space-y-4">
+                {adminSession.status === 'pending' && (
+                  <p className="text-sm text-gray-600 flex items-center">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Validating existing session...
+                  </p>
+                )}
                 <input
                   type="password"
                   placeholder="Enter admin password"
@@ -4131,16 +4246,25 @@ const FantasyFootballApp = () => {
                       setAdminPasswordError(null);
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={adminAuthLoading}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
                 />
                 {adminPasswordError && (
                   <p className="text-sm text-red-600">{adminPasswordError}</p>
                 )}
                 <button
                   type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                  disabled={adminAuthLoading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:hover:bg-blue-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded"
                 >
-                  Enter
+                  {adminAuthLoading ? (
+                    <span className="flex items-center justify-center">
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {adminSession.status === 'pending' ? 'Verifying...' : 'Authenticating...'}
+                    </span>
+                  ) : (
+                    'Enter'
+                  )}
                 </button>
               </form>
             </div>

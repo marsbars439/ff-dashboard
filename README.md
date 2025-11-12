@@ -43,6 +43,20 @@ docker-compose -f docker-compose.dev.yml up --build
 make dev
 ```
 
+### Admin & Analytics Access
+
+- The admin and analytics dashboards now require backend authentication.
+- Set an `ADMIN_PASSWORD` environment variable for the backend (or continue
+  using `REACT_APP_ANALYTICS_PASSWORD` for backwards compatibility).
+- Both `docker-compose` configurations forward `ADMIN_PASSWORD` to the
+  `ff-dashboard-api` container so the `/api/admin-auth` endpoint can validate
+  sign-in attempts.
+- The frontend exchanges the password for a short-lived token by posting to
+  `/api/admin-auth`. Tokens are stored in `localStorage` and automatically
+  revalidated until they expire.
+- When using `deploy.sh`, pass the password as the fifth argument to export it
+  into the container (e.g. `./deploy.sh marsbars439 latest 3000 20 mySecretPw`).
+
 ### Backend Python Dependencies
 The backend's FantasyPros scraper requires Python packages. When running the project outside of Docker, install them with:
 
