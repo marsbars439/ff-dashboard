@@ -526,6 +526,11 @@ const FantasyFootballApp = () => {
     cloudflareAuthAttemptedRef.current = true;
 
     const controller = new AbortController();
+    let didTimeout = false;
+    const timeoutId = window.setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, 8000);
 
     const attemptCloudflareAuth = async () => {
       setManagerAuth(prev => ({
@@ -567,7 +572,7 @@ const FantasyFootballApp = () => {
           expiresAt: normalizedAuth.expiresAt
         });
       } catch (error) {
-        if (controller.signal.aborted) {
+        if (controller.signal.aborted && !didTimeout) {
           return;
         }
         console.warn('Cloudflare manager verification failed:', error);
@@ -581,10 +586,15 @@ const FantasyFootballApp = () => {
         });
         setManagerAuthSelection('');
         setManagerAuthPasscode('');
-        setManagerAuthError('Unable to verify automatically. Please enter your manager passcode.');
+        setManagerAuthError(
+          didTimeout
+            ? 'Automatic manager verification timed out. Please enter your manager passcode.'
+            : 'Unable to verify automatically. Please enter your manager passcode.'
+        );
         persistManagerAuth(null);
       } finally {
-        if (!controller.signal.aborted) {
+        window.clearTimeout(timeoutId);
+        if (!controller.signal.aborted || didTimeout) {
           setManagerAuthLoading(false);
         }
       }
@@ -593,6 +603,7 @@ const FantasyFootballApp = () => {
     attemptCloudflareAuth();
 
     return () => {
+      window.clearTimeout(timeoutId);
       controller.abort();
     };
   }, [API_BASE_URL, managerAuth.status, managerAuthInitialized, parseJsonResponse, persistManagerAuth]);
