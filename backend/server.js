@@ -255,6 +255,25 @@ const verifyCloudflareJwtAssertion = async (token) => {
   return payload;
 };
 
+const normalizeOrigin = origin => {
+  if (typeof origin !== 'string') {
+    return '';
+  }
+
+  const trimmedOrigin = origin.trim();
+
+  if (!trimmedOrigin) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(trimmedOrigin);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch (error) {
+    return trimmedOrigin.replace(/\/+$/, '');
+  }
+};
+
 const resolveAllowedCorsOrigins = () => {
   const envValue =
     typeof process.env.CORS_ALLOWED_ORIGINS === 'string'
@@ -264,39 +283,40 @@ const resolveAllowedCorsOrigins = () => {
   if (envValue.trim()) {
     return envValue
       .split(',')
-      .map(origin => origin.trim())
+      .map(normalizeOrigin)
       .filter(Boolean);
   }
 
   const inferredOrigins = new Set();
 
   if (process.env.FRONTEND_ORIGIN) {
-    inferredOrigins.add(process.env.FRONTEND_ORIGIN.trim());
+    inferredOrigins.add(normalizeOrigin(process.env.FRONTEND_ORIGIN));
   }
 
   if (process.env.REACT_APP_BASE_URL) {
-    inferredOrigins.add(process.env.REACT_APP_BASE_URL.trim());
+    inferredOrigins.add(normalizeOrigin(process.env.REACT_APP_BASE_URL));
   }
 
   if (process.env.PUBLIC_URL) {
-    inferredOrigins.add(process.env.PUBLIC_URL.trim());
+    inferredOrigins.add(normalizeOrigin(process.env.PUBLIC_URL));
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    inferredOrigins.add('http://localhost:3000');
-    inferredOrigins.add('http://127.0.0.1:3000');
+    inferredOrigins.add(normalizeOrigin('http://localhost:3000'));
+    inferredOrigins.add(normalizeOrigin('http://127.0.0.1:3000'));
   }
 
   const portNumber = Number(process.env.PORT || PORT);
   if (!Number.isNaN(portNumber)) {
-    inferredOrigins.add(`http://localhost:${portNumber}`);
-    inferredOrigins.add(`http://127.0.0.1:${portNumber}`);
+    inferredOrigins.add(normalizeOrigin(`http://localhost:${portNumber}`));
+    inferredOrigins.add(normalizeOrigin(`http://127.0.0.1:${portNumber}`));
   }
 
   return Array.from(inferredOrigins).filter(Boolean);
 };
 
 const allowedCorsOrigins = resolveAllowedCorsOrigins();
+const normalizedAllowedCorsOrigins = new Set(allowedCorsOrigins.map(normalizeOrigin));
 
 if (allowedCorsOrigins.length) {
   console.log(`CORS allowed origins: ${allowedCorsOrigins.join(', ')}`);
@@ -310,7 +330,10 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    if (!allowedCorsOrigins.length || allowedCorsOrigins.includes(origin)) {
+    if (
+      !allowedCorsOrigins.length ||
+      normalizedAllowedCorsOrigins.has(normalizeOrigin(origin))
+    ) {
       return callback(null, origin);
     }
 
