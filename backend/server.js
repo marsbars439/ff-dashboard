@@ -255,8 +255,73 @@ const verifyCloudflareJwtAssertion = async (token) => {
   return payload;
 };
 
+const resolveAllowedCorsOrigins = () => {
+  const envValue =
+    typeof process.env.CORS_ALLOWED_ORIGINS === 'string'
+      ? process.env.CORS_ALLOWED_ORIGINS
+      : '';
+
+  if (envValue.trim()) {
+    return envValue
+      .split(',')
+      .map(origin => origin.trim())
+      .filter(Boolean);
+  }
+
+  const inferredOrigins = new Set();
+
+  if (process.env.FRONTEND_ORIGIN) {
+    inferredOrigins.add(process.env.FRONTEND_ORIGIN.trim());
+  }
+
+  if (process.env.REACT_APP_BASE_URL) {
+    inferredOrigins.add(process.env.REACT_APP_BASE_URL.trim());
+  }
+
+  if (process.env.PUBLIC_URL) {
+    inferredOrigins.add(process.env.PUBLIC_URL.trim());
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    inferredOrigins.add('http://localhost:3000');
+    inferredOrigins.add('http://127.0.0.1:3000');
+  }
+
+  const portNumber = Number(process.env.PORT || PORT);
+  if (!Number.isNaN(portNumber)) {
+    inferredOrigins.add(`http://localhost:${portNumber}`);
+    inferredOrigins.add(`http://127.0.0.1:${portNumber}`);
+  }
+
+  return Array.from(inferredOrigins).filter(Boolean);
+};
+
+const allowedCorsOrigins = resolveAllowedCorsOrigins();
+
+if (allowedCorsOrigins.length) {
+  console.log(`CORS allowed origins: ${allowedCorsOrigins.join(', ')}`);
+} else {
+  console.log('CORS allowed origins: reflecting request origin');
+}
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (!allowedCorsOrigins.length || allowedCorsOrigins.includes(origin)) {
+      return callback(null, origin);
+    }
+
+    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+  },
+  credentials: true,
+  optionsSuccessStatus: 204
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/api/manager-auth/cloudflare', cloudflareAccessLimiter);
 
