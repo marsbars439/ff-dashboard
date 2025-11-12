@@ -29,13 +29,13 @@ const RuleChangeAdmin = ({
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newOptions, setNewOptions] = useState('Yes\nNo');
-  const [newSeasonYear, setNewSeasonYear] = useState(seasonYear || '');
   const [formError, setFormError] = useState(null);
   const [formStatus, setFormStatus] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
 
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ title: '', description: '', options: '', seasonYear: seasonYear || '' });
+  const [editForm, setEditForm] = useState({ title: '', description: '', options: '' });
+  const [editingSeasonYear, setEditingSeasonYear] = useState(null);
   const [editError, setEditError] = useState(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
@@ -74,19 +74,36 @@ const RuleChangeAdmin = ({
     typeof onClearVote === 'function' &&
     availableManagers.length > 0;
 
-  useEffect(() => {
-    if (seasonYear != null) {
-      setNewSeasonYear(seasonYear);
+  const canCreateProposal = useMemo(() => {
+    if (seasonYear == null) {
+      return false;
     }
+
+    const numeric = Number(seasonYear);
+    return Number.isInteger(numeric);
   }, [seasonYear]);
 
   const seasonLabel = useMemo(() => {
-    if (newSeasonYear === '' || newSeasonYear == null) {
+    if (seasonYear === '' || seasonYear == null) {
       return '';
     }
-    const numeric = Number(newSeasonYear);
+    const numeric = Number(seasonYear);
     return Number.isFinite(numeric) ? `${numeric + 1} Season` : '';
-  }, [newSeasonYear]);
+  }, [seasonYear]);
+
+  useEffect(() => {
+    setVoteManagerSelection({});
+    setVoteOptionSelection({});
+    setVotePending({});
+    setVoteFeedback({});
+    setEditingId(null);
+    setEditForm({ title: '', description: '', options: '' });
+    setEditingSeasonYear(null);
+    setEditError(null);
+    setActionStatus(null);
+    setFormStatus(null);
+    setFormError(null);
+  }, [seasonYear]);
 
   const getManagerVoteForProposal = (proposal, managerId) => {
     if (!proposal || !managerId) {
@@ -292,9 +309,9 @@ const RuleChangeAdmin = ({
       return;
     }
 
-    const numericYear = Number(newSeasonYear);
+    const numericYear = Number(seasonYear);
     if (!Number.isInteger(numericYear)) {
-      setFormError('Please provide a valid season year.');
+      setFormError('Select a valid season before creating proposals.');
       return;
     }
 
@@ -326,16 +343,17 @@ const RuleChangeAdmin = ({
     setEditForm({
       title: proposal.title,
       description: proposal.description || '',
-      options: proposal.options.map(option => option.value).join('\n'),
-      seasonYear: proposal.seasonYear
+      options: proposal.options.map(option => option.value).join('\n')
     });
+    setEditingSeasonYear(proposal.seasonYear);
     setEditError(null);
     setActionStatus(null);
   };
 
   const cancelEditing = () => {
     setEditingId(null);
-    setEditForm({ title: '', description: '', options: '', seasonYear: seasonYear || '' });
+    setEditForm({ title: '', description: '', options: '' });
+    setEditingSeasonYear(null);
     setEditError(null);
   };
 
@@ -350,9 +368,9 @@ const RuleChangeAdmin = ({
       return;
     }
 
-    const numericYear = Number(editForm.seasonYear);
+    const numericYear = Number(editingSeasonYear ?? seasonYear);
     if (!Number.isInteger(numericYear)) {
-      setEditError('Please provide a valid season year.');
+      setEditError('Select a valid season before saving changes.');
       return;
     }
 
@@ -419,18 +437,15 @@ const RuleChangeAdmin = ({
         <form onSubmit={handleCreate} className="space-y-3">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Season Year
+              Season
             </label>
-            <input
-              type="number"
-              value={newSeasonYear ?? ''}
-              onChange={event => setNewSeasonYear(event.target.value)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="2023"
-              required
-            />
+            <div className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
+              {seasonYear != null && Number.isFinite(Number(seasonYear))
+                ? `${Number(seasonYear) + 1} Season`
+                : 'Select a season above to create proposals.'}
+            </div>
             <p className="mt-1 text-xs text-gray-500">
-              Displayed on the Preseason tab as the following season.
+              Proposals are listed on the Preseason tab as votes for the upcoming season.
             </p>
           </div>
           <div>
@@ -471,7 +486,7 @@ const RuleChangeAdmin = ({
           </div>
           <button
             type="submit"
-            disabled={isCreating}
+            disabled={isCreating || !canCreateProposal}
             className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:opacity-70"
           >
             {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -530,15 +545,13 @@ const RuleChangeAdmin = ({
                   <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wide text-blue-900">
-                        Season Year
+                        Season
                       </label>
-                      <input
-                        type="number"
-                        value={editForm.seasonYear ?? ''}
-                        onChange={event => setEditForm({ ...editForm, seasonYear: event.target.value })}
-                        className="mt-1 w-full rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                        required
-                      />
+                      <div className="mt-1 w-full rounded-md border border-blue-200 bg-white px-3 py-2 text-sm text-blue-900">
+                        {editingSeasonYear != null && Number.isFinite(Number(editingSeasonYear))
+                          ? `${Number(editingSeasonYear) + 1} Season`
+                          : seasonLabel || 'Select a season above to edit proposals.'}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wide text-blue-900">Title</label>

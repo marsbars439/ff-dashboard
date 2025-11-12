@@ -4319,18 +4319,48 @@ const FantasyFootballApp = () => {
                 </div>
               }
             >
-              <RuleChangeAdmin
-                seasonYear={selectedKeeperYear}
-                proposals={ruleChangeProposals}
-                onCreateProposal={createRuleChangeProposal}
-                onUpdateProposal={updateRuleChangeProposal}
-                onDeleteProposal={deleteRuleChangeProposal}
-                isLoading={ruleChangeLoading}
-                error={ruleChangeError}
-                managers={managers}
-                onCastVote={adminCastRuleChangeVote}
-                onClearVote={adminClearRuleChangeVote}
-              />
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Season Selection</h4>
+                    <p className="text-xs text-gray-500">
+                      Choose the keeper year to manage proposals for the upcoming season.
+                    </p>
+                  </div>
+                  {availableYears.length > 0 && (
+                    <select
+                      value={selectedKeeperYear ?? ''}
+                      onChange={event => {
+                        const value = event.target.value;
+                        setSelectedKeeperYear(value ? Number(value) : null);
+                      }}
+                      className="w-full sm:w-auto rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                    >
+                      <option value="" disabled>
+                        Select a season
+                      </option>
+                      {availableYears.map(year => (
+                        <option key={`rule-change-year-${year}`} value={year}>
+                          {`${year + 1} Season`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <RuleChangeAdmin
+                  seasonYear={selectedKeeperYear}
+                  proposals={ruleChangeProposals}
+                  onCreateProposal={createRuleChangeProposal}
+                  onUpdateProposal={updateRuleChangeProposal}
+                  onDeleteProposal={deleteRuleChangeProposal}
+                  isLoading={ruleChangeLoading}
+                  error={ruleChangeError}
+                  managers={managers}
+                  onCastVote={adminCastRuleChangeVote}
+                  onClearVote={adminClearRuleChangeVote}
+                />
+              </div>
             </CollapsibleSection>
             <CollapsibleSection
               title={
