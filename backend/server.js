@@ -296,10 +296,13 @@ const resolveAllowedCorsOrigins = () => {
       : '';
 
   if (envValue.trim()) {
-    return envValue
-      .split(',')
-      .map(normalizeOrigin)
-      .filter(Boolean);
+    return {
+      origins: envValue
+        .split(',')
+        .map(normalizeOrigin)
+        .filter(Boolean),
+      inferred: false
+    };
   }
 
   const inferredOrigins = new Set();
@@ -327,12 +330,17 @@ const resolveAllowedCorsOrigins = () => {
     inferredOrigins.add(normalizeOrigin(`http://127.0.0.1:${portNumber}`));
   }
 
-  return Array.from(inferredOrigins).filter(Boolean);
+  return {
+    origins: Array.from(inferredOrigins).filter(Boolean),
+    inferred: true
+  };
 };
 
-const resolvedCorsOrigins = resolveAllowedCorsOrigins();
+const { origins: resolvedCorsOrigins, inferred: corsOriginsWereInferred } =
+  resolveAllowedCorsOrigins();
 const hasNonLoopbackCorsOrigin = resolvedCorsOrigins.some((origin) => !isLoopbackOrigin(origin));
-const allowedCorsOrigins = hasNonLoopbackCorsOrigin ? resolvedCorsOrigins : [];
+const allowedCorsOrigins =
+  !corsOriginsWereInferred || hasNonLoopbackCorsOrigin ? resolvedCorsOrigins : [];
 const normalizedAllowedCorsOrigins = new Set(allowedCorsOrigins.map(normalizeOrigin));
 
 if (allowedCorsOrigins.length) {
