@@ -550,7 +550,8 @@ const FantasyFootballApp = () => {
 
       try {
         const response = await fetch(`${API_BASE_URL}/manager-auth/cloudflare`, {
-          signal: controller.signal
+          signal: controller.signal,
+          credentials: 'include'
         });
 
         const data = await parseJsonResponse(response);

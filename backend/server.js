@@ -17,6 +17,50 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const resolveTrustProxySetting = () => {
+  const envValue =
+    typeof process.env.EXPRESS_TRUST_PROXY === 'string'
+      ? process.env.EXPRESS_TRUST_PROXY
+      : typeof process.env.TRUST_PROXY === 'string'
+        ? process.env.TRUST_PROXY
+        : '';
+
+  const rawValue = envValue.trim();
+
+  if (!rawValue) {
+    return process.env.NODE_ENV === 'production' ? 1 : false;
+  }
+
+  const normalizedValue = rawValue.toLowerCase();
+
+  if (['true', 'yes', 'on'].includes(normalizedValue)) {
+    return true;
+  }
+
+  if (['false', 'no', 'off'].includes(normalizedValue)) {
+    return false;
+  }
+
+  const numericValue = Number(rawValue);
+
+  if (!Number.isNaN(numericValue)) {
+    return numericValue;
+  }
+
+  return rawValue;
+};
+
+const trustProxySetting = resolveTrustProxySetting();
+app.set('trust proxy', trustProxySetting);
+
+if (trustProxySetting) {
+  console.log(`Express trust proxy configuration enabled: ${trustProxySetting}`);
+} else {
+  console.warn(
+    'Express trust proxy configuration disabled; forwarded headers from proxies will be ignored.'
+  );
+}
+
 const envAdminPassword =
   process.env.ADMIN_PASSWORD !== undefined
     ? process.env.ADMIN_PASSWORD
