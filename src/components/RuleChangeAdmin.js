@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Loader2, Save, X, Trash2, Edit3 } from 'lucide-react';
+import { Plus, Loader2, Save, X, Trash2, Edit3, UserCheck, Undo2 } from 'lucide-react';
 
 const toUniqueOptions = (text) => {
   if (typeof text !== 'string') {
@@ -21,7 +21,10 @@ const RuleChangeAdmin = ({
   onUpdateProposal,
   onDeleteProposal,
   isLoading = false,
-  error = null
+  error = null,
+  managers = [],
+  onCastVote,
+  onClearVote
 }) => {
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
@@ -38,6 +41,39 @@ const RuleChangeAdmin = ({
   const [deletingId, setDeletingId] = useState(null);
   const [actionStatus, setActionStatus] = useState(null);
 
+  const [voteManagerSelection, setVoteManagerSelection] = useState({});
+  const [voteOptionSelection, setVoteOptionSelection] = useState({});
+  const [votePending, setVotePending] = useState({});
+  const [voteFeedback, setVoteFeedback] = useState({});
+
+  const availableManagers = useMemo(() => {
+    if (!Array.isArray(managers)) {
+      return [];
+    }
+
+    return managers
+      .map(manager => {
+        const normalizedName =
+          typeof manager?.full_name === 'string' && manager.full_name.trim()
+            ? manager.full_name.trim()
+            : manager?.name_id || '';
+        return {
+          id: manager?.name_id,
+          name: normalizedName,
+          active: manager?.active
+        };
+      })
+      .filter(manager => manager.id)
+      .sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
+      );
+  }, [managers]);
+
+  const hasVoteManagement =
+    typeof onCastVote === 'function' &&
+    typeof onClearVote === 'function' &&
+    availableManagers.length > 0;
+
   useEffect(() => {
     if (seasonYear != null) {
       setNewSeasonYear(seasonYear);
@@ -51,6 +87,199 @@ const RuleChangeAdmin = ({
     const numeric = Number(newSeasonYear);
     return Number.isFinite(numeric) ? `${numeric + 1} Season` : '';
   }, [newSeasonYear]);
+
+  const getManagerVoteForProposal = (proposal, managerId) => {
+    if (!proposal || !managerId) {
+      return null;
+    }
+
+    for (const option of Array.isArray(proposal.options) ? proposal.options : []) {
+      if (Array.isArray(option.voters) && option.voters.some(voter => voter.id === managerId)) {
+        return option.value;
+      }
+    }
+
+    return null;
+  };
+
+  const setProposalFeedback = (proposalId, feedback) => {
+    setVoteFeedback(prev => {
+      const next = { ...prev };
+      if (feedback) {
+        next[proposalId] = feedback;
+      } else {
+        delete next[proposalId];
+      }
+      return next;
+    });
+  };
+
+  const setProposalPending = (proposalId, pending) => {
+    setVotePending(prev => {
+      const next = { ...prev };
+      if (pending) {
+        next[proposalId] = true;
+      } else {
+        delete next[proposalId];
+      }
+      return next;
+    });
+  };
+
+  const handleManagerSelectionChange = (proposal, managerId) => {
+    if (!proposal) {
+      return;
+    }
+
+    setVoteManagerSelection(prev => {
+      const next = { ...prev };
+      if (managerId) {
+        next[proposal.id] = managerId;
+      } else {
+        delete next[proposal.id];
+      }
+      return next;
+    });
+
+    if (managerId) {
+      const currentVote = getManagerVoteForProposal(proposal, managerId);
+      setVoteOptionSelection(prev => ({
+        ...prev,
+        [proposal.id]: currentVote ?? ''
+      }));
+    } else {
+      setVoteOptionSelection(prev => {
+        const next = { ...prev };
+        delete next[proposal.id];
+        return next;
+      });
+    }
+
+    setProposalFeedback(proposal.id, null);
+  };
+
+  const handleOptionSelectionChange = (proposalId, optionValue) => {
+    setVoteOptionSelection(prev => ({
+      ...prev,
+      [proposalId]: optionValue
+    }));
+    setProposalFeedback(proposalId, null);
+  };
+
+  const handleCastVote = async (proposal) => {
+    if (!hasVoteManagement || typeof onCastVote !== 'function' || !proposal) {
+      return;
+    }
+
+    const managerId = voteManagerSelection[proposal.id];
+    const hasCustomSelection = Object.prototype.hasOwnProperty.call(
+      voteOptionSelection,
+      proposal.id
+    );
+    const selectedOption = hasCustomSelection
+      ? voteOptionSelection[proposal.id]
+      : getManagerVoteForProposal(proposal, managerId) ?? '';
+
+    if (!managerId) {
+      setProposalFeedback(proposal.id, {
+        type: 'error',
+        message: 'Select a manager to record a vote.'
+      });
+      return;
+    }
+
+    if (!selectedOption) {
+      setProposalFeedback(proposal.id, {
+        type: 'error',
+        message: 'Select a vote option before recording.'
+      });
+      return;
+    }
+
+    setProposalFeedback(proposal.id, null);
+    setProposalPending(proposal.id, true);
+
+    try {
+      const updatedProposal = await onCastVote(proposal.id, managerId, selectedOption);
+      setProposalFeedback(proposal.id, {
+        type: 'success',
+        message: 'Vote recorded successfully.'
+      });
+
+      if (updatedProposal) {
+        const currentVote = getManagerVoteForProposal(updatedProposal, managerId) ?? selectedOption;
+        setVoteOptionSelection(prev => ({
+          ...prev,
+          [proposal.id]: currentVote
+        }));
+      } else {
+        setVoteOptionSelection(prev => ({
+          ...prev,
+          [proposal.id]: selectedOption
+        }));
+      }
+    } catch (err) {
+      setProposalFeedback(proposal.id, {
+        type: 'error',
+        message: err?.message || 'Unable to record vote.'
+      });
+    } finally {
+      setProposalPending(proposal.id, false);
+    }
+  };
+
+  const handleClearVote = async (proposal) => {
+    if (!hasVoteManagement || typeof onClearVote !== 'function' || !proposal) {
+      return;
+    }
+
+    const managerId = voteManagerSelection[proposal.id];
+
+    if (!managerId) {
+      setProposalFeedback(proposal.id, {
+        type: 'error',
+        message: 'Select a manager to clear their vote.'
+      });
+      return;
+    }
+
+    setProposalFeedback(proposal.id, null);
+    setProposalPending(proposal.id, true);
+
+    try {
+      const updatedProposal = await onClearVote(proposal.id, managerId);
+      const currentVote = updatedProposal
+        ? getManagerVoteForProposal(updatedProposal, managerId)
+        : null;
+
+      if (currentVote) {
+        setVoteOptionSelection(prev => ({
+          ...prev,
+          [proposal.id]: currentVote
+        }));
+        setProposalFeedback(proposal.id, {
+          type: 'success',
+          message: 'Vote updated.'
+        });
+      } else {
+        setVoteOptionSelection(prev => ({
+          ...prev,
+          [proposal.id]: ''
+        }));
+        setProposalFeedback(proposal.id, {
+          type: 'success',
+          message: 'Vote cleared.'
+        });
+      }
+    } catch (err) {
+      setProposalFeedback(proposal.id, {
+        type: 'error',
+        message: err?.message || 'Unable to clear vote.'
+      });
+    } finally {
+      setProposalPending(proposal.id, false);
+    }
+  };
 
   const handleCreate = async (event) => {
     event.preventDefault();
@@ -366,6 +595,25 @@ const RuleChangeAdmin = ({
             }
 
             const totalVotes = proposal.options.reduce((sum, option) => sum + (option.votes || 0), 0);
+            const selectedManagerId = voteManagerSelection[proposal.id] || '';
+            const managerHasSelection = Boolean(selectedManagerId);
+            const hasCustomSelection = Object.prototype.hasOwnProperty.call(
+              voteOptionSelection,
+              proposal.id
+            );
+            const currentVote = managerHasSelection
+              ? getManagerVoteForProposal(proposal, selectedManagerId)
+              : null;
+            const selectedOptionValue = managerHasSelection
+              ? hasCustomSelection
+                ? voteOptionSelection[proposal.id]
+                : currentVote ?? ''
+              : '';
+            const pending = !!votePending[proposal.id];
+            const feedback = voteFeedback[proposal.id];
+            const managerMeta = managerHasSelection
+              ? availableManagers.find(manager => manager.id === selectedManagerId)
+              : null;
 
             return (
               <div key={proposal.id} className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5">
@@ -412,6 +660,97 @@ const RuleChangeAdmin = ({
                     </div>
                   ))}
                 </div>
+                {hasVoteManagement && (
+                  <div className="mt-4 rounded-md border border-blue-200 bg-blue-50/70 p-3">
+                    <h5 className="text-xs font-semibold uppercase tracking-wide text-blue-900 mb-3">
+                      Manage Votes
+                    </h5>
+                    <div className="grid gap-3 lg:grid-cols-3">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-blue-900">
+                          Manager
+                        </label>
+                        <select
+                          value={selectedManagerId}
+                          onChange={event => handleManagerSelectionChange(proposal, event.target.value)}
+                          className="mt-1 w-full rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        >
+                          <option value="">Select a manager</option>
+                          {availableManagers.map(manager => (
+                            <option key={`${proposal.id}-${manager.id}`} value={manager.id}>
+                              {manager.name}
+                              {manager.active === 0 ? ' (Inactive)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-blue-900">
+                          Vote Option
+                        </label>
+                        <select
+                          value={selectedOptionValue}
+                          onChange={event => handleOptionSelectionChange(proposal.id, event.target.value)}
+                          disabled={!managerHasSelection}
+                          className="mt-1 w-full rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-blue-50 disabled:text-blue-300"
+                        >
+                          <option value="">Select an option</option>
+                          {proposal.options.map(option => (
+                            <option key={`${proposal.id}-option-${option.value}`} value={option.value}>
+                              {option.value}
+                            </option>
+                          ))}
+                        </select>
+                        {managerHasSelection && (
+                          <p className="mt-1 text-xs text-blue-700">
+                            Current vote:{' '}
+                            {currentVote ? <span className="font-medium">{currentVote}</span> : 'No vote recorded'}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col justify-end gap-2 sm:flex-row lg:flex-col lg:items-end">
+                        <button
+                          type="button"
+                          onClick={() => handleCastVote(proposal)}
+                          disabled={!managerHasSelection || !selectedOptionValue || pending}
+                          className="inline-flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {pending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <UserCheck className="mr-2 h-4 w-4" />
+                          )}
+                          {pending ? 'Saving...' : 'Record Vote'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleClearVote(proposal)}
+                          disabled={!managerHasSelection || pending}
+                          className="inline-flex items-center justify-center rounded-md border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Undo2 className="mr-2 h-4 w-4" />
+                          Clear Vote
+                        </button>
+                      </div>
+                    </div>
+                    {feedback && (
+                      <div
+                        className={`mt-3 rounded-md border px-3 py-2 text-xs ${
+                          feedback.type === 'success'
+                            ? 'border-green-200 bg-green-50 text-green-700'
+                            : 'border-red-200 bg-red-50 text-red-700'
+                        }`}
+                      >
+                        {feedback.message}
+                        {feedback.type === 'success' && managerMeta && (
+                          <span className="ml-1 font-medium">
+                            ({managerMeta.name})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <p className="mt-2 text-xs text-gray-500">
                   Total votes recorded: {totalVotes}
                 </p>
