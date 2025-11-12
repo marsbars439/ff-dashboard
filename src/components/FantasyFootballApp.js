@@ -22,6 +22,7 @@ import {
   Loader2,
   ShieldCheck,
   LogOut,
+  Cloud,
 
 } from 'lucide-react';
 import SleeperAdmin from './SleeperAdmin';
@@ -128,8 +129,10 @@ const FantasyFootballApp = () => {
     managerName: '',
     token: '',
     expiresAt: null,
-    status: 'unauthenticated'
+    status: 'unauthenticated',
+    verificationSource: null
   });
+  const [managerAuthInitialized, setManagerAuthInitialized] = useState(false);
   const [managerAuthSelection, setManagerAuthSelection] = useState('');
   const [managerAuthPasscode, setManagerAuthPasscode] = useState('');
   const [managerAuthError, setManagerAuthError] = useState(null);
@@ -163,6 +166,7 @@ const FantasyFootballApp = () => {
   const [expandedWeeks, setExpandedWeeks] = useState({});
   const activeWeekNumber = activeWeekMatchups?.week ?? null;
   const hasLoadedActiveWeekRef = useRef(false);
+  const cloudflareAuthAttemptedRef = useRef(false);
 
   // Determine if a season's regular season is complete (all teams have 14 games)
   const isRegularSeasonComplete = year => {
@@ -401,7 +405,8 @@ const FantasyFootballApp = () => {
         managerName: '',
         token: '',
         expiresAt: null,
-        status: 'unauthenticated'
+        status: 'unauthenticated',
+        verificationSource: null
       });
       setManagerAuthSelection('');
       setManagerAuthPasscode('');
@@ -447,7 +452,8 @@ const FantasyFootballApp = () => {
           managerName: data.managerName || '',
           token,
           expiresAt: data.expiresAt || null,
-          status: 'authenticated'
+          status: 'authenticated',
+          verificationSource: 'storage'
         };
 
         setManagerAuth(normalizedAuth);
@@ -490,12 +496,106 @@ const FantasyFootballApp = () => {
         managerName: storedAuth.managerName || '',
         token: storedAuth.token,
         expiresAt: storedAuth.expiresAt || null,
-        status: 'pending'
+        status: 'pending',
+        verificationSource: 'storage'
       }));
       setManagerAuthSelection(storedAuth.managerId);
       validateManagerToken(storedAuth.managerId, storedAuth.token);
     }
+
+    setManagerAuthInitialized(true);
   }, [validateManagerToken]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (!managerAuthInitialized) {
+      return;
+    }
+
+    if (managerAuth.status !== 'unauthenticated') {
+      return;
+    }
+
+    if (cloudflareAuthAttemptedRef.current) {
+      return;
+    }
+
+    cloudflareAuthAttemptedRef.current = true;
+
+    const controller = new AbortController();
+
+    const attemptCloudflareAuth = async () => {
+      setManagerAuth(prev => ({
+        ...prev,
+        status: 'pending',
+        verificationSource: 'cloudflare'
+      }));
+      setManagerAuthError(null);
+      setManagerAuthLoading(true);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/manager-auth/cloudflare`, {
+          signal: controller.signal
+        });
+
+        const data = await parseJsonResponse(response);
+
+        if (!response.ok || !data?.managerId || !data?.token) {
+          throw new Error(data?.error || 'Cloudflare manager verification failed');
+        }
+
+        const normalizedAuth = {
+          managerId: data.managerId,
+          managerName: data.managerName || '',
+          token: data.token,
+          expiresAt: data.expiresAt || null,
+          status: 'authenticated',
+          verificationSource: 'cloudflare'
+        };
+
+        setManagerAuth(normalizedAuth);
+        setManagerAuthSelection(normalizedAuth.managerId);
+        setManagerAuthPasscode('');
+        setManagerAuthError(null);
+        persistManagerAuth({
+          managerId: normalizedAuth.managerId,
+          managerName: normalizedAuth.managerName,
+          token: normalizedAuth.token,
+          expiresAt: normalizedAuth.expiresAt
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.warn('Cloudflare manager verification failed:', error);
+        setManagerAuth({
+          managerId: '',
+          managerName: '',
+          token: '',
+          expiresAt: null,
+          status: 'unauthenticated',
+          verificationSource: null
+        });
+        setManagerAuthSelection('');
+        setManagerAuthPasscode('');
+        setManagerAuthError('Unable to verify automatically. Please enter your manager passcode.');
+        persistManagerAuth(null);
+      } finally {
+        if (!controller.signal.aborted) {
+          setManagerAuthLoading(false);
+        }
+      }
+    };
+
+    attemptCloudflareAuth();
+
+    return () => {
+      controller.abort();
+    };
+  }, [API_BASE_URL, managerAuth.status, managerAuthInitialized, parseJsonResponse, persistManagerAuth]);
 
   useEffect(() => {
     if (teamSeasons.length > 0 && !selectedSeasonYear) {
@@ -971,7 +1071,8 @@ const FantasyFootballApp = () => {
         managerName: data.managerName || '',
         token: data.token,
         expiresAt: data.expiresAt || null,
-        status: 'authenticated'
+        status: 'authenticated',
+        verificationSource: 'manual'
       };
 
       setManagerAuth(normalizedAuth);
@@ -3413,12 +3514,20 @@ const FantasyFootballApp = () => {
                         <ShieldCheck className="w-5 h-5" />
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 text-sm sm:text-base text-gray-700">
-                        <span>
-                          Verified as{' '}
-                          <span className="font-semibold">
-                            {managerAuth.managerName || managerAuth.managerId}
+                        <div className="flex flex-col">
+                          <span>
+                            Verified as{' '}
+                            <span className="font-semibold">
+                              {managerAuth.managerName || managerAuth.managerId}
+                            </span>
                           </span>
-                        </span>
+                          {managerAuth.verificationSource === 'cloudflare' && (
+                            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600">
+                              <Cloud className="h-4 w-4" />
+                              Verified via Cloudflare
+                            </span>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={handleManagerLogout}
@@ -3698,7 +3807,11 @@ const FantasyFootballApp = () => {
                 {managerAuth.status === 'pending' ? (
                   <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Verifying stored manager session...</span>
+                    <span>
+                      {managerAuth.verificationSource === 'cloudflare'
+                        ? 'Verifying manager via Cloudflare...'
+                        : 'Verifying stored manager session...'}
+                    </span>
                   </div>
                 ) : (
                   <form onSubmit={handleManagerLogin} className="space-y-4">
