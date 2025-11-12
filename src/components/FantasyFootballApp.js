@@ -132,6 +132,7 @@ const FantasyFootballApp = () => {
     status: 'unauthenticated',
     verificationSource: null
   });
+  const [managerAuthInitialized, setManagerAuthInitialized] = useState(false);
   const [managerAuthSelection, setManagerAuthSelection] = useState('');
   const [managerAuthPasscode, setManagerAuthPasscode] = useState('');
   const [managerAuthError, setManagerAuthError] = useState(null);
@@ -501,10 +502,16 @@ const FantasyFootballApp = () => {
       setManagerAuthSelection(storedAuth.managerId);
       validateManagerToken(storedAuth.managerId, storedAuth.token);
     }
+
+    setManagerAuthInitialized(true);
   }, [validateManagerToken]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (!managerAuthInitialized) {
       return;
     }
 
@@ -588,7 +595,7 @@ const FantasyFootballApp = () => {
     return () => {
       controller.abort();
     };
-  }, [API_BASE_URL, managerAuth.status, parseJsonResponse, persistManagerAuth]);
+  }, [API_BASE_URL, managerAuth.status, managerAuthInitialized, parseJsonResponse, persistManagerAuth]);
 
   useEffect(() => {
     if (teamSeasons.length > 0 && !selectedSeasonYear) {
