@@ -463,6 +463,21 @@ app.use('/api/manager-auth/cloudflare', cloudflareAccessLimiter);
 const dbPath = path.join(__dirname, 'data', 'fantasy_football.db');
 const db = new sqlite3.Database(dbPath);
 
+const ensureColumnExists = (tableName, columnName, definition) => {
+  if (!tableName || !columnName || !definition) {
+    return;
+  }
+
+  db.run(
+    `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`,
+    err => {
+      if (err && !/duplicate column name/i.test(err.message)) {
+        console.error(`Error adding ${columnName} column to ${tableName}:`, err.message);
+      }
+    }
+  );
+};
+
 const assignInitialProposalDisplayOrder = () => {
   db.run(
     `UPDATE rule_change_proposals AS current
@@ -488,6 +503,105 @@ const assignInitialProposalDisplayOrder = () => {
 // Ensure keepers table exists
 db.serialize(() => {
   db.run('PRAGMA foreign_keys = ON');
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS managers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name_id TEXT UNIQUE NOT NULL,
+      full_name TEXT NOT NULL,
+      sleeper_username TEXT,
+      sleeper_user_id TEXT,
+      email TEXT,
+      active BOOLEAN DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  ensureColumnExists('managers', 'sleeper_user_id', 'TEXT');
+  ensureColumnExists('managers', 'email', 'TEXT');
+  ensureColumnExists('managers', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS manager_emails (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      manager_id INTEGER NOT NULL,
+      email TEXT NOT NULL,
+      is_primary INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(email),
+      FOREIGN KEY (manager_id) REFERENCES managers(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.run(
+    `DELETE FROM manager_emails
+     WHERE email IS NOT NULL AND LENGTH(TRIM(email)) > 0
+       AND id NOT IN (
+         SELECT MIN(id)
+         FROM manager_emails
+         WHERE email IS NOT NULL AND LENGTH(TRIM(email)) > 0
+         GROUP BY LOWER(email)
+       )`
+  );
+
+  db.run(
+    `UPDATE manager_emails
+     SET email = LOWER(TRIM(email))
+     WHERE email IS NOT NULL AND email != LOWER(TRIM(email))`
+  );
+
+  db.run(
+    'CREATE INDEX IF NOT EXISTS idx_manager_emails_manager_id ON manager_emails(manager_id)'
+  );
+
+  db.run(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_manager_emails_primary ON manager_emails(manager_id) WHERE is_primary = 1'
+  );
+
+  db.run(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_manager_emails_unique_email_nocase ON manager_emails(email COLLATE NOCASE)'
+  );
+
+  db.run(
+    `INSERT OR IGNORE INTO manager_emails (manager_id, email, is_primary)
+     SELECT id, LOWER(TRIM(email)), 1
+      FROM managers
+      WHERE email IS NOT NULL AND LENGTH(TRIM(email)) > 0`
+  );
+
+  db.run(
+    `UPDATE managers
+     SET email = LOWER(TRIM(email))
+     WHERE email IS NOT NULL AND email != LOWER(TRIM(email))`
+  );
+
+  db.run(
+    `UPDATE managers
+     SET email = (
+       SELECT email
+       FROM manager_emails
+       WHERE manager_id = managers.id AND is_primary = 1
+       ORDER BY id ASC
+       LIMIT 1
+     )
+     WHERE EXISTS (
+       SELECT 1
+       FROM manager_emails
+       WHERE manager_id = managers.id
+     )`
+  );
+
+  db.run(
+    `UPDATE managers
+     SET email = NULL
+     WHERE NOT EXISTS (
+       SELECT 1
+       FROM manager_emails
+       WHERE manager_id = managers.id
+     )`
+  );
 
   db.run(`
     CREATE TABLE IF NOT EXISTS keepers (
@@ -697,6 +811,171 @@ const allAsync = (sql, params = []) =>
       else resolve(rows);
     });
   });
+
+const isValidEmailFormat = (email) => {
+  if (typeof email !== 'string') {
+    return false;
+  }
+
+  const trimmed = email.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+};
+
+const normalizeEmailForStorage = (email) => {
+  if (typeof email !== 'string') {
+    return '';
+  }
+
+  const trimmed = email.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  return trimmed.toLowerCase();
+};
+
+const collectManagerEmails = (payload = {}) => {
+  const emailsInput = payload.emails;
+  const fallbackEmail = typeof payload.email === 'string' ? payload.email : null;
+  const candidates = [];
+
+  if (Array.isArray(emailsInput)) {
+    candidates.push(...emailsInput);
+  }
+
+  if (typeof fallbackEmail === 'string') {
+    candidates.push(fallbackEmail);
+  }
+
+  const sanitized = [];
+  const seen = new Set();
+
+  for (const candidate of candidates) {
+    const normalized = normalizeEmailForStorage(candidate);
+    if (seen.has(normalized)) {
+      continue;
+    }
+
+    if (!normalized) {
+      continue;
+    }
+
+    seen.add(normalized);
+    sanitized.push(normalized);
+  }
+
+  return sanitized;
+};
+
+const getEmailsForManagerIds = async (managerIds = []) => {
+  if (!Array.isArray(managerIds) || managerIds.length === 0) {
+    return new Map();
+  }
+
+  const validIds = managerIds
+    .map(id => Number(id))
+    .filter(id => Number.isInteger(id) && !Number.isNaN(id));
+
+  if (validIds.length === 0) {
+    return new Map();
+  }
+
+  const placeholders = validIds.map(() => '?').join(', ');
+  const rows = await allAsync(
+    `SELECT manager_id, email, is_primary
+     FROM manager_emails
+     WHERE manager_id IN (${placeholders})
+     ORDER BY manager_id, is_primary DESC, id ASC`,
+    validIds
+  );
+
+  const emailMap = new Map();
+
+  rows.forEach(row => {
+    if (!emailMap.has(row.manager_id)) {
+      emailMap.set(row.manager_id, []);
+    }
+
+    emailMap.get(row.manager_id).push(row.email);
+  });
+
+  return emailMap;
+};
+
+const hydrateManagersWithEmails = async (managerRows = []) => {
+  if (!Array.isArray(managerRows) || managerRows.length === 0) {
+    return [];
+  }
+
+  const ids = managerRows
+    .map(row => Number(row?.id))
+    .filter(id => Number.isInteger(id) && !Number.isNaN(id));
+
+  const emailMap = await getEmailsForManagerIds(ids);
+
+  return managerRows.map(row => {
+    const emails = emailMap.get(row.id) || [];
+    return {
+      ...row,
+      emails,
+      email: emails[0] || (typeof row.email === 'string' ? row.email : '')
+    };
+  });
+};
+
+const getManagerWithEmailsById = async (managerId) => {
+  if (managerId == null) {
+    return null;
+  }
+
+  const row = await getAsync('SELECT * FROM managers WHERE id = ?', [managerId]);
+  if (!row) {
+    return null;
+  }
+
+  const [manager] = await hydrateManagersWithEmails([row]);
+  return manager || null;
+};
+
+const replaceManagerEmails = async (managerId, emails = []) => {
+  if (managerId == null) {
+    return;
+  }
+
+  await runAsync('DELETE FROM manager_emails WHERE manager_id = ?', [managerId]);
+
+  let insertedCount = 0;
+  for (let index = 0; index < emails.length; index += 1) {
+    const email = normalizeEmailForStorage(emails[index]);
+    if (!email) {
+      continue;
+    }
+    await runAsync(
+      'INSERT INTO manager_emails (manager_id, email, is_primary) VALUES (?, ?, ?)',
+      [managerId, email, insertedCount === 0 ? 1 : 0]
+    );
+    insertedCount += 1;
+  }
+};
+
+const findManagerByEmail = async (email) => {
+  if (typeof email !== 'string' || !email.trim()) {
+    return null;
+  }
+
+  return getAsync(
+    `SELECT m.id, m.name_id, m.full_name
+     FROM manager_emails me
+     INNER JOIN managers m ON me.manager_id = m.id
+     WHERE LOWER(me.email) = LOWER(?)
+     LIMIT 1`,
+    [email.trim()]
+  );
+};
 
 const parseBooleanFlag = (value) => {
   if (typeof value === 'boolean') {
@@ -1482,10 +1761,7 @@ app.get('/api/manager-auth/cloudflare', async (req, res) => {
       }
     }
 
-    const managerRow = await getAsync(
-      'SELECT name_id, full_name FROM managers WHERE LOWER(email) = LOWER(?)',
-      [requestedEmail || normalizedEmail]
-    );
+    const managerRow = await findManagerByEmail(requestedEmail || normalizedEmail);
 
     if (!managerRow) {
       logCloudflareDebug('No manager mapping found for provided email', {
@@ -1633,15 +1909,14 @@ app.post('/api/manager-auth/validate', async (req, res) => {
 });
 
 // Get all managers
-app.get('/api/managers', (req, res) => {
-  const query = 'SELECT * FROM managers ORDER BY full_name';
-  db.all(query, [], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    res.json({ managers: rows });
-  });
+app.get('/api/managers', async (req, res) => {
+  try {
+    const rows = await allAsync('SELECT * FROM managers ORDER BY full_name');
+    const managersWithEmails = await hydrateManagersWithEmails(rows);
+    res.json({ managers: managersWithEmails });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get ROS rankings
@@ -2258,86 +2533,126 @@ app.post('/api/sleeper/preview/:year', async (req, res) => {
 });
 
 // Add a new manager
-app.post('/api/managers', (req, res) => {
-  const { name_id, full_name, sleeper_username, sleeper_user_id, email, active } = req.body;
-  
+app.post('/api/managers', async (req, res) => {
+  const { name_id, full_name, sleeper_username, sleeper_user_id, active } = req.body;
+  const emails = collectManagerEmails(req.body);
+  const primaryEmail = emails[0] || '';
+
   if (!name_id || !full_name) {
     return res.status(400).json({ error: 'name_id and full_name are required' });
   }
 
-  const query = `
-    INSERT INTO managers (name_id, full_name, sleeper_username, sleeper_user_id, email, active)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `;
+  const invalidEmail = emails.find(email => !isValidEmailFormat(email));
+  if (invalidEmail) {
+    return res.status(400).json({ error: `Invalid email address: ${invalidEmail}` });
+  }
 
-  db.run(
-    query,
-    [name_id, full_name, sleeper_username || '', sleeper_user_id || '', email || '', active || 1],
-    function(err) {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
+  try {
+    await runAsync('BEGIN TRANSACTION');
 
-      db.get('SELECT * FROM managers WHERE id = ?', [this.lastID], (selectErr, row) => {
-        if (selectErr) {
-          res.status(500).json({ error: selectErr.message });
-          return;
-        }
+    const insertResult = await runAsync(
+      `INSERT INTO managers (name_id, full_name, sleeper_username, sleeper_user_id, email, active)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        name_id,
+        full_name,
+        sleeper_username || '',
+        sleeper_user_id || '',
+        primaryEmail,
+        active != null ? active : 1
+      ]
+    );
 
-        res.json({
-          message: 'Manager added successfully',
-          manager: row
-        });
-      });
+    const managerId = insertResult.lastID;
+
+    if (emails.length > 0) {
+      await replaceManagerEmails(managerId, emails);
     }
-  );
+
+    await runAsync('COMMIT');
+
+    const manager = await getManagerWithEmailsById(managerId);
+
+    res.json({
+      message: 'Manager added successfully',
+      manager
+    });
+  } catch (error) {
+    await runAsync('ROLLBACK').catch(() => {});
+
+    if (error?.message && error.message.includes('manager_emails.email')) {
+      return res.status(409).json({ error: 'Email address is already assigned to another manager' });
+    }
+
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Update a manager
-app.put('/api/managers/:id', (req, res) => {
-  const id = req.params.id;
-  const { name_id, full_name, sleeper_username, sleeper_user_id, email, active } = req.body;
+app.put('/api/managers/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const { name_id, full_name, sleeper_username, sleeper_user_id, active } = req.body;
+  const emails = collectManagerEmails(req.body);
+  const primaryEmail = emails[0] || '';
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'Invalid manager identifier' });
+  }
 
   if (!name_id || !full_name) {
     return res.status(400).json({ error: 'name_id and full_name are required' });
   }
 
-  const query = `
-    UPDATE managers SET
-      name_id = ?, full_name = ?, sleeper_username = ?, sleeper_user_id = ?, email = ?, active = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `;
+  const invalidEmail = emails.find(email => !isValidEmailFormat(email));
+  if (invalidEmail) {
+    return res.status(400).json({ error: `Invalid email address: ${invalidEmail}` });
+  }
 
-  const values = [
-    name_id,
-    full_name,
-    sleeper_username || '',
-    sleeper_user_id || '',
-    email || '',
-    active !== undefined ? active : 1,
-    id
-  ];
+  try {
+    await runAsync('BEGIN TRANSACTION');
 
-  db.run(query, values, function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
+    const updateResult = await runAsync(
+      `UPDATE managers SET
+         name_id = ?,
+         full_name = ?,
+         sleeper_username = ?,
+         sleeper_user_id = ?,
+         email = ?,
+         active = ?,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        name_id,
+        full_name,
+        sleeper_username || '',
+        sleeper_user_id || '',
+        primaryEmail,
+        active != null ? active : 1,
+        id
+      ]
+    );
+
+    if (updateResult.changes === 0) {
+      await runAsync('ROLLBACK');
+      return res.status(404).json({ error: 'Manager not found' });
     }
-    if (this.changes === 0) {
-      res.status(404).json({ error: 'Manager not found' });
-      return;
+
+    await replaceManagerEmails(id, emails);
+
+    await runAsync('COMMIT');
+
+    const manager = await getManagerWithEmailsById(id);
+
+    res.json({ message: 'Manager updated successfully', manager });
+  } catch (error) {
+    await runAsync('ROLLBACK').catch(() => {});
+
+    if (error?.message && error.message.includes('manager_emails.email')) {
+      return res.status(409).json({ error: 'Email address is already assigned to another manager' });
     }
 
-    db.get('SELECT * FROM managers WHERE id = ?', [id], (selectErr, row) => {
-      if (selectErr) {
-        res.status(500).json({ error: selectErr.message });
-        return;
-      }
-
-      res.json({ message: 'Manager updated successfully', manager: row });
-    });
-  });
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Delete a manager
