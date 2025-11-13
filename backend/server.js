@@ -2014,7 +2014,19 @@ app.get('/api/managers/:nameId/seasons', (req, res) => {
 
 // Get all league settings (league IDs for each year)
 app.get('/api/league-settings', (req, res) => {
-  const query = 'SELECT * FROM league_settings ORDER BY year DESC';
+  const query = `
+    SELECT
+      ls.year,
+      ls.league_id,
+      ls.created_at,
+      ls.updated_at,
+      ktl.locked AS keeper_locked,
+      ktl.locked_at AS keeper_locked_at,
+      ktl.updated_at AS keeper_lock_updated_at
+    FROM league_settings ls
+    LEFT JOIN keeper_trade_locks ktl ON ktl.season_year = ls.year
+    ORDER BY ls.year DESC
+  `;
   db.all(query, [], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
