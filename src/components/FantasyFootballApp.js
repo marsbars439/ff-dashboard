@@ -168,12 +168,19 @@ const FantasyFootballApp = () => {
   const hasLoadedActiveWeekRef = useRef(false);
   const cloudflareAuthAttemptedRef = useRef(false);
   const isUnmountedRef = useRef(false);
+  const managerAuthRef = useRef(managerAuth);
+  const cloudflareAbortControllerRef = useRef(null);
+  const cloudflareAuthTimeoutRef = useRef(null);
 
   useEffect(() => {
     return () => {
       isUnmountedRef.current = true;
     };
   }, []);
+
+  useEffect(() => {
+    managerAuthRef.current = managerAuth;
+  }, [managerAuth]);
 
   // Determine if a season's regular season is complete (all teams have 14 games)
   const isRegularSeasonComplete = year => {
@@ -513,7 +520,7 @@ const FantasyFootballApp = () => {
     setManagerAuthInitialized(true);
   }, [validateManagerToken]);
 
-  useEffect(() => {
+  const attemptCloudflareManagerVerification = useCallback(async () => {
     if (typeof window === 'undefined') {
       return;
     }
@@ -522,99 +529,137 @@ const FantasyFootballApp = () => {
       return;
     }
 
-    if (managerAuth.status !== 'unauthenticated') {
+    if (cloudflareAuthAttemptedRef.current) {
       return;
     }
 
-    if (cloudflareAuthAttemptedRef.current) {
+    const currentAuth = managerAuthRef.current || {};
+
+    if (currentAuth.status !== 'unauthenticated') {
       return;
     }
 
     cloudflareAuthAttemptedRef.current = true;
 
     const controller = new AbortController();
+    cloudflareAbortControllerRef.current = controller;
     let didTimeout = false;
+
+    if (cloudflareAuthTimeoutRef.current) {
+      window.clearTimeout(cloudflareAuthTimeoutRef.current);
+    }
+
     const timeoutId = window.setTimeout(() => {
       didTimeout = true;
       controller.abort();
     }, 8000);
+    cloudflareAuthTimeoutRef.current = timeoutId;
 
-    const attemptCloudflareAuth = async () => {
-      setManagerAuth(prev => ({
-        ...prev,
-        status: 'pending',
+    setManagerAuth(prev => ({
+      ...prev,
+      status: 'pending',
+      verificationSource: 'cloudflare'
+    }));
+    setManagerAuthError(null);
+    setManagerAuthLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/manager-auth/cloudflare`, {
+        signal: controller.signal,
+        credentials: 'include'
+      });
+
+      const data = await parseJsonResponse(response);
+
+      if (!response.ok || !data?.managerId || !data?.token) {
+        throw new Error(data?.error || 'Cloudflare manager verification failed');
+      }
+
+      if (isUnmountedRef.current) {
+        return;
+      }
+
+      const normalizedAuth = {
+        managerId: data.managerId,
+        managerName: data.managerName || '',
+        token: data.token,
+        expiresAt: data.expiresAt || null,
+        status: 'authenticated',
         verificationSource: 'cloudflare'
-      }));
+      };
+
+      setManagerAuth(normalizedAuth);
+      setManagerAuthSelection(normalizedAuth.managerId);
+      setManagerAuthPasscode('');
       setManagerAuthError(null);
-      setManagerAuthLoading(true);
+      persistManagerAuth({
+        managerId: normalizedAuth.managerId,
+        managerName: normalizedAuth.managerName,
+        token: normalizedAuth.token,
+        expiresAt: normalizedAuth.expiresAt
+      });
+    } catch (error) {
+      if (isUnmountedRef.current) {
+        return;
+      }
 
-      try {
-        const response = await fetch(`${API_BASE_URL}/manager-auth/cloudflare`, {
-          signal: controller.signal,
-          credentials: 'include'
-        });
+      console.warn('Cloudflare manager verification failed:', error);
+      setManagerAuth({
+        managerId: '',
+        managerName: '',
+        token: '',
+        expiresAt: null,
+        status: 'unauthenticated',
+        verificationSource: null
+      });
+      setManagerAuthSelection('');
+      setManagerAuthPasscode('');
+      setManagerAuthError(
+        didTimeout
+          ? 'Automatic manager verification timed out. Please enter your manager passcode.'
+          : 'Unable to verify automatically. Please enter your manager passcode.'
+      );
+      persistManagerAuth(null);
+    } finally {
+      window.clearTimeout(timeoutId);
 
-        const data = await parseJsonResponse(response);
+      if (cloudflareAuthTimeoutRef.current === timeoutId) {
+        cloudflareAuthTimeoutRef.current = null;
+      }
 
-        if (!response.ok || !data?.managerId || !data?.token) {
-          throw new Error(data?.error || 'Cloudflare manager verification failed');
-        }
+      if (cloudflareAbortControllerRef.current === controller) {
+        cloudflareAbortControllerRef.current = null;
+      }
 
-        const normalizedAuth = {
-          managerId: data.managerId,
-          managerName: data.managerName || '',
-          token: data.token,
-          expiresAt: data.expiresAt || null,
-          status: 'authenticated',
-          verificationSource: 'cloudflare'
-        };
+      if (!isUnmountedRef.current) {
+        setManagerAuthLoading(false);
+      }
+    }
+  }, [API_BASE_URL, managerAuthInitialized, parseJsonResponse, persistManagerAuth]);
 
-        setManagerAuth(normalizedAuth);
-        setManagerAuthSelection(normalizedAuth.managerId);
-        setManagerAuthPasscode('');
-        setManagerAuthError(null);
-        persistManagerAuth({
-          managerId: normalizedAuth.managerId,
-          managerName: normalizedAuth.managerName,
-          token: normalizedAuth.token,
-          expiresAt: normalizedAuth.expiresAt
-        });
-      } catch (error) {
-        if (isUnmountedRef.current) {
-          return;
-        }
-        console.warn('Cloudflare manager verification failed:', error);
-        setManagerAuth({
-          managerId: '',
-          managerName: '',
-          token: '',
-          expiresAt: null,
-          status: 'unauthenticated',
-          verificationSource: null
-        });
-        setManagerAuthSelection('');
-        setManagerAuthPasscode('');
-        setManagerAuthError(
-          didTimeout
-            ? 'Automatic manager verification timed out. Please enter your manager passcode.'
-            : 'Unable to verify automatically. Please enter your manager passcode.'
-        );
-        persistManagerAuth(null);
-      } finally {
-        window.clearTimeout(timeoutId);
-        if (!isUnmountedRef.current) {
-          setManagerAuthLoading(false);
-        }
+  useEffect(() => {
+    if (!managerAuthInitialized) {
+      return;
+    }
+
+    if (managerAuth.status !== 'unauthenticated') {
+      return;
+    }
+
+    attemptCloudflareManagerVerification();
+  }, [managerAuthInitialized, managerAuth.status, attemptCloudflareManagerVerification]);
+
+  useEffect(() => {
+    return () => {
+      if (cloudflareAuthTimeoutRef.current) {
+        window.clearTimeout(cloudflareAuthTimeoutRef.current);
+      }
+
+      if (cloudflareAbortControllerRef.current) {
+        cloudflareAbortControllerRef.current.abort();
       }
     };
-
-    attemptCloudflareAuth();
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [API_BASE_URL, managerAuth.status, managerAuthInitialized, parseJsonResponse, persistManagerAuth]);
+  }, []);
 
   useEffect(() => {
     if (teamSeasons.length > 0 && !selectedSeasonYear) {
