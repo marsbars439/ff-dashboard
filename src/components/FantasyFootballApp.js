@@ -191,6 +191,44 @@ const FantasyFootballApp = () => {
     );
   };
 
+  const findRosterIdForManager = (teams, managerId, managerName) => {
+    if (!Array.isArray(teams) || teams.length === 0) {
+      return null;
+    }
+
+    const normalizedManagerId = managerId !== undefined && managerId !== null
+      ? String(managerId).trim()
+      : '';
+
+    if (normalizedManagerId) {
+      const rosterById = teams.find(team => {
+        if (team.manager_id === undefined || team.manager_id === null) {
+          return false;
+        }
+
+        return String(team.manager_id).trim() === normalizedManagerId;
+      });
+
+      if (rosterById) {
+        return rosterById.roster_id;
+      }
+    }
+
+    const normalizedManagerName = (managerName || '').trim().toLowerCase();
+    if (normalizedManagerName) {
+      const rosterByName = teams.find(team => {
+        const teamManagerName = (team.manager_name || '').trim().toLowerCase();
+        return Boolean(teamManagerName) && teamManagerName === normalizedManagerName;
+      });
+
+      if (rosterByName) {
+        return rosterByName.roster_id;
+      }
+    }
+
+    return null;
+  };
+
   const managerOptions = useMemo(() => {
     if (!Array.isArray(managers)) {
       return [];
@@ -1622,11 +1660,31 @@ const FantasyFootballApp = () => {
       });
 
       setKeepers(processed);
+      const prevRoster = processed.find(team => team.roster_id === selectedKeeperRosterId);
       const prevManager = keepers.find(t => t.roster_id === selectedKeeperRosterId)?.manager_name;
       setSelectedKeeperRosterId(() => {
+        if (prevRoster) {
+          return prevRoster.roster_id;
+        }
+
         if (prevManager) {
-          const match = processed.find(t => t.manager_name === prevManager);
+          const normalizedPrevManager = prevManager.trim().toLowerCase();
+          const match = processed.find(team => {
+            const teamManager = (team.manager_name || '').trim().toLowerCase();
+            return Boolean(teamManager) && teamManager === normalizedPrevManager;
+          });
           if (match) return match.roster_id;
+        }
+
+        const authRosterId = managerAuth.status === 'authenticated'
+          ? findRosterIdForManager(
+              processed,
+              managerAuth.managerId,
+              managerAuth.managerName
+            )
+          : null;
+        if (authRosterId) {
+          return authRosterId;
         }
         return processed.length > 0 ? processed[0].roster_id : null;
       });
@@ -1636,6 +1694,67 @@ const FantasyFootballApp = () => {
       setSelectedKeeperRosterId(null);
     }
   };
+
+  useEffect(() => {
+    if (
+      managerAuth.status !== 'authenticated' ||
+      !Array.isArray(keepers) ||
+      keepers.length === 0
+    ) {
+      return;
+    }
+
+    const authRosterId = findRosterIdForManager(
+      keepers,
+      managerAuth.managerId,
+      managerAuth.managerName
+    );
+
+    const doesRosterBelongToAuth = roster => {
+      if (!roster) {
+        return false;
+      }
+
+      if (roster.manager_id && managerAuth.managerId) {
+        if (
+          String(roster.manager_id).trim() ===
+          String(managerAuth.managerId).trim()
+        ) {
+          return true;
+        }
+      }
+
+      const normalizedAuthName = (managerAuth.managerName || '')
+        .trim()
+        .toLowerCase();
+      const normalizedRosterName = (roster.manager_name || '')
+        .trim()
+        .toLowerCase();
+
+      return (
+        normalizedAuthName.length > 0 &&
+        normalizedAuthName === normalizedRosterName
+      );
+    };
+
+    setSelectedKeeperRosterId(prev => {
+      const prevRoster = keepers.find(team => team.roster_id === prev);
+
+      if (authRosterId) {
+        if (doesRosterBelongToAuth(prevRoster)) {
+          return prevRoster.roster_id;
+        }
+
+        return authRosterId;
+      }
+
+      if (prevRoster) {
+        return prevRoster.roster_id;
+      }
+
+      return keepers[0]?.roster_id ?? null;
+    });
+  }, [keepers, managerAuth.managerId, managerAuth.managerName, managerAuth.status]);
 
   const canEditRoster = useCallback(
     rosterId => {
