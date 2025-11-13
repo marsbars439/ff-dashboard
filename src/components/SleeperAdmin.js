@@ -15,9 +15,15 @@ const SleeperAdmin = ({
   const [message, setMessage] = useState(null);
   const [managerMappings, setManagerMappings] = useState([]);
   const [managers, setManagers] = useState([]);
-  const [newMapping, setNewMapping] = useState({ name_id: '', season: '', sleeper_user_id: '' });
   const [editingMappingId, setEditingMappingId] = useState(null);
   const [editingMapping, setEditingMapping] = useState({});
+  const [aliasAddState, setAliasAddState] = useState({
+    managerNameId: null,
+    season: '',
+    sleeper_user_id: '',
+    loading: false,
+    error: null
+  });
   const [keeperLockStates, setKeeperLockStates] = useState({});
   const [keeperLockUpdating, setKeeperLockUpdating] = useState({});
   const [keeperLockErrors, setKeeperLockErrors] = useState({});
@@ -137,13 +143,37 @@ const SleeperAdmin = ({
     });
   }, [managers]);
 
-  const managersByName = useMemo(() => {
-    return [...managers].sort((a, b) => {
-      const nameA = getManagerName(a);
-      const nameB = getManagerName(b);
-      return nameA.localeCompare(nameB);
+  const aliasesByManager = useMemo(() => {
+    const grouped = managerMappings.reduce((acc, mapping) => {
+      if (!mapping || mapping.name_id == null) {
+        return acc;
+      }
+
+      const key = mapping.name_id;
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+
+      acc[key].push(mapping);
+      return acc;
+    }, {});
+
+    Object.keys(grouped).forEach(key => {
+      grouped[key].sort((a, b) => {
+        const seasonA = Number(a?.season) || 0;
+        const seasonB = Number(b?.season) || 0;
+        if (seasonA !== seasonB) {
+          return seasonB - seasonA;
+        }
+
+        const idA = String(a?.sleeper_user_id || '').toLowerCase();
+        const idB = String(b?.sleeper_user_id || '').toLowerCase();
+        return idA.localeCompare(idB);
+      });
     });
-  }, [managers]);
+
+    return grouped;
+  }, [managerMappings]);
 
   // Generate years from 2015 to current year
   const years = Array.from(
@@ -507,54 +537,176 @@ const SleeperAdmin = ({
     });
   }, [syncStatus, leagueSettings]);
 
-  const addMapping = async () => {
-    if (!newMapping.name_id || !newMapping.season || !newMapping.sleeper_user_id) return;
+  const startAliasAdd = (manager) => {
+    if (!manager || manager.name_id == null) {
+      return;
+    }
+
+    setEditingMappingId(null);
+    setEditingMapping({});
+    setAliasAddState({
+      managerNameId: manager.name_id,
+      season: '',
+      sleeper_user_id: '',
+      loading: false,
+      error: null
+    });
+  };
+
+  const cancelAliasAdd = () => {
+    setAliasAddState({
+      managerNameId: null,
+      season: '',
+      sleeper_user_id: '',
+      loading: false,
+      error: null
+    });
+  };
+
+  const saveAliasAdd = async () => {
+    if (!aliasAddState.managerNameId) {
+      return;
+    }
+
+    const trimmedSeason = String(aliasAddState.season ?? '').trim();
+    const trimmedSleeperId = String(aliasAddState.sleeper_user_id ?? '').trim();
+
+    if (!trimmedSeason) {
+      setAliasAddState(prev => ({ ...prev, error: 'Enter a season year before saving.' }));
+      return;
+    }
+
+    const numericSeason = Number(trimmedSeason);
+    if (!Number.isInteger(numericSeason)) {
+      setAliasAddState(prev => ({ ...prev, error: 'Enter a valid season year.' }));
+      return;
+    }
+
+    if (!trimmedSleeperId) {
+      setAliasAddState(prev => ({ ...prev, error: 'Enter a Sleeper user ID before saving.' }));
+      return;
+    }
+
+    setAliasAddState(prev => ({ ...prev, loading: true, error: null }));
+
     try {
       const response = await fetch(`${API_BASE_URL}/manager-sleeper-ids`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newMapping)
+        body: JSON.stringify({
+          name_id: aliasAddState.managerNameId,
+          season: numericSeason,
+          sleeper_user_id: trimmedSleeperId
+        })
       });
-      if (response.ok) {
-        setNewMapping({ name_id: '', season: '', sleeper_user_id: '' });
-        fetchMappings();
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to add alias');
       }
+
+      await fetchMappings();
+      const managerLabel = managerNameMap[aliasAddState.managerNameId] || aliasAddState.managerNameId;
+      setAliasAddState({
+        managerNameId: null,
+        season: '',
+        sleeper_user_id: '',
+        loading: false,
+        error: null
+      });
+      setMessage({ type: 'success', text: `Alias added for ${managerLabel}` });
+      setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error adding mapping:', error);
+      setAliasAddState(prev => ({
+        ...prev,
+        loading: false,
+        error: error.message || 'Failed to add alias'
+      }));
     }
   };
 
   const startEditMapping = (mapping) => {
+    if (!mapping) {
+      return;
+    }
+
+    cancelAliasAdd();
     setEditingMappingId(mapping.id);
-    setEditingMapping({ ...mapping });
+    setEditingMapping({
+      ...mapping,
+      season: mapping?.season != null ? String(mapping.season) : '',
+      sleeper_user_id: mapping?.sleeper_user_id ?? ''
+    });
   };
 
   const saveEditMapping = async () => {
     try {
+      const trimmedSeason = String(editingMapping?.season ?? '').trim();
+      const trimmedSleeperId = String(editingMapping?.sleeper_user_id ?? '').trim();
+
+      if (!trimmedSeason) {
+        setMessage({ type: 'error', text: 'Season is required to update an alias.' });
+        setTimeout(() => setMessage(null), 3000);
+        return;
+      }
+
+      const numericSeason = Number(trimmedSeason);
+      if (!Number.isInteger(numericSeason)) {
+        setMessage({ type: 'error', text: 'Enter a valid season year.' });
+        setTimeout(() => setMessage(null), 3000);
+        return;
+      }
+
+      if (!trimmedSleeperId) {
+        setMessage({ type: 'error', text: 'Sleeper user ID is required to update an alias.' });
+        setTimeout(() => setMessage(null), 3000);
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/manager-sleeper-ids/${editingMappingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingMapping)
+        body: JSON.stringify({
+          ...editingMapping,
+          season: numericSeason,
+          sleeper_user_id: trimmedSleeperId
+        })
       });
       if (response.ok) {
+        const managerLabel = managerNameMap[editingMapping?.name_id] || editingMapping?.name_id || 'Manager';
         setEditingMappingId(null);
         setEditingMapping({});
-        fetchMappings();
+        await fetchMappings();
+        setMessage({ type: 'success', text: `Alias updated for ${managerLabel}` });
+        setTimeout(() => setMessage(null), 3000);
       }
     } catch (error) {
       console.error('Error updating mapping:', error);
+      setMessage({ type: 'error', text: error.message || 'Failed to update alias' });
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
   const deleteMapping = async (id) => {
     if (!window.confirm('Delete this mapping?')) return;
     try {
+      const targetMapping = managerMappings.find(mapping => mapping.id === id);
       const response = await fetch(`${API_BASE_URL}/manager-sleeper-ids/${id}`, { method: 'DELETE' });
       if (response.ok) {
-        fetchMappings();
+        await fetchMappings();
+        if (editingMappingId === id) {
+          setEditingMappingId(null);
+          setEditingMapping({});
+        }
+        const managerLabel = targetMapping?.name_id ? (managerNameMap[targetMapping.name_id] || targetMapping.name_id) : 'Manager';
+        setMessage({ type: 'success', text: `Alias removed for ${managerLabel}` });
+        setTimeout(() => setMessage(null), 3000);
       }
     } catch (error) {
       console.error('Error deleting mapping:', error);
+      setMessage({ type: 'error', text: error.message || 'Failed to delete alias' });
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -1034,13 +1186,20 @@ const SleeperAdmin = ({
                 <th className="px-3 py-2 text-left">Sleeper Username</th>
                 <th className="px-3 py-2 text-left">Sleeper User ID</th>
                 <th className="px-3 py-2 text-left">Emails</th>
+                <th className="px-3 py-2 text-left">Aliases</th>
                 <th className="px-3 py-2 text-left">Active</th>
                 <th className="px-3 py-2 text-left">Passcode</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {sortedManagers.map(manager => (
-                <tr key={manager.id}>
+              {sortedManagers.map(manager => {
+                const managerAliases = Array.isArray(aliasesByManager[manager.name_id])
+                  ? aliasesByManager[manager.name_id]
+                  : [];
+                const isAddingAlias = aliasAddState.managerNameId === manager.name_id;
+
+                return (
+                  <tr key={manager.id}>
                   <td className="px-3 py-2 font-mono text-xs">{manager.name_id}</td>
                   <td className="px-3 py-2">
                     <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
@@ -1168,6 +1327,170 @@ const SleeperAdmin = ({
                       </div>
                     )}
                   </td>
+                  <td className="px-3 py-2 align-top">
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        {managerAliases.length ? (
+                          managerAliases.map(alias => (
+                            <div
+                              key={alias.id}
+                              className="border border-gray-200 rounded-md p-2 bg-white"
+                            >
+                              {editingMappingId === alias.id ? (
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <div className="flex flex-col space-y-1">
+                                      <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                                        Season
+                                      </span>
+                                      <input
+                                        type="number"
+                                        className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        value={editingMapping?.season ?? ''}
+                                        onChange={(e) =>
+                                          setEditingMapping(prev => ({
+                                            ...prev,
+                                            season: e.target.value
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                    <div className="flex flex-col space-y-1">
+                                      <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                                        Sleeper User ID
+                                      </span>
+                                      <input
+                                        type="text"
+                                        className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        value={editingMapping?.sleeper_user_id ?? ''}
+                                        onChange={(e) =>
+                                          setEditingMapping(prev => ({
+                                            ...prev,
+                                            sleeper_user_id: e.target.value
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={saveEditMapping}
+                                      className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingMappingId(null);
+                                        setEditingMapping({});
+                                      }}
+                                      className="text-xs font-medium text-gray-600 hover:underline"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="font-semibold text-gray-700">
+                                      Season {alias.season ?? '—'}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => startEditMapping(alias)}
+                                        className="text-blue-600 hover:underline"
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteMapping(alias.id)}
+                                        className="text-red-600 hover:underline"
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-sm font-mono text-gray-700 break-all">
+                                    {alias.sleeper_user_id || '—'}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400">No aliases configured</span>
+                        )}
+                      </div>
+                      {isAddingAlias ? (
+                        <div className="bg-gray-50 border border-dashed border-gray-300 rounded-md p-3 space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input
+                              type="number"
+                              placeholder="Season"
+                              className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              value={aliasAddState.season}
+                              onChange={(e) =>
+                                setAliasAddState(prev => ({
+                                  ...prev,
+                                  season: e.target.value,
+                                  error: null
+                                }))
+                              }
+                              disabled={aliasAddState.loading}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Sleeper User ID"
+                              className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              value={aliasAddState.sleeper_user_id}
+                              onChange={(e) =>
+                                setAliasAddState(prev => ({
+                                  ...prev,
+                                  sleeper_user_id: e.target.value,
+                                  error: null
+                                }))
+                              }
+                              disabled={aliasAddState.loading}
+                            />
+                          </div>
+                          {aliasAddState.error && (
+                            <div className="text-xs text-red-600">{aliasAddState.error}</div>
+                          )}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={saveAliasAdd}
+                              className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+                              disabled={aliasAddState.loading}
+                            >
+                              {aliasAddState.loading ? 'Saving…' : 'Save Alias'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelAliasAdd}
+                              className="text-xs font-medium text-gray-600 hover:underline disabled:opacity-50"
+                              disabled={aliasAddState.loading}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startAliasAdd(manager)}
+                          className="text-xs font-medium text-blue-600 hover:underline"
+                        >
+                          Add Alias
+                        </button>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${manager.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                       {manager.active ? 'Active' : 'Inactive'}
@@ -1235,112 +1558,14 @@ const SleeperAdmin = ({
                       </button>
                     )}
                   </td>
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
     </div>
-
-    {/* Manager ID Aliases mappings */}
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-      <div className="p-6">
-        <h4 className="text-lg font-semibold mb-4">Manager ID Aliases</h4>
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <select
-            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            value={newMapping.name_id}
-            onChange={(e) => setNewMapping(prev => ({ ...prev, name_id: e.target.value }))}
-          >
-            <option value="">Select Manager</option>
-            {managersByName.map(m => (
-              <option key={m.name_id} value={m.name_id}>
-                {getManagerName(m) || m.name_id}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            placeholder="Season"
-            className="border-gray-300 rounded-md shadow-sm w-24 focus:border-blue-500 focus:ring-blue-500"
-            value={newMapping.season}
-            onChange={(e) => setNewMapping(prev => ({ ...prev, season: e.target.value }))}
-          />
-          <input
-            type="text"
-            placeholder="Sleeper User ID"
-            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            value={newMapping.sleeper_user_id}
-            onChange={(e) => setNewMapping(prev => ({ ...prev, sleeper_user_id: e.target.value }))}
-          />
-          <button
-            onClick={addMapping}
-            className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Add
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left">Manager</th>
-                <th className="px-3 py-2 text-left">Season</th>
-                <th className="px-3 py-2 text-left">Sleeper User ID</th>
-                <th className="px-3 py-2 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {managerMappings.map(m => (
-                <tr key={m.id}>
-                  <td className="px-3 py-2">{managerNameMap[m.name_id] || m.name_id}</td>
-                  <td className="px-3 py-2">
-                    {editingMappingId === m.id ? (
-                      <input
-                        type="number"
-                        className="border-gray-300 rounded-md shadow-sm w-24 focus:border-blue-500 focus:ring-blue-500"
-                        value={editingMapping.season}
-                        onChange={(e) => setEditingMapping(prev => ({ ...prev, season: e.target.value }))}
-                      />
-                    ) : (
-                      m.season
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    {editingMappingId === m.id ? (
-                      <input
-                        type="text"
-                        className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        value={editingMapping.sleeper_user_id}
-                        onChange={(e) => setEditingMapping(prev => ({ ...prev, sleeper_user_id: e.target.value }))}
-                      />
-                    ) : (
-                      m.sleeper_user_id
-                    )}
-                  </td>
-                  <td className="px-3 py-2 space-x-2">
-                    {editingMappingId === m.id ? (
-                      <>
-                        <button onClick={saveEditMapping} className="text-blue-600 hover:underline">Save</button>
-                        <button onClick={() => setEditingMappingId(null)} className="text-gray-600 hover:underline">Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={() => startEditMapping(m)} className="text-blue-600 hover:underline">Edit</button>
-                        <button onClick={() => deleteMapping(m.id)} className="text-red-600 hover:underline">Delete</button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
     </div>
   );
 };
