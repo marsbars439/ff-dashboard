@@ -547,6 +547,15 @@ db.serialize(() => {
     'CREATE INDEX IF NOT EXISTS idx_keepers_year_player ON keepers(year, player_id)'
   );
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS keeper_trade_locks (
+      season_year INTEGER PRIMARY KEY,
+      locked INTEGER NOT NULL DEFAULT 0,
+      locked_at DATETIME,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Table for rest-of-season rankings
   db.run(`
     CREATE TABLE IF NOT EXISTS ros_rankings (
@@ -719,12 +728,26 @@ const getRuleChangeVotingLockRow = async (seasonYear) =>
     seasonYear
   ]);
 
+const getKeeperTradeLockRow = async seasonYear =>
+  getAsync('SELECT season_year, locked, locked_at, updated_at FROM keeper_trade_locks WHERE season_year = ?', [
+    seasonYear
+  ]);
+
 const isRuleChangeVotingLocked = async (seasonYear) => {
   if (!Number.isInteger(seasonYear)) {
     return false;
   }
 
   const row = await getRuleChangeVotingLockRow(seasonYear);
+  return row ? row.locked === 1 : false;
+};
+
+const isKeeperTradeLocked = async seasonYear => {
+  if (!Number.isInteger(seasonYear)) {
+    return false;
+  }
+
+  const row = await getKeeperTradeLockRow(seasonYear);
   return row ? row.locked === 1 : false;
 };
 
@@ -747,6 +770,27 @@ const setRuleChangeVotingLock = async (seasonYear, locked) => {
   );
 
   return getRuleChangeVotingLockRow(numericYear);
+};
+
+const setKeeperTradeLock = async (seasonYear, locked) => {
+  const numericYear = parseInt(seasonYear, 10);
+  if (Number.isNaN(numericYear)) {
+    throw new Error('A valid season year is required to update the preseason lock.');
+  }
+
+  const normalizedLocked = locked ? 1 : 0;
+
+  await runAsync(
+    `INSERT INTO keeper_trade_locks (season_year, locked, locked_at, updated_at)
+     VALUES (?, ?, CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END, CURRENT_TIMESTAMP)
+     ON CONFLICT(season_year) DO UPDATE SET
+       locked = excluded.locked,
+       locked_at = CASE WHEN excluded.locked = 1 THEN CURRENT_TIMESTAMP ELSE NULL END,
+       updated_at = CURRENT_TIMESTAMP`,
+    [numericYear, normalizedLocked, normalizedLocked]
+  );
+
+  return getKeeperTradeLockRow(numericYear);
 };
 
 const getNextProposalDisplayOrder = async (seasonYear) => {
@@ -1804,19 +1848,60 @@ app.get('/api/seasons/:year/keepers', (req, res) => {
 });
 
 // Get stored keeper selections for a season
-app.get('/api/keepers/:year', (req, res) => {
+app.get('/api/keepers/:year', async (req, res) => {
   const year = parseInt(req.params.year);
-  db.all(
-    'SELECT roster_id, player_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount, trade_note FROM keepers WHERE year = ?',
-    [year],
-    (err, rows) => {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
-      res.json({ keepers: rows });
-    }
-  );
+
+  try {
+    const rows = await allAsync(
+      'SELECT roster_id, player_id, player_name, previous_cost, years_kept, trade_from_roster_id, trade_amount, trade_note FROM keepers WHERE year = ?',
+      [year]
+    );
+    const lockRow = await getKeeperTradeLockRow(year);
+
+    res.json({
+      keepers: rows,
+      locked: lockRow ? lockRow.locked === 1 : false,
+      lockedAt: lockRow?.locked_at || null,
+      updatedAt: lockRow?.updated_at || null
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/keepers/lock', async (req, res) => {
+  const adminTokenHeader = req.headers['x-admin-token'];
+  const adminToken = typeof adminTokenHeader === 'string' ? adminTokenHeader.trim() : '';
+
+  if (!adminToken || !isAdminTokenValid(adminToken)) {
+    return res.status(401).json({ error: 'Admin authentication is required' });
+  }
+
+  const { seasonYear, locked } = req.body || {};
+  const numericYear = parseInt(seasonYear, 10);
+
+  if (Number.isNaN(numericYear)) {
+    return res.status(400).json({ error: 'A valid seasonYear is required' });
+  }
+
+  const { valid, value: desiredLocked } = parseBooleanFlag(locked);
+
+  if (!valid) {
+    return res.status(400).json({ error: 'locked must be a boolean value' });
+  }
+
+  try {
+    const updatedRow = await setKeeperTradeLock(numericYear, desiredLocked);
+    res.json({
+      seasonYear: updatedRow?.season_year ?? numericYear,
+      locked: updatedRow ? updatedRow.locked === 1 : desiredLocked,
+      lockedAt: updatedRow?.locked_at || null,
+      updatedAt: updatedRow?.updated_at || null
+    });
+  } catch (error) {
+    console.error('Error updating keeper trade lock:', error);
+    res.status(500).json({ error: 'Failed to update preseason lock' });
+  }
 });
 
 // Save keeper selections for a roster in a given season
@@ -1826,6 +1911,10 @@ app.post('/api/keepers/:year/:rosterId', async (req, res) => {
   const players = Array.isArray(req.body.players) ? req.body.players : [];
 
   try {
+    if (await isKeeperTradeLocked(year)) {
+      return res.status(423).json({ error: 'Keeper selections are locked for this season.' });
+    }
+
     await runAsync('DELETE FROM keepers WHERE year = ? AND roster_id = ?', [year, rosterId]);
 
     for (const p of players) {
