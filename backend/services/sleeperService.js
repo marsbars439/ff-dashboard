@@ -308,9 +308,12 @@ class SleeperService {
         seasonalIds
       );
 
+      const leagueStatus = leagueInfo?.status || null;
+
       return {
         success: true,
         data: processedData,
+        leagueStatus,
         summary: {
           year,
           teamsFound: processedData.length,
