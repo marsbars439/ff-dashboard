@@ -24,7 +24,6 @@ const SleeperAdmin = ({
   const [votingLockUpdating, setVotingLockUpdating] = useState({});
   const [votingLockErrors, setVotingLockErrors] = useState({});
   const [syncErrors, setSyncErrors] = useState({});
-  const [manualCompletionLoading, setManualCompletionLoading] = useState({});
   const [emailEdit, setEmailEdit] = useState({
     managerId: null,
     emails: [],
@@ -469,40 +468,6 @@ const SleeperAdmin = ({
     }
   };
 
-  const setManualCompletion = async (year, complete) => {
-    setManualCompletionLoading(prev => ({ ...prev, [year]: true }));
-    try {
-      const response = await fetch(`${API_BASE_URL}/league-settings/${year}/manual-complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ complete })
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to update manual completion');
-      }
-
-      fetchSyncStatus();
-      setMessage({ type: 'success', text: data?.message || 'Season status updated' });
-      setTimeout(() => setMessage(null), 3000);
-      setSyncErrors(prev => {
-        const updated = { ...prev };
-        delete updated[year];
-        return updated;
-      });
-
-      if (!complete) {
-        autoSyncYearsRef.current.delete(year);
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Failed to update manual completion' });
-    } finally {
-      setManualCompletionLoading(prev => ({ ...prev, [year]: false }));
-    }
-  };
-
   useEffect(() => {
     if (!Array.isArray(syncStatus) || syncStatus.length === 0) {
       return;
@@ -927,8 +892,6 @@ const SleeperAdmin = ({
                     }
                     return 'Awaiting first successful sync.';
                   })();
-                  const showManualCompletionButton = !hasLeagueId;
-
                   return (
                     <tr key={year}>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -987,24 +950,9 @@ const SleeperAdmin = ({
                         {status?.team_count || 0}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm align-top">
-                        <div className="flex flex-col space-y-3">
-                          <div className="flex flex-col space-y-2">
-                            <span className="text-xs text-gray-500">{autoSyncMessage}</span>
-                            {showManualCompletionButton && (
-                              <button
-                                onClick={() => setManualCompletion(year, !manualComplete)}
-                                disabled={Boolean(manualCompletionLoading[year])}
-                                className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {manualCompletionLoading[year]
-                                  ? 'Updating…'
-                                  : manualComplete
-                                    ? 'Reopen Season'
-                                    : 'Mark Complete'}
-                              </button>
-                            )}
-                          </div>
-                          <div className="flex flex-col space-y-2">
+                        <div className="space-y-2">
+                          <span className="block text-xs text-gray-500">{autoSyncMessage}</span>
+                          <div className="flex flex-wrap gap-2">
                             <button
                               onClick={() => toggleKeeperLock(year, !isKeeperLocked)}
                               disabled={isKeeperLockUpdating}
@@ -1054,9 +1002,19 @@ const SleeperAdmin = ({
                                 : 'Lock Voting'}
                             </button>
                             {(keeperLockError || votingLockError) && (
-                              <div className="space-y-1 text-xs text-red-600">
-                                {keeperLockError && <div>{keeperLockError}</div>}
-                                {votingLockError && <div>{votingLockError}</div>}
+                              <div className="w-full space-y-1 text-xs text-red-600">
+                                {keeperLockError && (
+                                  <div className="flex items-start space-x-1">
+                                    <AlertCircle className="w-3 h-3 mt-0.5" />
+                                    <span>{keeperLockError}</span>
+                                  </div>
+                                )}
+                                {votingLockError && (
+                                  <div className="flex items-start space-x-1">
+                                    <AlertCircle className="w-3 h-3 mt-0.5" />
+                                    <span>{votingLockError}</span>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
