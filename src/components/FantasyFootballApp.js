@@ -23,6 +23,8 @@ import {
   ShieldCheck,
   LogOut,
   Cloud,
+  Lock,
+  Unlock,
 
 } from 'lucide-react';
 import SleeperAdmin from './SleeperAdmin';
@@ -116,6 +118,9 @@ const FantasyFootballApp = () => {
   const [manualTrades, setManualTrades] = useState([]);
   const [newTrade, setNewTrade] = useState({ from: '', to: '', amount: '', note: '' });
   const [keeperSummaryView, setKeeperSummaryView] = useState('keepers');
+  const [keeperLockState, setKeeperLockState] = useState({ locked: false, lockedAt: null, updatedAt: null });
+  const [keeperLockUpdating, setKeeperLockUpdating] = useState(false);
+  const [keeperLockError, setKeeperLockError] = useState(null);
   const [ruleChangeProposals, setRuleChangeProposals] = useState([]);
   const [ruleChangeLoading, setRuleChangeLoading] = useState(false);
   const [ruleChangeError, setRuleChangeError] = useState(null);
@@ -150,6 +155,7 @@ const FantasyFootballApp = () => {
   const adminAuthorized = adminSession.status === 'authorized';
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [adminPasswordError, setAdminPasswordError] = useState(null);
+  const keeperEditingLocked = Boolean(keeperLockState.locked);
   const updateActiveTab = tab => {
     if (tab === 'analytics' && !adminAuthorized) {
       setActiveTab('admin');
@@ -1525,6 +1531,65 @@ const FantasyFootballApp = () => {
     ]
   );
 
+  const toggleKeeperEditingLock = async nextLocked => {
+    if (keeperLockUpdating) {
+      return;
+    }
+
+    const numericYear = Number(selectedKeeperYear);
+
+    if (!Number.isInteger(numericYear)) {
+      setKeeperLockError('Select a season before adjusting the preseason lock.');
+      return;
+    }
+
+    if (adminSession.status !== 'authorized' || !adminSession.token) {
+      setKeeperLockError('Admin authentication is required to adjust the preseason lock.');
+      return;
+    }
+
+    const desiredLocked = Boolean(nextLocked);
+    setKeeperLockUpdating(true);
+    setKeeperLockError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/keepers/lock`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminSession.token
+        },
+        body: JSON.stringify({ seasonYear: numericYear, locked: desiredLocked })
+      });
+
+      const data = await parseJsonResponse(response);
+
+      if (response.status === 401) {
+        setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+        persistAdminSession(null);
+        throw new Error(data?.error || 'Admin session has expired. Please sign in again.');
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to update preseason lock');
+      }
+
+      const locked = Boolean(data?.locked);
+      setKeeperLockState({
+        locked,
+        lockedAt: data?.lockedAt || data?.locked_at || null,
+        updatedAt: data?.updatedAt || data?.updated_at || null
+      });
+      setKeeperLockError(null);
+      await fetchKeepers(numericYear);
+    } catch (error) {
+      console.error('Error updating preseason lock:', error);
+      setKeeperLockError(error.message || 'Failed to update preseason lock');
+    } finally {
+      setKeeperLockUpdating(false);
+    }
+  };
+
   const calculateCostToKeep = (previousCost, yearsKept) => {
     if (
       previousCost === undefined ||
@@ -1535,6 +1600,26 @@ const FantasyFootballApp = () => {
       return '';
     return Number(previousCost) + 5 * (yearsKept + 1);
   };
+
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) {
+      return null;
+    }
+
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return timestamp;
+    }
+
+    return date.toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+  };
+
+  const keeperLockTimestampLabel = formatTimestamp(
+    keeperEditingLocked ? keeperLockState.lockedAt : keeperLockState.updatedAt
+  );
 
   const fetchKeepers = async (year) => {
     try {
@@ -1547,6 +1632,13 @@ const FantasyFootballApp = () => {
       const currentData = currentRes.ok ? await currentRes.json() : { rosters: [] };
       const savedKeepers = savedKeepRes.ok ? await savedKeepRes.json() : { keepers: [] };
       const prevKeepers = prevKeepRes.ok ? await prevKeepRes.json() : { keepers: [] };
+
+      setKeeperLockState({
+        locked: Boolean(savedKeepers.locked),
+        lockedAt: savedKeepers.lockedAt || savedKeepers.locked_at || null,
+        updatedAt: savedKeepers.updatedAt || savedKeepers.updated_at || null
+      });
+      setKeeperLockError(null);
 
       const prevYearsMap = prevKeepers.keepers.reduce((acc, k) => {
         acc[k.player_id] = (k.years_kept || 0) + 1;
@@ -1692,6 +1784,7 @@ const FantasyFootballApp = () => {
       console.error('Error fetching keepers:', error);
       setKeepers([]);
       setSelectedKeeperRosterId(null);
+      setKeeperLockState({ locked: false, lockedAt: null, updatedAt: null });
     }
   };
 
@@ -1758,6 +1851,10 @@ const FantasyFootballApp = () => {
 
   const canEditRoster = useCallback(
     rosterId => {
+      if (keeperEditingLocked) {
+        return false;
+      }
+
       if (managerAuth.status !== 'authenticated' || !rosterId) {
         return false;
       }
@@ -1789,7 +1886,7 @@ const FantasyFootballApp = () => {
         normalizedAuthName === normalizedRosterName
       );
     },
-    [keepers, managerAuth.managerId, managerAuth.managerName, managerAuth.status]
+    [keepers, keeperEditingLocked, managerAuth.managerId, managerAuth.managerName, managerAuth.status]
   );
 
   const toggleKeeperSelection = (rosterId, playerIndex) => {
@@ -1989,7 +2086,7 @@ const FantasyFootballApp = () => {
   };
 
   const saveAllKeepers = async (data) => {
-    if (!selectedKeeperYear) return;
+    if (!selectedKeeperYear || keeperEditingLocked) return;
     const playersByRoster = {};
     data.forEach(team => {
       const teamPlayers = team.players
@@ -3802,6 +3899,11 @@ const FantasyFootballApp = () => {
                       </div>
                     </div>
                   </div>
+                  {keeperEditingLocked && (
+                    <div className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+                      Keeper and trade selections are currently locked by the commissioner.
+                    </div>
+                  )}
                   {availableYears.length > 0 && (
                     <div className="flex sm:justify-end">
                       <select
@@ -4503,6 +4605,65 @@ const FantasyFootballApp = () => {
                 API_BASE_URL={API_BASE_URL}
                 onDataUpdate={fetchData}
               />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title={
+                <div className="flex items-center space-x-2">
+                  <Lock className={`w-5 h-5 ${keeperEditingLocked ? 'text-red-500' : 'text-green-500'}`} />
+                  <span>Preseason Access Control</span>
+                </div>
+              }
+            >
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Manager Access</h4>
+                    <p className="text-xs text-gray-500">
+                      {keeperEditingLocked
+                        ? 'Managers cannot update keepers or trade designations while locked.'
+                        : 'Managers can update keepers and trade designations for their rosters.'}
+                    </p>
+                    {keeperLockTimestampLabel && (
+                      <p className="mt-1 text-xs text-gray-400">
+                        {keeperEditingLocked
+                          ? `Locked ${keeperLockTimestampLabel}`
+                          : `Last updated ${keeperLockTimestampLabel}`}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleKeeperEditingLock(!keeperEditingLocked)}
+                    disabled={keeperLockUpdating}
+                    className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      keeperEditingLocked
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                        : 'bg-red-100 text-red-700 hover:bg-red-200'
+                    } ${keeperLockUpdating ? 'cursor-not-allowed opacity-75' : ''}`}
+                  >
+                    {keeperLockUpdating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {keeperEditingLocked ? 'Unlocking…' : 'Locking…'}
+                      </>
+                    ) : keeperEditingLocked ? (
+                      <>
+                        <Unlock className="w-4 h-4 mr-2" />
+                        Unlock manager edits
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 mr-2" />
+                        Lock manager edits
+                      </>
+                    )}
+                  </button>
+                </div>
+                {keeperLockError && (
+                  <p className="text-sm text-red-600">{keeperLockError}</p>
+                )}
+              </div>
             </CollapsibleSection>
 
             <CollapsibleSection
