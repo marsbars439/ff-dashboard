@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { RefreshCw, AlertCircle, CheckCircle, Clock, Lock, Unlock } from 'lucide-react';
+import { RefreshCw, AlertCircle, CheckCircle, Clock, Lock, Unlock, X } from 'lucide-react';
 
 const SleeperAdmin = ({
   API_BASE_URL,
@@ -23,7 +23,8 @@ const SleeperAdmin = ({
   const [manualCompletionLoading, setManualCompletionLoading] = useState({});
   const [emailEdit, setEmailEdit] = useState({
     managerId: null,
-    email: '',
+    emails: [],
+    newEmail: '',
     loading: false,
     error: null
   });
@@ -38,6 +39,69 @@ const SleeperAdmin = ({
   const adminAuthToken = typeof adminToken === 'string' ? adminToken.trim() : '';
 
   const autoSyncYearsRef = useRef(new Set());
+
+  const isValidEmail = (value) => {
+    if (typeof value !== 'string') {
+      return false;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return false;
+    }
+
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+  };
+
+  const normalizeManagerEmails = (rawEmails, fallbackEmail) => {
+    const candidates = [];
+
+    if (Array.isArray(rawEmails)) {
+      candidates.push(...rawEmails);
+    }
+
+    if (typeof fallbackEmail === 'string') {
+      candidates.push(fallbackEmail);
+    }
+
+    const seen = new Set();
+    const sanitized = [];
+
+    candidates.forEach(email => {
+      if (typeof email !== 'string') {
+        return;
+      }
+
+      const trimmed = email.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      const lower = trimmed.toLowerCase();
+      if (seen.has(lower)) {
+        return;
+      }
+
+      seen.add(lower);
+      sanitized.push(trimmed);
+    });
+
+    return sanitized;
+  };
+
+  const formatManagerRecord = (manager) => {
+    if (!manager) {
+      return manager;
+    }
+
+    const emails = normalizeManagerEmails(manager.emails, manager.email);
+
+    return {
+      ...manager,
+      emails,
+      email: emails[0] || ''
+    };
+  };
 
   const getManagerName = (manager) => {
     if (!manager) {
@@ -158,7 +222,8 @@ const SleeperAdmin = ({
     try {
       const response = await fetch(`${API_BASE_URL}/managers`);
       const data = await response.json();
-      setManagers(data.managers || []);
+      const managerList = Array.isArray(data.managers) ? data.managers : [];
+      setManagers(managerList.map(formatManagerRecord));
     } catch (error) {
       console.error('Error fetching managers:', error);
     }
@@ -480,16 +545,18 @@ const SleeperAdmin = ({
   }, [managers]);
 
   const startEmailEdit = (manager) => {
+    const emails = Array.isArray(manager?.emails) ? manager.emails : [];
     setEmailEdit({
-      managerId: manager.id,
-      email: manager.email || '',
+      managerId: manager?.id ?? null,
+      emails: emails.map(email => (typeof email === 'string' ? email : '')).filter(Boolean),
+      newEmail: '',
       loading: false,
       error: null
     });
   };
 
   const cancelEmailEdit = () => {
-    setEmailEdit({ managerId: null, email: '', loading: false, error: null });
+    setEmailEdit({ managerId: null, emails: [], newEmail: '', loading: false, error: null });
   };
 
   const saveEmailEdit = async () => {
@@ -503,7 +570,44 @@ const SleeperAdmin = ({
       return;
     }
 
-    const normalizedEmail = typeof emailEdit.email === 'string' ? emailEdit.email.trim() : '';
+    const pendingEmail = typeof emailEdit.newEmail === 'string' ? emailEdit.newEmail.trim() : '';
+    if (pendingEmail && !isValidEmail(pendingEmail)) {
+      setEmailEdit(prev => ({ ...prev, error: `Enter a valid email address (${pendingEmail})` }));
+      return;
+    }
+
+    const combinedEmails = Array.isArray(emailEdit.emails) ? [...emailEdit.emails] : [];
+    if (pendingEmail) {
+      combinedEmails.push(pendingEmail);
+    }
+
+    const dedupedEmails = [];
+    const seen = new Set();
+
+    combinedEmails.forEach(email => {
+      if (typeof email !== 'string') {
+        return;
+      }
+
+      const trimmed = email.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      const lower = trimmed.toLowerCase();
+      if (seen.has(lower)) {
+        return;
+      }
+
+      seen.add(lower);
+      dedupedEmails.push(trimmed);
+    });
+
+    const invalidEmail = dedupedEmails.find(email => !isValidEmail(email));
+    if (invalidEmail) {
+      setEmailEdit(prev => ({ ...prev, error: `Enter a valid email address (${invalidEmail})` }));
+      return;
+    }
 
     setEmailEdit(prev => ({ ...prev, loading: true, error: null }));
 
@@ -516,37 +620,95 @@ const SleeperAdmin = ({
           full_name: managerToUpdate.full_name,
           sleeper_username: managerToUpdate.sleeper_username,
           sleeper_user_id: managerToUpdate.sleeper_user_id,
-          email: normalizedEmail,
-          active: managerToUpdate.active
+          active: managerToUpdate.active,
+          emails: dedupedEmails
         })
       });
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to update email');
+        throw new Error(data.error || 'Failed to update emails');
       }
 
       const data = await response.json();
       const updatedManager = data.manager;
 
       if (updatedManager) {
+        const formatted = formatManagerRecord(updatedManager);
         setManagers(prev =>
-          prev.map(m => (m.id === updatedManager.id ? { ...m, ...updatedManager } : m))
+          prev.map(m => (m.id === formatted.id ? { ...m, ...formatted } : m))
         );
       }
 
       cancelEmailEdit();
       setMessage({
         type: 'success',
-        text: `Email updated for ${getManagerName(managerToUpdate)}`
+        text: `Email addresses updated for ${getManagerName(managerToUpdate)}`
       });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       setEmailEdit(prev => ({
         ...prev,
         loading: false,
-        error: error.message || 'Failed to update email'
+        error: error.message || 'Failed to update emails'
       }));
+    }
+  };
+
+  const addEmailToEdit = () => {
+    setEmailEdit(prev => {
+      if (prev.loading) {
+        return prev;
+      }
+
+      const candidate = typeof prev.newEmail === 'string' ? prev.newEmail.trim() : '';
+      if (!candidate) {
+        return { ...prev, error: 'Enter an email address before adding' };
+      }
+
+      if (!isValidEmail(candidate)) {
+        return { ...prev, error: `Enter a valid email address (${candidate})` };
+      }
+
+      const existingEmails = Array.isArray(prev.emails) ? prev.emails : [];
+      const exists = existingEmails.some(
+        email => typeof email === 'string' && email.toLowerCase() === candidate.toLowerCase()
+      );
+      if (exists) {
+        return { ...prev, error: 'Email already added', newEmail: '' };
+      }
+
+      return {
+        ...prev,
+        emails: [...existingEmails, candidate],
+        newEmail: '',
+        error: null
+      };
+    });
+  };
+
+  const removeEmailFromEdit = (emailToRemove) => {
+    setEmailEdit(prev => {
+      if (prev.loading) {
+        return prev;
+      }
+
+      const existingEmails = Array.isArray(prev.emails) ? prev.emails : [];
+
+      return {
+        ...prev,
+        emails: existingEmails.filter(
+          email => typeof email !== 'string' || email.toLowerCase() !== emailToRemove.toLowerCase()
+        ),
+        error: null
+      };
+    });
+  };
+
+  const handleEmailInputKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      addEmailToEdit();
     }
   };
 
@@ -837,7 +999,7 @@ const SleeperAdmin = ({
                 <th className="px-3 py-2 text-left">Full Name</th>
                 <th className="px-3 py-2 text-left">Sleeper Username</th>
                 <th className="px-3 py-2 text-left">Sleeper User ID</th>
-                <th className="px-3 py-2 text-left">Email</th>
+                <th className="px-3 py-2 text-left">Emails</th>
                 <th className="px-3 py-2 text-left">Active</th>
                 <th className="px-3 py-2 text-left">Passcode</th>
               </tr>
@@ -853,25 +1015,69 @@ const SleeperAdmin = ({
                   </td>
                   <td className="px-3 py-2 text-gray-600">{manager.sleeper_username || '-'}</td>
                   <td className="px-3 py-2 text-gray-600">{manager.sleeper_user_id || '-'}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 align-top">
                     {emailEdit.managerId === manager.id ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          {Array.isArray(emailEdit.emails) && emailEdit.emails.length ? (
+                            emailEdit.emails.map((email, index) => {
+                              const normalizedEmail = typeof email === 'string' ? email : '';
+                              if (!normalizedEmail) {
+                                return null;
+                              }
+                              const isPrimary = index === 0;
+                              return (
+                                <span
+                                  key={`${normalizedEmail}-${index}`}
+                                  className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium"
+                                >
+                                  <span>{normalizedEmail}</span>
+                                  {isPrimary && (
+                                    <span className="ml-2 text-[10px] uppercase text-indigo-600 font-semibold">Primary</span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEmailFromEdit(normalizedEmail)}
+                                    className="ml-1 inline-flex items-center justify-center text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                                    disabled={emailEdit.loading}
+                                    aria-label={`Remove ${normalizedEmail}`}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-xs text-gray-500">No email addresses added yet.</span>
+                          )}
+                        </div>
                         <div className="flex flex-col lg:flex-row lg:items-center gap-2">
                           <input
                             type="email"
-                            placeholder="Enter email"
+                            placeholder="Add email"
                             className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            value={emailEdit.email}
+                            value={emailEdit.newEmail}
                             onChange={(e) =>
                               setEmailEdit(prev => ({
                                 ...prev,
-                                email: e.target.value
+                                newEmail: e.target.value,
+                                error: null
                               }))
                             }
+                            onKeyDown={handleEmailInputKeyDown}
                             disabled={emailEdit.loading}
                           />
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <button
+                              type="button"
+                              onClick={addEmailToEdit}
+                              className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                              disabled={emailEdit.loading}
+                            >
+                              Add Email
+                            </button>
+                            <button
+                              type="button"
                               onClick={saveEmailEdit}
                               className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
                               disabled={emailEdit.loading}
@@ -879,6 +1085,7 @@ const SleeperAdmin = ({
                               {emailEdit.loading ? 'Saving…' : 'Save'}
                             </button>
                             <button
+                              type="button"
                               onClick={cancelEmailEdit}
                               className="text-xs font-medium text-gray-600 hover:underline"
                               disabled={emailEdit.loading}
@@ -892,11 +1099,35 @@ const SleeperAdmin = ({
                         )}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-600">{manager.email || '-'}</span>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          {Array.isArray(manager.emails) && manager.emails.length ? (
+                            manager.emails.map((email, index) => {
+                              const normalizedEmail = typeof email === 'string' ? email : '';
+                              if (!normalizedEmail) {
+                                return null;
+                              }
+                              const isPrimary = index === 0;
+                              return (
+                                <span
+                                  key={`${manager.id}-${normalizedEmail}-${index}`}
+                                  className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium"
+                                >
+                                  <span>{normalizedEmail}</span>
+                                  {isPrimary && (
+                                    <span className="ml-2 text-[10px] uppercase text-indigo-600 font-semibold">Primary</span>
+                                  )}
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-xs text-gray-400">No email addresses configured</span>
+                          )}
+                        </div>
                         <button
+                          type="button"
                           onClick={() => startEmailEdit(manager)}
-                          className="text-xs font-medium text-blue-600 hover:underline"
+                          className="self-start text-xs font-medium text-blue-600 hover:underline"
                         >
                           Edit
                         </button>
