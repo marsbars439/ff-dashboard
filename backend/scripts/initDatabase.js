@@ -357,6 +357,8 @@ db.serialize(() => {
       league_id TEXT,
       last_sync DATETIME,
       sync_status TEXT,
+      sleeper_status TEXT,
+      manual_complete INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -365,6 +367,25 @@ db.serialize(() => {
       console.error('Error creating league_settings table:', err);
     }
   });
+
+  // Ensure newer columns exist for existing databases
+  db.run(
+    'ALTER TABLE league_settings ADD COLUMN sleeper_status TEXT',
+    (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('❌ Error adding sleeper_status column to league_settings:', err.message);
+      }
+    }
+  );
+
+  db.run(
+    'ALTER TABLE league_settings ADD COLUMN manual_complete INTEGER DEFAULT 0',
+    (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('❌ Error adding manual_complete column to league_settings:', err.message);
+      }
+    }
+  );
 
   // Create indexes for better performance
   console.log('📈 Creating database indexes...');

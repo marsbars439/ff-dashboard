@@ -1238,6 +1238,9 @@ const syncSleeperSeason = async ({ year, leagueId, preserveManualFields = true }
       throw new Error(sleeperResult.error);
     }
 
+    const sleeperTeams = Array.isArray(sleeperResult.data) ? sleeperResult.data : [];
+    const leagueStatus = sleeperResult.leagueStatus || null;
+
     const existingData = await allAsync('SELECT * FROM team_seasons WHERE year = ?', [year]);
     const existingMap = {};
     existingData.forEach(row => {
@@ -1248,7 +1251,7 @@ const syncSleeperSeason = async ({ year, leagueId, preserveManualFields = true }
     let errorCount = 0;
     const errors = [];
 
-    for (const teamData of sleeperResult.data) {
+    for (const teamData of sleeperTeams) {
       if (!teamData.name_id) {
         errorCount++;
         errors.push(
@@ -1323,16 +1326,22 @@ const syncSleeperSeason = async ({ year, leagueId, preserveManualFields = true }
     }
 
     await runAsync(
-      'UPDATE league_settings SET sync_status = ?, last_sync = CURRENT_TIMESTAMP WHERE year = ?',
-      ['completed', year]
+      `UPDATE league_settings
+       SET sync_status = ?,
+           last_sync = CURRENT_TIMESTAMP,
+           sleeper_status = ?,
+           manual_complete = 0
+       WHERE year = ?`,
+      ['completed', leagueStatus, year]
     );
 
     return {
       message: 'Sync completed',
       year,
       league_id: leagueId,
+      league_status: leagueStatus,
       summary: {
-        total_teams: sleeperResult.data.length,
+        total_teams: sleeperTeams.length,
         successful_updates: successCount,
         errors: errorCount,
         error_details: errors,
@@ -2042,11 +2051,15 @@ app.put('/api/league-settings/:year', (req, res) => {
   const { league_id } = req.body;
 
   const query = `
-    INSERT INTO league_settings (year, league_id, updated_at)
-    VALUES (?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(year) 
-    DO UPDATE SET 
+    INSERT INTO league_settings (year, league_id, manual_complete, updated_at)
+    VALUES (?, ?, 0, CURRENT_TIMESTAMP)
+    ON CONFLICT(year)
+    DO UPDATE SET
       league_id = excluded.league_id,
+      manual_complete = CASE
+        WHEN excluded.league_id IS NOT NULL AND TRIM(excluded.league_id) != '' THEN 0
+        ELSE league_settings.manual_complete
+      END,
       updated_at = CURRENT_TIMESTAMP
   `;
 
@@ -2055,10 +2068,43 @@ app.put('/api/league-settings/:year', (req, res) => {
       res.status(500).json({ error: err.message });
       return;
     }
-    res.json({ 
+    res.json({
       message: 'League ID updated successfully',
       year,
-      league_id 
+      league_id
+    });
+  });
+});
+
+app.post('/api/league-settings/:year/manual-complete', (req, res) => {
+  const year = parseInt(req.params.year, 10);
+  const { complete } = req.body || {};
+
+  if (!Number.isInteger(year)) {
+    return res.status(400).json({ error: 'Invalid year provided' });
+  }
+
+  const normalizedComplete = complete ? 1 : 0;
+
+  const query = `
+    INSERT INTO league_settings (year, manual_complete, updated_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(year)
+    DO UPDATE SET
+      manual_complete = excluded.manual_complete,
+      updated_at = CURRENT_TIMESTAMP
+  `;
+
+  db.run(query, [year, normalizedComplete], function(err) {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+
+    res.json({
+      message: normalizedComplete ? 'Season marked complete' : 'Season reopened',
+      year,
+      manual_complete: Boolean(normalizedComplete)
     });
   });
 });
@@ -2106,11 +2152,13 @@ app.post('/api/sleeper/sync/:year', async (req, res) => {
 // Get sync status for all years
 app.get('/api/sleeper/sync-status', async (req, res) => {
   const query = `
-    SELECT 
+    SELECT
       ls.year,
       ls.league_id,
       ls.last_sync,
       ls.sync_status,
+      ls.sleeper_status,
+      ls.manual_complete,
       COUNT(ts.id) as team_count
     FROM league_settings ls
     LEFT JOIN team_seasons ts ON ls.year = ts.year
@@ -2188,6 +2236,7 @@ app.post('/api/sleeper/preview/:year', async (req, res) => {
     res.json({
       year,
       league_id,
+      league_status: sleeperResult.leagueStatus || null,
       preview,
       summary: {
         total_teams: preview.length,

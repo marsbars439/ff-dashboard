@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, AlertCircle, CheckCircle, Clock, Eye, Lock, Unlock } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { RefreshCw, AlertCircle, CheckCircle, Clock, Lock, Unlock } from 'lucide-react';
 
 const SleeperAdmin = ({
   API_BASE_URL,
@@ -10,11 +10,6 @@ const SleeperAdmin = ({
 }) => {
   const [leagueSettings, setLeagueSettings] = useState({});
   const [syncStatus, setSyncStatus] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [syncingYear, setSyncingYear] = useState(null);
-  const [previewData, setPreviewData] = useState(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [message, setMessage] = useState(null);
   const [managerMappings, setManagerMappings] = useState([]);
   const [managers, setManagers] = useState([]);
@@ -24,6 +19,8 @@ const SleeperAdmin = ({
   const [keeperLockStates, setKeeperLockStates] = useState({});
   const [keeperLockUpdating, setKeeperLockUpdating] = useState({});
   const [keeperLockErrors, setKeeperLockErrors] = useState({});
+  const [syncErrors, setSyncErrors] = useState({});
+  const [manualCompletionLoading, setManualCompletionLoading] = useState({});
   const [emailEdit, setEmailEdit] = useState({
     managerId: null,
     email: '',
@@ -39,6 +36,8 @@ const SleeperAdmin = ({
   });
 
   const adminAuthToken = typeof adminToken === 'string' ? adminToken.trim() : '';
+
+  const autoSyncYearsRef = useRef(new Set());
 
   const sortedManagers = useMemo(() => {
     return [...managers].sort((a, b) => {
@@ -71,6 +70,18 @@ const SleeperAdmin = ({
       dateStyle: 'medium',
       timeStyle: 'short'
     });
+  };
+
+  const formatSleeperStatus = (status) => {
+    if (!status || typeof status !== 'string') {
+      return null;
+    }
+
+    return status
+      .toLowerCase()
+      .split('_')
+      .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(' ');
   };
 
   useEffect(() => {
@@ -137,6 +148,7 @@ const SleeperAdmin = ({
   };
 
   const updateLeagueId = async (year, leagueId) => {
+    const numericYear = Number(year);
     try {
       const response = await fetch(`${API_BASE_URL}/league-settings/${year}`, {
         method: 'PUT',
@@ -148,6 +160,18 @@ const SleeperAdmin = ({
         setLeagueSettings(prev => ({ ...prev, [year]: leagueId }));
         setMessage({ type: 'success', text: `League ID updated for ${year}` });
         setTimeout(() => setMessage(null), 3000);
+        setSyncErrors(prev => {
+          if (!prev[numericYear]) {
+            return prev;
+          }
+          const updated = { ...prev };
+          delete updated[numericYear];
+          return updated;
+        });
+        if (!Number.isNaN(numericYear)) {
+          autoSyncYearsRef.current.delete(numericYear);
+        }
+        fetchSyncStatus();
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to update league ID' });
@@ -229,74 +253,124 @@ const SleeperAdmin = ({
     }
   };
 
-  const previewSync = async (year) => {
+  const syncSeason = async (year, options = {}) => {
+    const { silent = false, preserveManualFields = true } = options;
     const leagueId = leagueSettings[year];
     if (!leagueId) {
-      setMessage({ type: 'error', text: `No league ID set for ${year}` });
+      const errorText = `No league ID set for ${year}`;
+      setMessage({ type: 'error', text: errorText });
+      setSyncErrors(prev => ({ ...prev, [year]: errorText }));
       return;
     }
 
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/sleeper/preview/${year}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ league_id: leagueId })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPreviewData(data);
-        setShowPreview(true);
-        setSelectedYear(year);
-      } else {
-        const error = await response.json();
-        setMessage({ type: 'error', text: error.error });
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to preview data' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const syncData = async (year, preserveManualFields = true) => {
-    const leagueId = leagueSettings[year];
-    if (!leagueId) {
-      setMessage({ type: 'error', text: `No league ID set for ${year}` });
-      return;
-    }
-
-    setSyncingYear(year);
     try {
       const response = await fetch(`${API_BASE_URL}/sleeper/sync/${year}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           league_id: leagueId,
-          preserve_manual_fields: preserveManualFields 
+          preserve_manual_fields: preserveManualFields
         })
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
-        setMessage({ 
-          type: 'success', 
-          text: `Synced ${data.summary.successful_updates} teams for ${year}` 
+        if (!silent) {
+          setMessage({
+            type: 'success',
+            text: `Synced ${data.summary.successful_updates} teams for ${year}`
+          });
+        }
+        setSyncErrors(prev => {
+          const updated = { ...prev };
+          delete updated[year];
+          return updated;
         });
         fetchSyncStatus();
         if (onDataUpdate) onDataUpdate();
-        setShowPreview(false);
       } else {
-        setMessage({ type: 'error', text: data.error });
+        const errorText = data.error || 'Sync failed';
+        setSyncErrors(prev => ({ ...prev, [year]: errorText }));
+        if (!silent) {
+          setMessage({ type: 'error', text: errorText });
+        }
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Sync failed' });
-    } finally {
-      setSyncingYear(null);
+      const errorText = error.message || 'Sync failed';
+      setSyncErrors(prev => ({ ...prev, [year]: errorText }));
+      if (!silent) {
+        setMessage({ type: 'error', text: errorText });
+      }
     }
   };
+
+  const setManualCompletion = async (year, complete) => {
+    setManualCompletionLoading(prev => ({ ...prev, [year]: true }));
+    try {
+      const response = await fetch(`${API_BASE_URL}/league-settings/${year}/manual-complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ complete })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to update manual completion');
+      }
+
+      fetchSyncStatus();
+      setMessage({ type: 'success', text: data?.message || 'Season status updated' });
+      setTimeout(() => setMessage(null), 3000);
+      setSyncErrors(prev => {
+        const updated = { ...prev };
+        delete updated[year];
+        return updated;
+      });
+
+      if (!complete) {
+        autoSyncYearsRef.current.delete(year);
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Failed to update manual completion' });
+    } finally {
+      setManualCompletionLoading(prev => ({ ...prev, [year]: false }));
+    }
+  };
+
+  useEffect(() => {
+    if (!Array.isArray(syncStatus) || syncStatus.length === 0) {
+      return;
+    }
+
+    syncStatus.forEach(status => {
+      const year = status?.year;
+      if (!Number.isInteger(year)) {
+        return;
+      }
+
+      const leagueId = leagueSettings?.[year];
+      if (!leagueId) {
+        return;
+      }
+
+      if (status?.manual_complete) {
+        return;
+      }
+
+      if (typeof status?.sleeper_status === 'string' && status.sleeper_status.toLowerCase() === 'complete') {
+        return;
+      }
+
+      if (autoSyncYearsRef.current.has(year)) {
+        return;
+      }
+
+      autoSyncYearsRef.current.add(year);
+      syncSeason(year, { silent: true });
+    });
+  }, [syncStatus, leagueSettings]);
 
   const addMapping = async () => {
     if (!newMapping.name_id || !newMapping.season || !newMapping.sleeper_user_id) return;
@@ -555,6 +629,33 @@ const SleeperAdmin = ({
                   const lockTimestamp = formatTimestamp(
                     isLocked ? lockState.lockedAt : lockState.updatedAt
                   );
+                  const sleeperStatusValue = typeof status?.sleeper_status === 'string'
+                    ? status.sleeper_status.toLowerCase()
+                    : null;
+                  const hasLeagueId = Boolean(leagueSettings[year]);
+                  const manualComplete = Boolean(status?.manual_complete);
+                  const autoSyncMessage = (() => {
+                    if (manualComplete) {
+                      return 'Auto sync disabled for manually managed data.';
+                    }
+                    if (!hasLeagueId) {
+                      return 'Enter a Sleeper league ID to enable syncing.';
+                    }
+                    if (sleeperStatusValue === 'complete') {
+                      return 'Sleeper season is complete; syncing has stopped automatically.';
+                    }
+                    if (status?.sync_status === 'syncing') {
+                      return 'Syncing latest data from Sleeper…';
+                    }
+                    if (status?.sync_status === 'failed') {
+                      return 'Last sync attempt failed. Fix issues and reload to try again.';
+                    }
+                    if (status?.sync_status === 'completed') {
+                      return 'Auto sync is active while the season remains in progress.';
+                    }
+                    return 'Awaiting first successful sync.';
+                  })();
+                  const showManualCompletionButton = !hasLeagueId;
 
                   return (
                     <tr key={year}>
@@ -578,46 +679,58 @@ const SleeperAdmin = ({
                           }}
                         />
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center space-x-1">
-                          {status && getSyncStatusIcon(status.sync_status)}
-                          <span className="text-sm text-gray-600">
-                            {status?.sync_status || 'Never synced'}
-                          </span>
+                      <td className="px-4 py-3 whitespace-nowrap align-top">
+                        <div className="flex flex-col space-y-1">
+                          <div className="flex items-center space-x-1">
+                            {status && getSyncStatusIcon(status.sync_status)}
+                            <span className="text-sm text-gray-600">
+                              {status?.sync_status || 'Never synced'}
+                            </span>
+                          </div>
+                          {formatSleeperStatus(status?.sleeper_status) && (
+                            <div className="text-xs text-gray-500">
+                              Sleeper: {formatSleeperStatus(status?.sleeper_status)}
+                            </div>
+                          )}
+                          {manualComplete && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                              Marked complete manually
+                            </span>
+                          )}
+                          {syncErrors[year] && (
+                            <div className="flex items-start space-x-1 text-xs text-red-600">
+                              <AlertCircle className="w-3 h-3 mt-0.5" />
+                              <span>{syncErrors[year]}</span>
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {status?.last_sync ? 
-                          new Date(status.last_sync).toLocaleDateString() : 
+                        {status?.last_sync ?
+                          new Date(status.last_sync).toLocaleDateString() :
                           'Never'
                         }
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                         {status?.team_count || 0}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <div className="flex flex-col space-y-2">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => previewSync(year)}
-                              disabled={!leagueSettings[year] || loading || syncingYear === year}
-                              className="inline-flex items-center px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <Eye className="w-3 h-3 mr-1" />
-                              Preview
-                            </button>
-                            <button
-                              onClick={() => syncData(year)}
-                              disabled={!leagueSettings[year] || syncingYear === year}
-                              className="inline-flex items-center px-2 py-1 border border-transparent rounded text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {syncingYear === year ? (
-                                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                              ) : (
-                                <RefreshCw className="w-3 h-3 mr-1" />
-                              )}
-                              Sync
-                            </button>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm align-top">
+                        <div className="flex flex-col space-y-3">
+                          <div className="flex flex-col space-y-2">
+                            <span className="text-xs text-gray-500">{autoSyncMessage}</span>
+                            {showManualCompletionButton && (
+                              <button
+                                onClick={() => setManualCompletion(year, !manualComplete)}
+                                disabled={Boolean(manualCompletionLoading[year])}
+                                className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {manualCompletionLoading[year]
+                                  ? 'Updating…'
+                                  : manualComplete
+                                    ? 'Reopen Season'
+                                    : 'Mark Complete'}
+                              </button>
+                            )}
                           </div>
                           <div className="flex flex-col space-y-1">
                             <div className="flex items-center space-x-2">
@@ -922,121 +1035,6 @@ const SleeperAdmin = ({
       </div>
     </div>
 
-    {/* Preview Modal */}
-      {showPreview && previewData && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">
-                Preview Sync for {previewData.year}
-              </h3>
-              <div className="mt-2 text-sm text-gray-600">
-                League ID: {previewData.league_id}
-              </div>
-            </div>
-
-            <div className="p-6 overflow-y-auto flex-1">
-              {/* Summary */}
-              <div className="mb-4 grid grid-cols-4 gap-4">
-                <div className="bg-blue-50 p-3 rounded">
-                  <div className="text-xs text-blue-600">Total Teams</div>
-                  <div className="text-xl font-bold">{previewData.summary.total_teams}</div>
-                </div>
-                <div className="bg-green-50 p-3 rounded">
-                  <div className="text-xs text-green-600">Matched</div>
-                  <div className="text-xl font-bold">{previewData.summary.matched}</div>
-                </div>
-                <div className="bg-yellow-50 p-3 rounded">
-                  <div className="text-xs text-yellow-600">To Update</div>
-                  <div className="text-xl font-bold">{previewData.summary.to_update}</div>
-                </div>
-                <div className="bg-red-50 p-3 rounded">
-                  <div className="text-xs text-red-600">Unmatched</div>
-                  <div className="text-xl font-bold">{previewData.summary.unmatched}</div>
-                </div>
-              </div>
-
-              {/* Team Details */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Status</th>
-                      <th className="px-3 py-2 text-left">Team</th>
-                      <th className="px-3 py-2 text-left">Manager</th>
-                      <th className="px-3 py-2 text-left">Record</th>
-                      <th className="px-3 py-2 text-left">Points</th>
-                      <th className="px-3 py-2 text-left">Rank</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {previewData.preview.map((team, idx) => (
-                      <tr key={idx} className={
-                        team.status === 'unmatched' ? 'bg-red-50' : ''
-                      }>
-                        <td className="px-3 py-2">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                            team.status === 'unmatched' ? 'bg-red-100 text-red-800' :
-                            team.status === 'update' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>
-                            {team.status}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2">{team.team_name || '-'}</td>
-                        <td className="px-3 py-2">
-                          {team.name_id || team.sleeper_user_id}
-                        </td>
-                        <td className="px-3 py-2">{team.wins}-{team.losses}</td>
-                        <td className="px-3 py-2">{team.points_for.toFixed(2)}</td>
-                        <td className="px-3 py-2">{team.regular_season_rank}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {previewData.summary.unmatched > 0 && (
-                <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    ⚠️ {previewData.summary.unmatched} Sleeper users don't match any managers in your database. 
-                    Make sure the sleeper_user_id field is set correctly in the Managers table.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t flex justify-between">
-              <button
-                onClick={() => setShowPreview(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <div className="space-x-2">
-                <button
-                  onClick={() => {
-                    syncData(selectedYear, true);
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Sync (Preserve Manual Fields)
-                </button>
-                <button
-                  onClick={() => {
-                    if (window.confirm('This will overwrite ALL data including dues and payouts. Are you sure?')) {
-                      syncData(selectedYear, false);
-                    }
-                  }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                >
-                  Sync (Overwrite All)
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
