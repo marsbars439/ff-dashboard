@@ -1730,6 +1730,20 @@ const FantasyFootballApp = () => {
     }
   };
 
+  const handleVotingLockChange = useCallback(
+    (year) => {
+      const numericYear = Number(year);
+      if (!Number.isInteger(numericYear)) {
+        return;
+      }
+
+      if (Number(selectedKeeperYear) === numericYear) {
+        fetchRuleChangeProposals(numericYear, { silent: true });
+      }
+    },
+    [fetchRuleChangeProposals, selectedKeeperYear]
+  );
+
   useEffect(() => {
     if (
       managerAuth.status !== 'authenticated' ||
@@ -4549,6 +4563,7 @@ const FantasyFootballApp = () => {
                 adminToken={adminSession.token}
                 onAdminSessionInvalid={handleAdminSessionInvalid}
                 onKeeperLockChange={handleKeeperLockChange}
+                onVotingLockChange={handleVotingLockChange}
               />
             </CollapsibleSection>
 
