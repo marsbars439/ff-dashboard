@@ -315,7 +315,7 @@ const SleeperAdmin = ({
           return updated;
         });
         fetchSyncStatus();
-        if (onDataUpdate) onDataUpdate();
+        if (onDataUpdate) onDataUpdate({ silent });
       } else {
         const errorText = data.error || 'Sync failed';
         setSyncErrors(prev => ({ ...prev, [year]: errorText }));
