@@ -33,6 +33,7 @@ import AISummaryConfig from './AISummaryConfig';
 import Analytics from './Analytics';
 import RuleChangeVoting from './RuleChangeVoting';
 import RuleChangeAdmin from './RuleChangeAdmin';
+import { parseFlexibleTimestamp, formatInUserTimeZone } from '../utils/date';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
@@ -2725,46 +2726,14 @@ const FantasyFootballApp = () => {
     return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2);
   };
 
-  const parseTimestamp = value => {
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
-
-    if (typeof value === 'number') {
-      if (!Number.isFinite(value)) {
-        return null;
-      }
-      return value < 1e12 ? value * 1000 : value;
-    }
-
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (!trimmed) {
-        return null;
-      }
-
-      const numeric = Number(trimmed);
-      if (!Number.isNaN(numeric)) {
-        return numeric < 1e12 ? numeric * 1000 : numeric;
-      }
-
-      const parsed = Date.parse(trimmed);
-      return Number.isNaN(parsed) ? null : parsed;
-    }
-
-    return null;
-  };
+  const parseTimestamp = value => parseFlexibleTimestamp(value);
 
   const formatKickoffTime = kickoff => {
-    const timestamp = parseTimestamp(kickoff);
+    const timestamp = parseFlexibleTimestamp(kickoff);
     if (!timestamp) {
       return null;
     }
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) {
-      return null;
-    }
-    return date.toLocaleString(undefined, {
+    return formatInUserTimeZone(timestamp, {
       weekday: 'short',
       hour: 'numeric',
       minute: '2-digit'

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RefreshCw, AlertCircle, CheckCircle, Clock, Lock, Unlock, X } from 'lucide-react';
+import { formatDateTimeForDisplay } from '../utils/date';
 
 const SleeperAdmin = ({
   API_BASE_URL,
@@ -926,7 +927,7 @@ const SleeperAdmin = ({
                           </div>
                           <span className="text-xs text-gray-500">
                             {status?.last_sync
-                              ? new Date(status.last_sync).toLocaleString()
+                              ? formatDateTimeForDisplay(status.last_sync)
                               : '—'}
                           </span>
                           {syncErrors[year] && (

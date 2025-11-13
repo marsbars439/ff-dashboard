@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { formatDateTimeForDisplay } from '../utils/date';
 
 const sanitizeSummaryLines = summary => {
   if (typeof summary !== 'string') {
@@ -45,7 +46,7 @@ const AISummaryConfig = ({ API_BASE_URL, onDataUpdate }) => {
       const data = await response.json();
       const lines = sanitizeSummaryLines(data.summary);
       setSummaryLines(lines.length ? lines : ['']);
-      setLastUpdated(data.updated ? new Date(data.updated).toLocaleString() : null);
+      setLastUpdated(data.updated ? formatDateTimeForDisplay(data.updated) : null);
     } catch (error) {
       showMessage('error', error.message || 'Failed to load summary');
       setSummaryLines(['']);
@@ -64,7 +65,7 @@ const AISummaryConfig = ({ API_BASE_URL, onDataUpdate }) => {
       const data = await response.json();
       const lines = sanitizeSummaryLines(data.summary);
       setPreviewLines(lines.length ? lines : ['']);
-      setPreviewLastUpdated(data.updated ? new Date(data.updated).toLocaleString() : null);
+      setPreviewLastUpdated(data.updated ? formatDateTimeForDisplay(data.updated) : null);
     } catch (error) {
       showMessage('error', error.message || 'Failed to load preview');
       setPreviewLines(['']);
@@ -97,7 +98,7 @@ const AISummaryConfig = ({ API_BASE_URL, onDataUpdate }) => {
         const result = await response.json();
         const lines = sanitizeSummaryLines(result.summary);
         setSummaryLines(lines.length ? lines : ['']);
-        setLastUpdated(new Date().toLocaleString());
+        setLastUpdated(formatDateTimeForDisplay(new Date()));
         showMessage('success', 'Summary refreshed');
         if (onDataUpdate) onDataUpdate();
       } else {
@@ -119,7 +120,7 @@ const AISummaryConfig = ({ API_BASE_URL, onDataUpdate }) => {
         const result = await response.json();
         const lines = sanitizeSummaryLines(result.summary);
         setPreviewLines(lines.length ? lines : ['']);
-        setPreviewLastUpdated(new Date().toLocaleString());
+        setPreviewLastUpdated(formatDateTimeForDisplay(new Date()));
         showMessage('success', 'Preview refreshed');
         if (onDataUpdate) onDataUpdate();
       } else {
@@ -152,7 +153,7 @@ const AISummaryConfig = ({ API_BASE_URL, onDataUpdate }) => {
         ? result.lines
         : sanitizeSummaryLines(result.summary);
       setSummaryLines(lines.length ? lines : ['']);
-      setLastUpdated(new Date().toLocaleString());
+      setLastUpdated(formatDateTimeForDisplay(new Date()));
       showMessage('success', 'Summary saved');
       if (onDataUpdate) onDataUpdate();
     } catch (error) {
@@ -181,7 +182,7 @@ const AISummaryConfig = ({ API_BASE_URL, onDataUpdate }) => {
         ? result.lines
         : sanitizeSummaryLines(result.summary);
       setPreviewLines(lines.length ? lines : ['']);
-      setPreviewLastUpdated(new Date().toLocaleString());
+      setPreviewLastUpdated(formatDateTimeForDisplay(new Date()));
       showMessage('success', 'Preview saved');
       if (onDataUpdate) onDataUpdate();
     } catch (error) {
