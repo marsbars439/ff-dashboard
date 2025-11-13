@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, AlertCircle, CheckCircle, Clock, Eye } from 'lucide-react';
+import { RefreshCw, AlertCircle, CheckCircle, Clock, Eye, Lock, Unlock } from 'lucide-react';
 
-const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
+const SleeperAdmin = ({
+  API_BASE_URL,
+  onDataUpdate,
+  adminToken,
+  onAdminSessionInvalid,
+  onKeeperLockChange
+}) => {
   const [leagueSettings, setLeagueSettings] = useState({});
   const [syncStatus, setSyncStatus] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -15,6 +21,9 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
   const [newMapping, setNewMapping] = useState({ name_id: '', season: '', sleeper_user_id: '' });
   const [editingMappingId, setEditingMappingId] = useState(null);
   const [editingMapping, setEditingMapping] = useState({});
+  const [keeperLockStates, setKeeperLockStates] = useState({});
+  const [keeperLockUpdating, setKeeperLockUpdating] = useState({});
+  const [keeperLockErrors, setKeeperLockErrors] = useState({});
   const [emailEdit, setEmailEdit] = useState({
     managerId: null,
     email: '',
@@ -28,6 +37,8 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
     loading: false,
     error: null
   });
+
+  const adminAuthToken = typeof adminToken === 'string' ? adminToken.trim() : '';
 
   const sortedManagers = useMemo(() => {
     return [...managers].sort((a, b) => {
@@ -46,6 +57,22 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
     (_, i) => new Date().getFullYear() - i
   );
 
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) {
+      return null;
+    }
+
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return timestamp;
+    }
+
+    return date.toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+  };
+
   useEffect(() => {
     fetchLeagueSettings();
     fetchSyncStatus();
@@ -58,10 +85,22 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
       const response = await fetch(`${API_BASE_URL}/league-settings`);
       const data = await response.json();
       const settings = {};
-      data.settings.forEach(s => {
+      const locks = {};
+      (Array.isArray(data.settings) ? data.settings : []).forEach(s => {
+        if (s?.year == null) {
+          return;
+        }
         settings[s.year] = s.league_id;
+        locks[s.year] = {
+          locked: Boolean(s?.keeper_locked),
+          lockedAt: s?.keeper_locked_at || null,
+          updatedAt: s?.keeper_lock_updated_at || null
+        };
       });
       setLeagueSettings(settings);
+      setKeeperLockStates(locks);
+      setKeeperLockErrors({});
+      setKeeperLockUpdating({});
     } catch (error) {
       console.error('Error fetching league settings:', error);
     }
@@ -112,6 +151,81 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to update league ID' });
+    }
+  };
+
+  const toggleKeeperLock = async (year, nextLocked) => {
+    const numericYear = Number(year);
+
+    if (!Number.isInteger(numericYear)) {
+      setKeeperLockErrors(prev => ({
+        ...prev,
+        [year]: 'A valid season year is required to adjust preseason access.'
+      }));
+      return;
+    }
+
+    if (!adminAuthToken) {
+      setKeeperLockErrors(prev => ({
+        ...prev,
+        [numericYear]: 'Admin authentication is required to adjust preseason access.'
+      }));
+      return;
+    }
+
+    setKeeperLockUpdating(prev => ({ ...prev, [numericYear]: true }));
+    setKeeperLockErrors(prev => ({ ...prev, [numericYear]: null }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/keepers/lock`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminAuthToken
+        },
+        body: JSON.stringify({ seasonYear: numericYear, locked: Boolean(nextLocked) })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
+        setKeeperLockErrors(prev => ({ ...prev, [numericYear]: errorMessage }));
+        if (onAdminSessionInvalid) {
+          onAdminSessionInvalid();
+        }
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to update preseason access');
+      }
+
+      const updatedLock = {
+        locked: Boolean(data?.locked),
+        lockedAt: data?.lockedAt || data?.locked_at || null,
+        updatedAt: data?.updatedAt || data?.updated_at || null
+      };
+
+      setKeeperLockStates(prev => ({ ...prev, [numericYear]: updatedLock }));
+      setKeeperLockErrors(prev => ({ ...prev, [numericYear]: null }));
+      setMessage({
+        type: 'success',
+        text: `${updatedLock.locked ? 'Locked' : 'Unlocked'} preseason access for ${numericYear}`
+      });
+      setTimeout(() => setMessage(null), 3000);
+
+      if (typeof onKeeperLockChange === 'function') {
+        onKeeperLockChange(numericYear, updatedLock.locked);
+      }
+    } catch (error) {
+      console.error('Error updating preseason access:', error);
+      setKeeperLockErrors(prev => ({
+        ...prev,
+        [numericYear]: error.message || 'Failed to update preseason access'
+      }));
+    } finally {
+      setKeeperLockUpdating(prev => ({ ...prev, [numericYear]: false }));
     }
   };
 
@@ -434,6 +548,14 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {years.map(year => {
                   const status = getStatusForYear(year);
+                  const lockState = keeperLockStates[year] || { locked: false, lockedAt: null, updatedAt: null };
+                  const isLocked = Boolean(lockState.locked);
+                  const isLockUpdating = Boolean(keeperLockUpdating[year]);
+                  const lockError = keeperLockErrors[year];
+                  const lockTimestamp = formatTimestamp(
+                    isLocked ? lockState.lockedAt : lockState.updatedAt
+                  );
+
                   return (
                     <tr key={year}>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -474,27 +596,74 @@ const SleeperAdmin = ({ API_BASE_URL, onDataUpdate }) => {
                         {status?.team_count || 0}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => previewSync(year)}
-                            disabled={!leagueSettings[year] || loading || syncingYear === year}
-                            className="inline-flex items-center px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            Preview
-                          </button>
-                          <button
-                            onClick={() => syncData(year)}
-                            disabled={!leagueSettings[year] || syncingYear === year}
-                            className="inline-flex items-center px-2 py-1 border border-transparent rounded text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {syncingYear === year ? (
-                              <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                            ) : (
-                              <RefreshCw className="w-3 h-3 mr-1" />
+                        <div className="flex flex-col space-y-2">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => previewSync(year)}
+                              disabled={!leagueSettings[year] || loading || syncingYear === year}
+                              className="inline-flex items-center px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              Preview
+                            </button>
+                            <button
+                              onClick={() => syncData(year)}
+                              disabled={!leagueSettings[year] || syncingYear === year}
+                              className="inline-flex items-center px-2 py-1 border border-transparent rounded text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {syncingYear === year ? (
+                                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                              ) : (
+                                <RefreshCw className="w-3 h-3 mr-1" />
+                              )}
+                              Sync
+                            </button>
+                          </div>
+                          <div className="flex flex-col space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  isLocked
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-green-100 text-green-700'
+                                }`}
+                              >
+                                {isLocked ? 'Locked' : 'Unlocked'}
+                              </span>
+                              <button
+                                onClick={() => toggleKeeperLock(year, !isLocked)}
+                                disabled={isLockUpdating}
+                                className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+                                  isLocked
+                                    ? 'bg-green-600 hover:bg-green-700'
+                                    : 'bg-red-600 hover:bg-red-700'
+                                }`}
+                              >
+                                {isLockUpdating ? (
+                                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                                ) : isLocked ? (
+                                  <Unlock className="w-3 h-3 mr-1" />
+                                ) : (
+                                  <Lock className="w-3 h-3 mr-1" />
+                                )}
+                                {isLockUpdating
+                                  ? isLocked
+                                    ? 'Unlocking…'
+                                    : 'Locking…'
+                                  : isLocked
+                                  ? 'Unlock Access'
+                                  : 'Lock Access'}
+                              </button>
+                            </div>
+                            {lockTimestamp && (
+                              <div className="text-xs text-gray-500">
+                                {isLocked ? `Locked ${lockTimestamp}` : `Updated ${lockTimestamp}`}
+                              </div>
                             )}
-                            Sync
-                          </button>
+                            {lockError && (
+                              <div className="text-xs text-red-600">{lockError}</div>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
