@@ -150,13 +150,18 @@ const SleeperAdmin = ({
     (_, i) => new Date().getFullYear() - i
   );
 
-  const formatSleeperStatus = (status) => {
-    if (!status || typeof status !== 'string') {
-      return null;
+  const formatSyncStatusLabel = (syncStatus) => {
+    if (!syncStatus || typeof syncStatus !== 'string') {
+      return 'Never synced';
     }
 
-    return status
-      .toLowerCase()
+    const normalized = syncStatus.toLowerCase();
+
+    if (normalized === 'completed') {
+      return 'Sync Complete';
+    }
+
+    return normalized
       .split('_')
       .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1))
       .join(' ');
@@ -845,9 +850,6 @@ const SleeperAdmin = ({
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Sync
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Teams
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -919,19 +921,14 @@ const SleeperAdmin = ({
                           <div className="flex items-center space-x-1">
                             {status && getSyncStatusIcon(status.sync_status)}
                             <span className="text-sm text-gray-600">
-                              {status?.sync_status || 'Never synced'}
+                              {formatSyncStatusLabel(status?.sync_status)}
                             </span>
                           </div>
-                          {formatSleeperStatus(status?.sleeper_status) && (
-                            <div className="text-xs text-gray-500">
-                              Sleeper: {formatSleeperStatus(status?.sleeper_status)}
-                            </div>
-                          )}
-                          {manualComplete && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
-                              Marked complete manually
-                            </span>
-                          )}
+                          <span className="text-xs text-gray-500">
+                            {status?.last_sync
+                              ? new Date(status.last_sync).toLocaleString()
+                              : '—'}
+                          </span>
                           {syncErrors[year] && (
                             <div className="flex items-start space-x-1 text-xs text-red-600">
                               <AlertCircle className="w-3 h-3 mt-0.5" />
@@ -939,12 +936,6 @@ const SleeperAdmin = ({
                             </div>
                           )}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {status?.last_sync ?
-                          new Date(status.last_sync).toLocaleDateString() :
-                          'Never'
-                        }
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                         {status?.team_count || 0}
