@@ -253,8 +253,8 @@ const SleeperAdmin = ({
     }
   };
 
-  const syncData = async (year, preserveManualFields = true, options = {}) => {
-    const { silent = false } = options;
+  const syncSeason = async (year, options = {}) => {
+    const { silent = false, preserveManualFields = true } = options;
     const leagueId = leagueSettings[year];
     if (!leagueId) {
       const errorText = `No league ID set for ${year}`;
@@ -267,9 +267,9 @@ const SleeperAdmin = ({
       const response = await fetch(`${API_BASE_URL}/sleeper/sync/${year}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           league_id: leagueId,
-          preserve_manual_fields: preserveManualFields 
+          preserve_manual_fields: preserveManualFields
         })
       });
 
@@ -302,6 +302,7 @@ const SleeperAdmin = ({
       if (!silent) {
         setMessage({ type: 'error', text: errorText });
       }
+    }
   };
 
   const setManualCompletion = async (year, complete) => {
@@ -367,7 +368,7 @@ const SleeperAdmin = ({
       }
 
       autoSyncYearsRef.current.add(year);
-      syncData(year, true, { silent: true });
+      syncSeason(year, { silent: true });
     });
   }, [syncStatus, leagueSettings]);
 
@@ -691,11 +692,11 @@ const SleeperAdmin = ({
                               Sleeper: {formatSleeperStatus(status?.sleeper_status)}
                             </div>
                           )}
-                          {status?.manual_complete ? (
+                          {manualComplete && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
                               Marked complete manually
                             </span>
-                          ) : null}
+                          )}
                           {syncErrors[year] && (
                             <div className="flex items-start space-x-1 text-xs text-red-600">
                               <AlertCircle className="w-3 h-3 mt-0.5" />
@@ -705,8 +706,8 @@ const SleeperAdmin = ({
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {status?.last_sync ? 
-                          new Date(status.last_sync).toLocaleDateString() : 
+                        {status?.last_sync ?
+                          new Date(status.last_sync).toLocaleDateString() :
                           'Never'
                         }
                       </td>
@@ -726,8 +727,8 @@ const SleeperAdmin = ({
                                 {manualCompletionLoading[year]
                                   ? 'Updating…'
                                   : manualComplete
-                                  ? 'Reopen Season'
-                                  : 'Mark Complete'}
+                                    ? 'Reopen Season'
+                                    : 'Mark Complete'}
                               </button>
                             )}
                           </div>
@@ -1033,7 +1034,6 @@ const SleeperAdmin = ({
         </div>
       </div>
     </div>
-
 
     </div>
   );
