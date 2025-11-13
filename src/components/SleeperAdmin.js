@@ -39,15 +39,42 @@ const SleeperAdmin = ({
 
   const autoSyncYearsRef = useRef(new Set());
 
+  const getManagerName = (manager) => {
+    if (!manager) {
+      return '';
+    }
+
+    const rawName = typeof manager.full_name === 'string' ? manager.full_name.trim() : '';
+    if (rawName) {
+      return rawName;
+    }
+
+    const fallbackId = typeof manager.name_id === 'string' ? manager.name_id.trim() : '';
+    if (fallbackId) {
+      return fallbackId;
+    }
+
+    return '';
+  };
+
   const sortedManagers = useMemo(() => {
     return [...managers].sort((a, b) => {
-      if (a.active !== b.active) return b.active - a.active;
-      return a.full_name.localeCompare(b.full_name);
+      if (a?.active !== b?.active) {
+        return Number(Boolean(b?.active)) - Number(Boolean(a?.active));
+      }
+
+      const nameA = getManagerName(a);
+      const nameB = getManagerName(b);
+      return nameA.localeCompare(nameB);
     });
   }, [managers]);
 
   const managersByName = useMemo(() => {
-    return [...managers].sort((a, b) => a.full_name.localeCompare(b.full_name));
+    return [...managers].sort((a, b) => {
+      const nameA = getManagerName(a);
+      const nameB = getManagerName(b);
+      return nameA.localeCompare(nameB);
+    });
   }, [managers]);
 
   // Generate years from 2015 to current year
@@ -440,7 +467,17 @@ const SleeperAdmin = ({
     return syncStatus.find(s => s.year === year);
   };
 
-  const managerNameMap = Object.fromEntries(managers.map(m => [m.name_id, m.full_name]));
+  const managerNameMap = useMemo(() => {
+    return managers.reduce((acc, manager) => {
+      if (!manager || manager.name_id == null) {
+        return acc;
+      }
+
+      const key = manager.name_id;
+      acc[key] = getManagerName(manager);
+      return acc;
+    }, {});
+  }, [managers]);
 
   const startEmailEdit = (manager) => {
     setEmailEdit({
@@ -501,7 +538,7 @@ const SleeperAdmin = ({
       cancelEmailEdit();
       setMessage({
         type: 'success',
-        text: `Email updated for ${managerToUpdate.full_name}`
+        text: `Email updated for ${getManagerName(managerToUpdate)}`
       });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
@@ -810,7 +847,9 @@ const SleeperAdmin = ({
                 <tr key={manager.id}>
                   <td className="px-3 py-2 font-mono text-xs">{manager.name_id}</td>
                   <td className="px-3 py-2">
-                    <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>{manager.full_name}</span>
+                    <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                      {getManagerName(manager) || '-'}
+                    </span>
                   </td>
                   <td className="px-3 py-2 text-gray-600">{manager.sleeper_username || '-'}</td>
                   <td className="px-3 py-2 text-gray-600">{manager.sleeper_user_id || '-'}</td>
@@ -951,7 +990,9 @@ const SleeperAdmin = ({
           >
             <option value="">Select Manager</option>
             {managersByName.map(m => (
-              <option key={m.name_id} value={m.name_id}>{m.full_name}</option>
+              <option key={m.name_id} value={m.name_id}>
+                {getManagerName(m) || m.name_id}
+              </option>
             ))}
           </select>
           <input
