@@ -2306,9 +2306,13 @@ app.get('/api/league-settings', (req, res) => {
       ls.updated_at,
       ktl.locked AS keeper_locked,
       ktl.locked_at AS keeper_locked_at,
-      ktl.updated_at AS keeper_lock_updated_at
+      ktl.updated_at AS keeper_lock_updated_at,
+      rcv.locked AS voting_locked,
+      rcv.locked_at AS voting_locked_at,
+      rcv.updated_at AS voting_lock_updated_at
     FROM league_settings ls
     LEFT JOIN keeper_trade_locks ktl ON ktl.season_year = ls.year
+    LEFT JOIN rule_change_voting_locks rcv ON rcv.season_year = ls.year
     ORDER BY ls.year DESC
   `;
   db.all(query, [], (err, rows) => {

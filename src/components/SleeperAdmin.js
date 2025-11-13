@@ -6,7 +6,8 @@ const SleeperAdmin = ({
   onDataUpdate,
   adminToken,
   onAdminSessionInvalid,
-  onKeeperLockChange
+  onKeeperLockChange,
+  onVotingLockChange
 }) => {
   const [leagueSettings, setLeagueSettings] = useState({});
   const [syncStatus, setSyncStatus] = useState([]);
@@ -19,6 +20,9 @@ const SleeperAdmin = ({
   const [keeperLockStates, setKeeperLockStates] = useState({});
   const [keeperLockUpdating, setKeeperLockUpdating] = useState({});
   const [keeperLockErrors, setKeeperLockErrors] = useState({});
+  const [votingLockStates, setVotingLockStates] = useState({});
+  const [votingLockUpdating, setVotingLockUpdating] = useState({});
+  const [votingLockErrors, setVotingLockErrors] = useState({});
   const [syncErrors, setSyncErrors] = useState({});
   const [manualCompletionLoading, setManualCompletionLoading] = useState({});
   const [emailEdit, setEmailEdit] = useState({
@@ -147,22 +151,6 @@ const SleeperAdmin = ({
     (_, i) => new Date().getFullYear() - i
   );
 
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) {
-      return null;
-    }
-
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) {
-      return timestamp;
-    }
-
-    return date.toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    });
-  };
-
   const formatSleeperStatus = (status) => {
     if (!status || typeof status !== 'string') {
       return null;
@@ -188,6 +176,7 @@ const SleeperAdmin = ({
       const data = await response.json();
       const settings = {};
       const locks = {};
+      const votingLocks = {};
       (Array.isArray(data.settings) ? data.settings : []).forEach(s => {
         if (s?.year == null) {
           return;
@@ -198,11 +187,19 @@ const SleeperAdmin = ({
           lockedAt: s?.keeper_locked_at || null,
           updatedAt: s?.keeper_lock_updated_at || null
         };
+        votingLocks[s.year] = {
+          locked: Boolean(s?.voting_locked),
+          lockedAt: s?.voting_locked_at || null,
+          updatedAt: s?.voting_lock_updated_at || null
+        };
       });
       setLeagueSettings(settings);
       setKeeperLockStates(locks);
       setKeeperLockErrors({});
       setKeeperLockUpdating({});
+      setVotingLockStates(votingLocks);
+      setVotingLockErrors({});
+      setVotingLockUpdating({});
     } catch (error) {
       console.error('Error fetching league settings:', error);
     }
@@ -276,7 +273,7 @@ const SleeperAdmin = ({
     if (!Number.isInteger(numericYear)) {
       setKeeperLockErrors(prev => ({
         ...prev,
-        [year]: 'A valid season year is required to adjust preseason access.'
+        [year]: 'A valid season year is required to adjust keeper access.'
       }));
       return;
     }
@@ -284,7 +281,7 @@ const SleeperAdmin = ({
     if (!adminAuthToken) {
       setKeeperLockErrors(prev => ({
         ...prev,
-        [numericYear]: 'Admin authentication is required to adjust preseason access.'
+        [numericYear]: 'Admin authentication is required to adjust keeper access.'
       }));
       return;
     }
@@ -314,7 +311,7 @@ const SleeperAdmin = ({
       }
 
       if (!response.ok) {
-        throw new Error(data?.error || 'Failed to update preseason access');
+        throw new Error(data?.error || 'Failed to update keeper access');
       }
 
       const updatedLock = {
@@ -327,7 +324,7 @@ const SleeperAdmin = ({
       setKeeperLockErrors(prev => ({ ...prev, [numericYear]: null }));
       setMessage({
         type: 'success',
-        text: `${updatedLock.locked ? 'Locked' : 'Unlocked'} preseason access for ${numericYear}`
+        text: `${updatedLock.locked ? 'Locked' : 'Unlocked'} keepers for ${numericYear}`
       });
       setTimeout(() => setMessage(null), 3000);
 
@@ -335,13 +332,88 @@ const SleeperAdmin = ({
         onKeeperLockChange(numericYear, updatedLock.locked);
       }
     } catch (error) {
-      console.error('Error updating preseason access:', error);
+      console.error('Error updating keeper access:', error);
       setKeeperLockErrors(prev => ({
         ...prev,
-        [numericYear]: error.message || 'Failed to update preseason access'
+        [numericYear]: error.message || 'Failed to update keeper access'
       }));
     } finally {
       setKeeperLockUpdating(prev => ({ ...prev, [numericYear]: false }));
+    }
+  };
+
+  const toggleVotingLock = async (year, nextLocked) => {
+    const numericYear = Number(year);
+
+    if (!Number.isInteger(numericYear)) {
+      setVotingLockErrors(prev => ({
+        ...prev,
+        [numericYear]: 'A valid season year is required to adjust voting access.'
+      }));
+      return;
+    }
+
+    if (!adminAuthToken) {
+      setVotingLockErrors(prev => ({
+        ...prev,
+        [numericYear]: 'Admin authentication is required to adjust voting access.'
+      }));
+      return;
+    }
+
+    setVotingLockUpdating(prev => ({ ...prev, [numericYear]: true }));
+    setVotingLockErrors(prev => ({ ...prev, [numericYear]: null }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/rule-changes/voting-lock`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminAuthToken
+        },
+        body: JSON.stringify({ seasonYear: numericYear, locked: Boolean(nextLocked) })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
+        setVotingLockErrors(prev => ({ ...prev, [numericYear]: errorMessage }));
+        if (onAdminSessionInvalid) {
+          onAdminSessionInvalid();
+        }
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to update voting access');
+      }
+
+      const updatedLock = {
+        locked: Boolean(data?.locked),
+        lockedAt: data?.lockedAt || data?.locked_at || null,
+        updatedAt: data?.updatedAt || data?.updated_at || null
+      };
+
+      setVotingLockStates(prev => ({ ...prev, [numericYear]: updatedLock }));
+      setVotingLockErrors(prev => ({ ...prev, [numericYear]: null }));
+      setMessage({
+        type: 'success',
+        text: `${updatedLock.locked ? 'Locked' : 'Unlocked'} voting for ${numericYear}`
+      });
+      setTimeout(() => setMessage(null), 3000);
+
+      if (typeof onVotingLockChange === 'function') {
+        onVotingLockChange(numericYear, updatedLock.locked);
+      }
+    } catch (error) {
+      console.error('Error updating voting access:', error);
+      setVotingLockErrors(prev => ({
+        ...prev,
+        [numericYear]: error.message || 'Failed to update voting access'
+      }));
+    } finally {
+      setVotingLockUpdating(prev => ({ ...prev, [numericYear]: false }));
     }
   };
 
@@ -821,13 +893,14 @@ const SleeperAdmin = ({
               <tbody className="bg-white divide-y divide-gray-200">
                 {years.map(year => {
                   const status = getStatusForYear(year);
-                  const lockState = keeperLockStates[year] || { locked: false, lockedAt: null, updatedAt: null };
-                  const isLocked = Boolean(lockState.locked);
-                  const isLockUpdating = Boolean(keeperLockUpdating[year]);
-                  const lockError = keeperLockErrors[year];
-                  const lockTimestamp = formatTimestamp(
-                    isLocked ? lockState.lockedAt : lockState.updatedAt
-                  );
+                  const keeperLockState = keeperLockStates[year] || { locked: false, lockedAt: null, updatedAt: null };
+                  const isKeeperLocked = Boolean(keeperLockState.locked);
+                  const isKeeperLockUpdating = Boolean(keeperLockUpdating[year]);
+                  const keeperLockError = keeperLockErrors[year];
+                  const votingLockState = votingLockStates[year] || { locked: false, lockedAt: null, updatedAt: null };
+                  const isVotingLocked = Boolean(votingLockState.locked);
+                  const isVotingLockUpdating = Boolean(votingLockUpdating[year]);
+                  const votingLockError = votingLockErrors[year];
                   const sleeperStatusValue = typeof status?.sleeper_status === 'string'
                     ? status.sleeper_status.toLowerCase()
                     : null;
@@ -931,49 +1004,60 @@ const SleeperAdmin = ({
                               </button>
                             )}
                           </div>
-                          <div className="flex flex-col space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                  isLocked
-                                    ? 'bg-red-100 text-red-700'
-                                    : 'bg-green-100 text-green-700'
-                                }`}
-                              >
-                                {isLocked ? 'Locked' : 'Unlocked'}
-                              </span>
-                              <button
-                                onClick={() => toggleKeeperLock(year, !isLocked)}
-                                disabled={isLockUpdating}
-                                className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
-                                  isLocked
-                                    ? 'bg-green-600 hover:bg-green-700'
-                                    : 'bg-red-600 hover:bg-red-700'
-                                }`}
-                              >
-                                {isLockUpdating ? (
-                                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                                ) : isLocked ? (
-                                  <Unlock className="w-3 h-3 mr-1" />
-                                ) : (
-                                  <Lock className="w-3 h-3 mr-1" />
-                                )}
-                                {isLockUpdating
-                                  ? isLocked
-                                    ? 'Unlocking…'
-                                    : 'Locking…'
-                                  : isLocked
-                                  ? 'Unlock Access'
-                                  : 'Lock Access'}
-                              </button>
-                            </div>
-                            {lockTimestamp && (
-                              <div className="text-xs text-gray-500">
-                                {isLocked ? `Locked ${lockTimestamp}` : `Updated ${lockTimestamp}`}
+                          <div className="flex flex-col space-y-2">
+                            <button
+                              onClick={() => toggleKeeperLock(year, !isKeeperLocked)}
+                              disabled={isKeeperLockUpdating}
+                              className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+                                isKeeperLocked
+                                  ? 'bg-green-600 hover:bg-green-700'
+                                  : 'bg-red-600 hover:bg-red-700'
+                              }`}
+                            >
+                              {isKeeperLockUpdating ? (
+                                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                              ) : isKeeperLocked ? (
+                                <Unlock className="w-3 h-3 mr-1" />
+                              ) : (
+                                <Lock className="w-3 h-3 mr-1" />
+                              )}
+                              {isKeeperLockUpdating
+                                ? isKeeperLocked
+                                  ? 'Unlocking…'
+                                  : 'Locking…'
+                                : isKeeperLocked
+                                ? 'Unlock Keepers'
+                                : 'Lock Keepers'}
+                            </button>
+                            <button
+                              onClick={() => toggleVotingLock(year, !isVotingLocked)}
+                              disabled={isVotingLockUpdating}
+                              className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+                                isVotingLocked
+                                  ? 'bg-green-600 hover:bg-green-700'
+                                  : 'bg-blue-600 hover:bg-blue-700'
+                              }`}
+                            >
+                              {isVotingLockUpdating ? (
+                                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                              ) : isVotingLocked ? (
+                                <Unlock className="w-3 h-3 mr-1" />
+                              ) : (
+                                <Lock className="w-3 h-3 mr-1" />
+                              )}
+                              {isVotingLockUpdating
+                                ? isVotingLocked
+                                  ? 'Unlocking…'
+                                  : 'Locking…'
+                                : isVotingLocked
+                                ? 'Unlock Voting'
+                                : 'Lock Voting'}
+                            </button>
+                            {(keeperLockError || votingLockError) && (
+                              <div className="space-y-1 text-xs text-red-600">
+                                {keeperLockError && <div>{keeperLockError}</div>}
+                                {votingLockError && <div>{votingLockError}</div>}
                               </div>
-                            )}
-                            {lockError && (
-                              <div className="text-xs text-red-600">{lockError}</div>
                             )}
                           </div>
                         </div>
