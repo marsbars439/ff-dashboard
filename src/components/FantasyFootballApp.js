@@ -1559,7 +1559,6 @@ const FantasyFootballApp = () => {
         lockedAt: savedKeepers.lockedAt || savedKeepers.locked_at || null,
         updatedAt: savedKeepers.updatedAt || savedKeepers.updated_at || null
       });
-      setKeeperLockError(null);
 
       const prevYearsMap = prevKeepers.keepers.reduce((acc, k) => {
         acc[k.player_id] = (k.years_kept || 0) + 1;
