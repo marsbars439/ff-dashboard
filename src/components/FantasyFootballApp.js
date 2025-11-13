@@ -579,6 +579,16 @@ const FantasyFootballApp = () => {
         return;
       }
 
+      const latestAuth = managerAuthRef.current;
+      const canApplyCloudflareResult =
+        !latestAuth ||
+        latestAuth.status === 'unauthenticated' ||
+        (latestAuth.status === 'pending' && latestAuth.verificationSource === 'cloudflare');
+
+      if (!canApplyCloudflareResult) {
+        return;
+      }
+
       const normalizedAuth = {
         managerId: data.managerId,
         managerName: data.managerName || '',
@@ -604,22 +614,30 @@ const FantasyFootballApp = () => {
       }
 
       console.warn('Cloudflare manager verification failed:', error);
-      setManagerAuth({
-        managerId: '',
-        managerName: '',
-        token: '',
-        expiresAt: null,
-        status: 'unauthenticated',
-        verificationSource: null
-      });
-      setManagerAuthSelection('');
-      setManagerAuthPasscode('');
-      setManagerAuthError(
-        didTimeout
-          ? 'Automatic manager verification timed out. Please enter your manager passcode.'
-          : 'Unable to verify automatically. Please enter your manager passcode.'
-      );
-      persistManagerAuth(null);
+      const latestAuth = managerAuthRef.current;
+      const shouldApplyCloudflareFailure =
+        !latestAuth ||
+        latestAuth.status === 'unauthenticated' ||
+        (latestAuth.status === 'pending' && latestAuth.verificationSource === 'cloudflare');
+
+      if (shouldApplyCloudflareFailure) {
+        setManagerAuth({
+          managerId: '',
+          managerName: '',
+          token: '',
+          expiresAt: null,
+          status: 'unauthenticated',
+          verificationSource: null
+        });
+        setManagerAuthSelection('');
+        setManagerAuthPasscode('');
+        setManagerAuthError(
+          didTimeout
+            ? 'Automatic manager verification timed out. Please enter your manager passcode.'
+            : 'Unable to verify automatically. Please enter your manager passcode.'
+        );
+        persistManagerAuth(null);
+      }
     } finally {
       window.clearTimeout(timeoutId);
 
