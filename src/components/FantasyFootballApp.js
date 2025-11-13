@@ -1704,19 +1704,52 @@ const FantasyFootballApp = () => {
       return;
     }
 
-    setSelectedKeeperRosterId(prev => {
-      if (prev) {
-        return prev;
+    const authRosterId = findRosterIdForManager(
+      keepers,
+      managerAuth.managerId,
+      managerAuth.managerName
+    );
+
+    const doesRosterBelongToAuth = roster => {
+      if (!roster) {
+        return false;
       }
 
-      const authRosterId = findRosterIdForManager(
-        keepers,
-        managerAuth.managerId,
-        managerAuth.managerName
+      if (roster.manager_id && managerAuth.managerId) {
+        if (
+          String(roster.manager_id).trim() ===
+          String(managerAuth.managerId).trim()
+        ) {
+          return true;
+        }
+      }
+
+      const normalizedAuthName = (managerAuth.managerName || '')
+        .trim()
+        .toLowerCase();
+      const normalizedRosterName = (roster.manager_name || '')
+        .trim()
+        .toLowerCase();
+
+      return (
+        normalizedAuthName.length > 0 &&
+        normalizedAuthName === normalizedRosterName
       );
+    };
+
+    setSelectedKeeperRosterId(prev => {
+      const prevRoster = keepers.find(team => team.roster_id === prev);
 
       if (authRosterId) {
+        if (doesRosterBelongToAuth(prevRoster)) {
+          return prevRoster.roster_id;
+        }
+
         return authRosterId;
+      }
+
+      if (prevRoster) {
+        return prevRoster.roster_id;
       }
 
       return keepers[0]?.roster_id ?? null;
