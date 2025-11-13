@@ -1002,9 +1002,14 @@ const FantasyFootballApp = () => {
     });
   }, [seasonMatchups, activeWeekNumber]);
 
-  const fetchData = async () => {
-    try {
+  const fetchData = async (options = {}) => {
+    const { silent = false } = options;
+
+    if (!silent) {
       setLoading(true);
+    }
+
+    try {
       const [managersResponse, seasonsResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/managers`),
         fetch(`${API_BASE_URL}/team-seasons`)
@@ -1020,9 +1025,15 @@ const FantasyFootballApp = () => {
       setManagers(managersData.managers);
       setTeamSeasons(seasonsData.teamSeasons);
     } catch (err) {
-      setError('Failed to load data: ' + err.message);
+      if (silent) {
+        console.error('Failed to refresh data:', err);
+      } else {
+        setError('Failed to load data: ' + err.message);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
