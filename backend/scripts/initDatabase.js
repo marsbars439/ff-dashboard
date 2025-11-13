@@ -265,6 +265,7 @@ db.serialize(() => {
       title TEXT NOT NULL,
       description TEXT,
       options TEXT NOT NULL,
+      display_order INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -275,6 +276,43 @@ db.serialize(() => {
       console.log('✅ rule_change_proposals table created successfully');
     }
   });
+
+  console.log('🔧 Ensuring display_order column exists on rule_change_proposals...');
+  db.run(
+    `ALTER TABLE rule_change_proposals ADD COLUMN display_order INTEGER`,
+    (err) => {
+      if (err && err.message.includes('duplicate column name')) {
+        console.log('ℹ️  display_order column already exists on rule_change_proposals');
+      } else if (err) {
+        console.error('❌ Error adding display_order column:', err.message);
+      } else {
+        console.log('✅ Added display_order column to rule_change_proposals');
+      }
+    }
+  );
+
+  console.log('🔄 Initializing display_order values for existing proposals...');
+  db.run(
+    `UPDATE rule_change_proposals AS current
+     SET display_order = (
+       SELECT COUNT(*) + 1
+       FROM rule_change_proposals AS other
+       WHERE other.season_year = current.season_year
+         AND (
+           other.created_at > current.created_at OR (
+             other.created_at = current.created_at AND other.id > current.id
+           )
+         )
+     )
+     WHERE display_order IS NULL OR display_order = 0`,
+    (err) => {
+      if (err) {
+        console.error('❌ Error initializing proposal display_order values:', err.message);
+      } else {
+        console.log('✅ Proposal display order values initialized');
+      }
+    }
+  );
 
   console.log('📊 Creating rule_change_votes table...');
   db.run(`
