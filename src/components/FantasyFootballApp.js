@@ -1251,6 +1251,69 @@ const FantasyFootballApp = () => {
     }
   };
 
+  const reorderRuleChangeProposals = async (seasonYear, orderedProposalIds) => {
+    if (adminSession.status !== 'authorized' || !adminSession.token) {
+      throw new Error('Admin authentication is required to reorder proposals.');
+    }
+
+    const numericYear = Number(seasonYear);
+
+    if (!Number.isInteger(numericYear)) {
+      throw new Error('Select a season before reordering proposals.');
+    }
+
+    if (!Array.isArray(orderedProposalIds) || orderedProposalIds.length === 0) {
+      throw new Error('Provide the complete proposal order before saving.');
+    }
+
+    const normalizedIds = orderedProposalIds.map(id => Number(id));
+
+    if (!normalizedIds.every(id => Number.isInteger(id))) {
+      throw new Error('Proposal identifiers must be valid integers.');
+    }
+
+    const uniqueIds = new Set(normalizedIds);
+
+    if (uniqueIds.size !== normalizedIds.length) {
+      throw new Error('Each proposal must be included exactly once when reordering.');
+    }
+
+    if (Array.isArray(ruleChangeProposals) && uniqueIds.size !== ruleChangeProposals.length) {
+      throw new Error('Each proposal must be included exactly once when reordering.');
+    }
+
+    setRuleChangeError(null);
+
+    const response = await fetch(`${API_BASE_URL}/rule-changes/reorder`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': adminSession.token
+      },
+      body: JSON.stringify({ seasonYear: numericYear, orderedIds: normalizedIds })
+    });
+
+    const data = await parseJsonResponse(response);
+
+    if (response.status === 401) {
+      setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
+      persistAdminSession(null);
+      throw new Error(data?.error || 'Admin session has expired. Please sign in again.');
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || 'Failed to reorder proposals');
+    }
+
+    if (Array.isArray(data?.proposals)) {
+      setRuleChangeProposals(data.proposals);
+    } else if (selectedKeeperYear) {
+      await fetchRuleChangeProposals(selectedKeeperYear);
+    }
+
+    return data?.proposals || [];
+  };
+
   const adminCastRuleChangeVote = async (proposalId, managerId, optionValue) => {
     const normalizedProposalId = Number(proposalId);
     const normalizedManagerId = typeof managerId === 'string' ? managerId.trim() : '';
@@ -4644,6 +4707,7 @@ const FantasyFootballApp = () => {
                   onCreateProposal={createRuleChangeProposal}
                   onUpdateProposal={updateRuleChangeProposal}
                   onDeleteProposal={deleteRuleChangeProposal}
+                  onReorderProposals={reorderRuleChangeProposals}
                   isLoading={ruleChangeLoading}
                   error={ruleChangeError}
                   managers={managers}

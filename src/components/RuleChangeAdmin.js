@@ -1,5 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Loader2, Save, X, Trash2, Edit3, UserCheck, Undo2, Lock, Unlock } from 'lucide-react';
+import {
+  Plus,
+  Loader2,
+  Save,
+  X,
+  Trash2,
+  Edit3,
+  UserCheck,
+  Undo2,
+  Lock,
+  Unlock,
+  ArrowUp,
+  ArrowDown
+} from 'lucide-react';
 
 const toUniqueOptions = (text) => {
   if (typeof text !== 'string') {
@@ -20,6 +33,7 @@ const RuleChangeAdmin = ({
   onCreateProposal,
   onUpdateProposal,
   onDeleteProposal,
+  onReorderProposals,
   isLoading = false,
   error = null,
   managers = [],
@@ -44,6 +58,9 @@ const RuleChangeAdmin = ({
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [actionStatus, setActionStatus] = useState(null);
+  const [isReordering, setIsReordering] = useState(false);
+  const [reorderTarget, setReorderTarget] = useState(null);
+  const [reorderError, setReorderError] = useState(null);
 
   const [voteManagerSelection, setVoteManagerSelection] = useState({});
   const [voteOptionSelection, setVoteOptionSelection] = useState({});
@@ -78,6 +95,13 @@ const RuleChangeAdmin = ({
     typeof onClearVote === 'function' &&
     availableManagers.length > 0;
 
+  const canReorderProposals =
+    typeof onReorderProposals === 'function' &&
+    Array.isArray(proposals) &&
+    proposals.length > 1 &&
+    seasonYear != null &&
+    Number.isInteger(Number(seasonYear));
+
   const canCreateProposal = useMemo(() => {
     if (seasonYear == null) {
       return false;
@@ -99,6 +123,9 @@ const RuleChangeAdmin = ({
     setActionStatus(null);
     setFormStatus(null);
     setFormError(null);
+    setIsReordering(false);
+    setReorderTarget(null);
+    setReorderError(null);
   }, [seasonYear]);
 
   const getManagerVoteForProposal = (proposal, managerId) => {
@@ -407,6 +434,51 @@ const RuleChangeAdmin = ({
     }
   };
 
+  const handleReorderProposal = async (proposalId, direction) => {
+    if (!canReorderProposals || isReordering || typeof onReorderProposals !== 'function') {
+      return;
+    }
+
+    const offset = direction === 'up' ? -1 : 1;
+    const currentIndex = proposals.findIndex(proposal => proposal.id === proposalId);
+
+    if (currentIndex === -1) {
+      return;
+    }
+
+    const targetIndex = currentIndex + offset;
+
+    if (targetIndex < 0 || targetIndex >= proposals.length) {
+      return;
+    }
+
+    const orderedIds = proposals.map(proposal => proposal.id);
+    const [movedId] = orderedIds.splice(currentIndex, 1);
+    orderedIds.splice(targetIndex, 0, movedId);
+
+    const normalizedSeasonYear = Number(seasonYear);
+
+    if (!Number.isInteger(normalizedSeasonYear)) {
+      setReorderError('Select a season before reordering proposals.');
+      return;
+    }
+
+    setIsReordering(true);
+    setReorderTarget({ id: proposalId, direction });
+    setReorderError(null);
+    setActionStatus(null);
+
+    try {
+      await onReorderProposals(normalizedSeasonYear, orderedIds.map(id => Number(id)));
+      setActionStatus('Proposal order updated.');
+    } catch (err) {
+      setReorderError(err?.message || 'Failed to reorder proposals.');
+    } finally {
+      setIsReordering(false);
+      setReorderTarget(null);
+    }
+  };
+
   const hasSelectedSeason = Number.isInteger(Number(seasonYear));
   const lockSeasonLabel = hasSelectedSeason ? `${Number(seasonYear) + 1} season` : 'selected season';
 
@@ -531,6 +603,12 @@ const RuleChangeAdmin = ({
         </div>
       )}
 
+      {reorderError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {reorderError}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -636,6 +714,10 @@ const RuleChangeAdmin = ({
             const managerMeta = managerHasSelection
               ? availableManagers.find(manager => manager.id === selectedManagerId)
               : null;
+            const isFirstProposal = proposals[0]?.id === proposal.id;
+            const isLastProposal = proposals[proposals.length - 1]?.id === proposal.id;
+            const disableReorderControls = isReordering || editingId !== null;
+            const isReorderTarget = reorderTarget?.id === proposal.id;
 
             return (
               <div key={proposal.id} className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5">
@@ -647,6 +729,36 @@ const RuleChangeAdmin = ({
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {canReorderProposals && (
+                      <div className="flex items-center gap-1" aria-label="Reorder proposal">
+                        <button
+                          type="button"
+                          onClick={() => handleReorderProposal(proposal.id, 'up')}
+                          disabled={disableReorderControls || isFirstProposal}
+                          className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          title="Move proposal up"
+                        >
+                          {isReorderTarget && reorderTarget?.direction === 'up' && isReordering ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <ArrowUp className="h-3 w-3" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleReorderProposal(proposal.id, 'down')}
+                          disabled={disableReorderControls || isLastProposal}
+                          className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          title="Move proposal down"
+                        >
+                          {isReorderTarget && reorderTarget?.direction === 'down' && isReordering ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3" />
+                          )}
+                        </button>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => startEditing(proposal)}

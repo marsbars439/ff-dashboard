@@ -463,6 +463,28 @@ app.use('/api/manager-auth/cloudflare', cloudflareAccessLimiter);
 const dbPath = path.join(__dirname, 'data', 'fantasy_football.db');
 const db = new sqlite3.Database(dbPath);
 
+const assignInitialProposalDisplayOrder = () => {
+  db.run(
+    `UPDATE rule_change_proposals AS current
+     SET display_order = (
+       SELECT COUNT(*) + 1
+       FROM rule_change_proposals AS other
+       WHERE other.season_year = current.season_year
+         AND (
+           other.created_at > current.created_at OR (
+             other.created_at = current.created_at AND other.id > current.id
+           )
+         )
+     )
+     WHERE display_order IS NULL OR display_order = 0`,
+    err => {
+      if (err && !/no such column/i.test(err.message)) {
+        console.error('Error initializing proposal display order:', err.message);
+      }
+    }
+  );
+};
+
 // Ensure keepers table exists
 db.serialize(() => {
   db.run('PRAGMA foreign_keys = ON');
@@ -558,10 +580,26 @@ db.serialize(() => {
       title TEXT NOT NULL,
       description TEXT,
       options TEXT NOT NULL,
+      display_order INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  db.run(
+    `ALTER TABLE rule_change_proposals ADD COLUMN display_order INTEGER`,
+    err => {
+      if (err) {
+        if (!err.message.includes('duplicate column name')) {
+          console.error('Error adding display_order column to rule_change_proposals:', err.message);
+        }
+      } else {
+        assignInitialProposalDisplayOrder();
+      }
+    }
+  );
+
+  assignInitialProposalDisplayOrder();
 
   db.run(`
     CREATE TABLE IF NOT EXISTS rule_change_votes (
@@ -709,6 +747,24 @@ const setRuleChangeVotingLock = async (seasonYear, locked) => {
   );
 
   return getRuleChangeVotingLockRow(numericYear);
+};
+
+const getNextProposalDisplayOrder = async (seasonYear) => {
+  const numericYear = parseInt(seasonYear, 10);
+
+  if (Number.isNaN(numericYear)) {
+    throw new Error('A valid season year is required to determine proposal order.');
+  }
+
+  const row = await getAsync(
+    'SELECT MAX(display_order) AS maxOrder FROM rule_change_proposals WHERE season_year = ?',
+    [numericYear]
+  );
+
+  const maxOrder = typeof row?.maxOrder === 'number' ? row.maxOrder : parseInt(row?.maxOrder, 10);
+  const normalizedMax = Number.isFinite(maxOrder) ? maxOrder : 0;
+
+  return normalizedMax + 1;
 };
 
 const ADMIN_TOKEN_TTL_MS = 1000 * 60 * 15; // 15 minutes
@@ -974,6 +1030,12 @@ const formatRuleChangeProposal = (
     seasonYear: row.season_year,
     title: row.title,
     description: row.description || '',
+    displayOrder:
+      typeof row.display_order === 'number'
+        ? row.display_order
+        : row.display_order != null
+          ? Number(row.display_order)
+          : null,
     options: options.map(optionValue => ({
       value: optionValue,
       votes: Array.isArray(optionMap[optionValue]) ? optionMap[optionValue].length : 0,
@@ -996,7 +1058,10 @@ const formatRuleChangeProposal = (
 
 const getRuleChangeProposalsForYear = async (seasonYear, managerId = null) => {
   const proposals = await allAsync(
-    'SELECT * FROM rule_change_proposals WHERE season_year = ? ORDER BY created_at DESC',
+    `SELECT *
+     FROM rule_change_proposals
+     WHERE season_year = ?
+     ORDER BY display_order ASC, created_at DESC`,
     [seasonYear]
   );
 
@@ -2441,14 +2506,17 @@ app.post('/api/rule-changes', async (req, res) => {
   }
 
   try {
+    const nextDisplayOrder = await getNextProposalDisplayOrder(numericYear);
+
     const result = await runAsync(
-      `INSERT INTO rule_change_proposals (season_year, title, description, options, created_at, updated_at)
-       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      `INSERT INTO rule_change_proposals (season_year, title, description, options, display_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       [
         numericYear,
         title.trim(),
         typeof description === 'string' ? description.trim() : '',
-        JSON.stringify(normalizedOptions)
+        JSON.stringify(normalizedOptions),
+        nextDisplayOrder
       ]
     );
 
@@ -2493,6 +2561,87 @@ app.put('/api/rule-changes/voting-lock', async (req, res) => {
   } catch (error) {
     console.error('Error updating rule change voting lock:', error);
     res.status(500).json({ error: 'Failed to update voting lock' });
+  }
+});
+
+app.put('/api/rule-changes/reorder', async (req, res) => {
+  const adminTokenHeader = req.headers['x-admin-token'];
+  const adminToken = typeof adminTokenHeader === 'string' ? adminTokenHeader.trim() : '';
+
+  if (!adminToken || !isAdminTokenValid(adminToken)) {
+    return res.status(401).json({ error: 'Admin authentication is required' });
+  }
+
+  const { seasonYear, orderedIds } = req.body || {};
+  const numericYear = parseInt(seasonYear, 10);
+
+  if (Number.isNaN(numericYear)) {
+    return res.status(400).json({ error: 'A valid seasonYear is required' });
+  }
+
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    return res.status(400).json({ error: 'orderedIds must include at least one proposal id' });
+  }
+
+  const normalizedIds = orderedIds.map(id => parseInt(id, 10)).filter(id => Number.isInteger(id));
+
+  if (normalizedIds.length !== orderedIds.length) {
+    return res.status(400).json({ error: 'All orderedIds must be valid integers' });
+  }
+
+  try {
+    const existingRows = await allAsync(
+      'SELECT id FROM rule_change_proposals WHERE season_year = ?',
+      [numericYear]
+    );
+
+    if (!existingRows.length) {
+      return res.status(404).json({ error: 'No proposals found for the specified season' });
+    }
+
+    const existingIds = existingRows.map(row => row.id);
+
+    if (normalizedIds.length !== existingIds.length) {
+      return res.status(400).json({ error: 'orderedIds must include each proposal exactly once' });
+    }
+
+    const existingSet = new Set(existingIds);
+    const providedSet = new Set(normalizedIds);
+
+    if (existingSet.size !== providedSet.size) {
+      return res.status(400).json({ error: 'orderedIds must include each proposal exactly once' });
+    }
+
+    for (const id of existingSet) {
+      if (!providedSet.has(id)) {
+        return res.status(400).json({ error: 'orderedIds must include each proposal exactly once' });
+      }
+    }
+
+    await runAsync('BEGIN TRANSACTION');
+
+    try {
+      for (let index = 0; index < normalizedIds.length; index += 1) {
+        const proposalId = normalizedIds[index];
+        await runAsync(
+          `UPDATE rule_change_proposals
+           SET display_order = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ? AND season_year = ?`,
+          [index + 1, proposalId, numericYear]
+        );
+      }
+
+      await runAsync('COMMIT');
+    } catch (error) {
+      await runAsync('ROLLBACK').catch(() => {});
+      throw error;
+    }
+
+    const proposals = await getRuleChangeProposalsForYear(numericYear);
+    res.json({ proposals });
+  } catch (error) {
+    console.error('Error reordering rule change proposals:', error);
+    res.status(500).json({ error: 'Failed to reorder rule change proposals' });
   }
 });
 
