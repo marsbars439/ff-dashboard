@@ -536,6 +536,23 @@ db.serialize(() => {
   `);
 
   db.run(
+    `DELETE FROM manager_emails
+     WHERE email IS NOT NULL AND LENGTH(TRIM(email)) > 0
+       AND id NOT IN (
+         SELECT MIN(id)
+         FROM manager_emails
+         WHERE email IS NOT NULL AND LENGTH(TRIM(email)) > 0
+         GROUP BY LOWER(email)
+       )`
+  );
+
+  db.run(
+    `UPDATE manager_emails
+     SET email = LOWER(TRIM(email))
+     WHERE email IS NOT NULL AND email != LOWER(TRIM(email))`
+  );
+
+  db.run(
     'CREATE INDEX IF NOT EXISTS idx_manager_emails_manager_id ON manager_emails(manager_id)'
   );
 
@@ -544,10 +561,46 @@ db.serialize(() => {
   );
 
   db.run(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_manager_emails_unique_email_nocase ON manager_emails(email COLLATE NOCASE)'
+  );
+
+  db.run(
     `INSERT OR IGNORE INTO manager_emails (manager_id, email, is_primary)
-     SELECT id, email, 1
-     FROM managers
-     WHERE email IS NOT NULL AND LENGTH(TRIM(email)) > 0`
+     SELECT id, LOWER(TRIM(email)), 1
+      FROM managers
+      WHERE email IS NOT NULL AND LENGTH(TRIM(email)) > 0`
+  );
+
+  db.run(
+    `UPDATE managers
+     SET email = LOWER(TRIM(email))
+     WHERE email IS NOT NULL AND email != LOWER(TRIM(email))`
+  );
+
+  db.run(
+    `UPDATE managers
+     SET email = (
+       SELECT email
+       FROM manager_emails
+       WHERE manager_id = managers.id AND is_primary = 1
+       ORDER BY id ASC
+       LIMIT 1
+     )
+     WHERE EXISTS (
+       SELECT 1
+       FROM manager_emails
+       WHERE manager_id = managers.id
+     )`
+  );
+
+  db.run(
+    `UPDATE managers
+     SET email = NULL
+     WHERE NOT EXISTS (
+       SELECT 1
+       FROM manager_emails
+       WHERE manager_id = managers.id
+     )`
   );
 
   db.run(`
@@ -772,6 +825,19 @@ const isValidEmailFormat = (email) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
 };
 
+const normalizeEmailForStorage = (email) => {
+  if (typeof email !== 'string') {
+    return '';
+  }
+
+  const trimmed = email.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  return trimmed.toLowerCase();
+};
+
 const collectManagerEmails = (payload = {}) => {
   const emailsInput = payload.emails;
   const fallbackEmail = typeof payload.email === 'string' ? payload.email : null;
@@ -789,22 +855,17 @@ const collectManagerEmails = (payload = {}) => {
   const seen = new Set();
 
   for (const candidate of candidates) {
-    if (typeof candidate !== 'string') {
-      continue;
-    }
-
-    const trimmed = candidate.trim();
-    if (!trimmed) {
-      continue;
-    }
-
-    const normalized = trimmed.toLowerCase();
+    const normalized = normalizeEmailForStorage(candidate);
     if (seen.has(normalized)) {
       continue;
     }
 
+    if (!normalized) {
+      continue;
+    }
+
     seen.add(normalized);
-    sanitized.push(trimmed);
+    sanitized.push(normalized);
   }
 
   return sanitized;
@@ -887,12 +948,17 @@ const replaceManagerEmails = async (managerId, emails = []) => {
 
   await runAsync('DELETE FROM manager_emails WHERE manager_id = ?', [managerId]);
 
+  let insertedCount = 0;
   for (let index = 0; index < emails.length; index += 1) {
-    const email = emails[index];
+    const email = normalizeEmailForStorage(emails[index]);
+    if (!email) {
+      continue;
+    }
     await runAsync(
       'INSERT INTO manager_emails (manager_id, email, is_primary) VALUES (?, ?, ?)',
-      [managerId, email, index === 0 ? 1 : 0]
+      [managerId, email, insertedCount === 0 ? 1 : 0]
     );
+    insertedCount += 1;
   }
 };
 
