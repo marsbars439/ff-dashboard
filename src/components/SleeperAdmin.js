@@ -27,7 +27,8 @@ const SleeperAdmin = ({
   adminToken,
   onAdminSessionInvalid,
   onKeeperLockChange,
-  onVotingLockChange
+  onVotingLockChange,
+  children
 }) => {
   const [leagueSettings, setLeagueSettings] = useState({});
   const [syncStatus, setSyncStatus] = useState([]);
@@ -1620,20 +1621,23 @@ const SleeperAdmin = ({
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {message && (
-        <div className={`p-3 rounded-lg ${
-          message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-        }`}>
-          {message.text}
-        </div>
-      )}
+  const renderMessageBanner = () => (
+    message ? (
+      <div className={`p-3 rounded-lg ${
+        message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+      }`}>
+        {message.text}
+      </div>
+    ) : null
+  );
+
+  const renderDataManagementSection = () => (
+    <>
       {/* League ID History */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="p-6">
           <h4 className="text-lg font-semibold mb-4">League ID History</h4>
-          
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -2176,7 +2180,11 @@ const SleeperAdmin = ({
         </div>
       </div>
     )}
+    </>
+  );
 
+  const renderManagerSection = () => (
+    <>
     {/* Manager IDs */}
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       <div className="p-6">
@@ -2632,7 +2640,26 @@ const SleeperAdmin = ({
         </div>
       </div>
     )}
-  </div>
+  </>
+);
+
+
+  const sections = {
+    renderMessageBanner,
+    renderDataManagementSection,
+    renderManagerSection
+  };
+
+  if (typeof children === 'function') {
+    return children(sections);
+  }
+
+  return (
+    <div className="space-y-6">
+      {renderMessageBanner()}
+      {renderDataManagementSection()}
+      {renderManagerSection()}
+    </div>
   );
 };
 
