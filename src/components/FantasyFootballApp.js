@@ -6,15 +6,12 @@ import {
   Award,
   BarChart3,
   TrendingUp,
-  Upload,
   Plus,
   FileText,
   BookOpen,
   Zap,
   Settings,
-  Edit3,
   ArrowLeftRight,
-  Save,
   X,
   Trash2,
   ChevronDown,
@@ -100,8 +97,6 @@ const FantasyFootballApp = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rulesContent, setRulesContent] = useState('');
-  const [editingRow, setEditingRow] = useState(null);
-  const [editedData, setEditedData] = useState({});
 
   // NEW: Manager editing state variables
   const [editingManager, setEditingManager] = useState(null);
@@ -160,7 +155,6 @@ const FantasyFootballApp = () => {
     setActiveTab(VALID_TABS.has(tab) ? tab : 'records');
   };
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
-  const [seasonDataPage, setSeasonDataPage] = useState(0);
   const [activeWeekMatchups, setActiveWeekMatchups] = useState(null);
   const [activeWeekLoading, setActiveWeekLoading] = useState(false);
   const [activeWeekError, setActiveWeekError] = useState(null);
@@ -959,10 +953,6 @@ const FantasyFootballApp = () => {
     adminSession.status,
     fetchRuleChangeProposals
   ]);
-
-  useEffect(() => {
-    setSeasonDataPage(0);
-  }, [teamSeasons]);
 
   useEffect(() => {
     setExpandedWeeks({});
@@ -2206,122 +2196,6 @@ const FantasyFootballApp = () => {
     }
   };
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/upload-excel`, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload file');
-      }
-
-      await fetchData();
-      alert('Data uploaded successfully!');
-    } catch (err) {
-      alert('Error uploading file: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const startEdit = (season) => {
-    setEditingRow(season.id);
-    setEditedData({ ...season });
-  };
-
-  const cancelEdit = () => {
-    setEditingRow(null);
-    setEditedData({});
-  };
-
-  const saveEdit = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/team-seasons/${editingRow}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editedData),
-      });
-      
-      if (response.ok) {
-        await fetchData();
-        setEditingRow(null);
-        setEditedData({});
-      } else {
-        const error = await response.json();
-        alert('Error: ' + error.error);
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
-  const deleteRow = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this season record?')) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/team-seasons/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        await fetchData();
-      } else {
-        const error = await response.json();
-        alert('Error: ' + error.error);
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
-  const addNewRow = async () => {
-    const newSeason = {
-      year: new Date().getFullYear(),
-      name_id: '',
-      team_name: '',
-      wins: 0,
-      losses: 0,
-      points_for: 0,
-      points_against: 0,
-      regular_season_rank: null,
-      playoff_finish: null,
-      dues: 250,
-      payout: 0,
-      dues_chumpion: 0,
-      high_game: null
-    };
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/team-seasons`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newSeason),
-      });
-      
-      if (response.ok) {
-        await fetchData();
-      } else {
-        const error = await response.json();
-        alert('Error: ' + error.error);
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
   // NEW: Manager editing functions
   const startManagerEdit = (manager) => {
     setEditingManager(manager.id);
@@ -3492,14 +3366,6 @@ const FantasyFootballApp = () => {
     ...inactiveRecords.sort((a, b) => b.pointsPerGame - a.pointsPerGame)
   ];
 
-  const seasonDataYears = availableYears;
-  const currentSeasonDataYear = seasonDataYears[seasonDataPage] || null;
-  const paginatedSeasonData = currentSeasonDataYear
-    ? teamSeasons
-        .filter(s => s.year === currentSeasonDataYear)
-        .sort((a, b) => (a.regular_season_rank || 99) - (b.regular_season_rank || 99))
-    : [];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="bg-white shadow-lg">
@@ -4634,184 +4500,6 @@ const FantasyFootballApp = () => {
                   ))}
                 </ul>
               )}
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title={
-                <div className="flex items-center space-x-2">
-                  <Upload className="w-5 h-5 text-blue-500" />
-                  <span>Data Upload &amp; Season Data</span>
-                </div>
-              }
-            >
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
-                      <div className="mt-4">
-                        <label htmlFor="file-upload" className="cursor-pointer">
-                          <span className="mt-2 block text-sm font-medium text-gray-900">
-                            Upload Excel file to update data
-                          </span>
-                          <input
-                            id="file-upload"
-                            name="file-upload"
-                            type="file"
-                            accept=".xlsx,.xls"
-                            className="sr-only"
-                            onChange={handleFileUpload}
-                          />
-                          <span className="mt-1 block text-xs sm:text-sm text-gray-500">
-                            Excel files only
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                    <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
-                      <p className="text-xs sm:text-sm font-medium text-gray-600">Total Managers</p>
-                      <p className="text-xl sm:text-2xl font-bold text-blue-600">{managers.length}</p>
-                    </div>
-                    <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
-                      <p className="text-xs sm:text-sm font-medium text-gray-600">Season Records</p>
-                      <p className="text-xl sm:text-2xl font-bold text-green-600">{teamSeasons.length}</p>
-                    </div>
-                    <div className="bg-purple-50 p-3 sm:p-4 rounded-lg">
-                      <p className="text-xs sm:text-sm font-medium text-gray-600">Years Covered</p>
-                      <p className="text-xl sm:text-2xl font-bold text-purple-600">
-                        {teamSeasons.length > 0 ? new Set(teamSeasons.map(s => s.year)).size : 0}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {seasonDataYears.length > 0 && (
-                  <div className="mb-4">
-                    <select
-                      value={currentSeasonDataYear}
-                      onChange={e => {
-                        setEditingRow(null);
-                        setSeasonDataPage(
-                          seasonDataYears.indexOf(Number(e.target.value))
-                        );
-                      }}
-                      className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                    >
-                      {seasonDataYears.map(year => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-gray-50">
-                        <th className="text-left p-2 font-medium text-gray-700">Year</th>
-                        <th className="text-left p-2 font-medium text-gray-700">Manager</th>
-                        <th className="text-left p-2 font-medium text-gray-700">Team</th>
-                        <th className="text-left p-2 font-medium text-gray-700">W-L</th>
-                        <th className="text-left p-2 font-medium text-gray-700">PF</th>
-                        <th className="text-left p-2 font-medium text-gray-700">PA</th>
-                        <th className="text-left p-2 font-medium text-gray-700">Rank</th>
-                        <th className="text-left p-2 font-medium text-gray-700">Playoff</th>
-                        <th className="text-left p-2 font-medium text-gray-700">Dues</th>
-                        <th className="text-left p-2 font-medium text-gray-700">Payout</th>
-                        <th className="text-left p-2 font-medium text-gray-700">Chumpion</th>
-                        <th className="text-left p-2 font-medium text-gray-700">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedSeasonData.map((season) => (
-                        <tr key={season.id} className="border-b hover:bg-gray-50">
-                          {editingRow === season.id ? (
-                            <>
-                              <td className="p-2">{season.year}</td>
-                              <td className="p-2">{managers.find(m => m.name_id === season.name_id)?.full_name.split(' ')[0] || season.name_id}</td>
-                              <td className="p-2">{season.team_name}</td>
-                              <td className="p-2">{season.wins}-{season.losses}</td>
-                              <td className="p-2">{season.points_for}</td>
-                              <td className="p-2">{season.points_against}</td>
-                              <td className="p-2">{season.regular_season_rank || '-'}</td>
-                              <td className="p-2">{season.playoff_finish || '-'}</td>
-                              <td className="p-2">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={editedData.dues}
-                                  onChange={(e) => setEditedData({...editedData, dues: parseFloat(e.target.value)})}
-                                  className="w-16 px-1 py-1 border rounded text-xs bg-yellow-50"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={editedData.payout}
-                                  onChange={(e) => setEditedData({...editedData, payout: parseFloat(e.target.value)})}
-                                  className="w-16 px-1 py-1 border rounded text-xs bg-yellow-50"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={editedData.dues_chumpion || ''}
-                                  onChange={(e) => setEditedData({...editedData, dues_chumpion: e.target.value ? parseFloat(e.target.value) : 0})}
-                                  className="w-16 px-1 py-1 border rounded text-xs bg-yellow-50"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <div className="flex space-x-1">
-                                  <button
-                                    onClick={saveEdit}
-                                    className="bg-green-500 hover:bg-green-600 text-white p-1 rounded transition-colors"
-                                    title="Save"
-                                  >
-                                    <Save className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={cancelEdit}
-                                    className="bg-gray-500 hover:bg-gray-600 text-white p-1 rounded transition-colors"
-                                    title="Cancel"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="p-2">{season.year}</td>
-                              <td className="p-2">{managers.find(m => m.name_id === season.name_id)?.full_name.split(' ')[0] || season.name_id}</td>
-                              <td className="p-2">{season.team_name}</td>
-                              <td className="p-2">{season.wins}-{season.losses}</td>
-                              <td className="p-2">{season.points_for}</td>
-                              <td className="p-2">{season.points_against}</td>
-                              <td className="p-2">{season.regular_season_rank || '-'} </td>
-                              <td className="p-2">{season.playoff_finish || '-'} </td>
-                              <td className="p-2 bg-yellow-50">${season.dues}</td>
-                              <td className="p-2 bg-yellow-50">${season.payout}</td>
-                              <td className="p-2 bg-yellow-50">${season.dues_chumpion || 0}</td>
-                              <td className="p-2">
-                                <button
-                                  onClick={() => startEdit(season)}
-                                  className="text-blue-600 hover:text-blue-800"
-                                  title="Edit financial data"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </CollapsibleSection>
 
             <CollapsibleSection
