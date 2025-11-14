@@ -2,6 +2,14 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RefreshCw, AlertCircle, CheckCircle, Clock, Lock, Unlock, X } from 'lucide-react';
 import { formatDateTimeForDisplay } from '../utils/date';
 
+const INITIAL_ALIAS_ADD_STATE = {
+  managerNameId: null,
+  season: '',
+  sleeper_user_id: '',
+  loading: false,
+  error: null
+};
+
 const SleeperAdmin = ({
   API_BASE_URL,
   onDataUpdate,
@@ -17,13 +25,7 @@ const SleeperAdmin = ({
   const [managers, setManagers] = useState([]);
   const [editingMappingId, setEditingMappingId] = useState(null);
   const [editingMapping, setEditingMapping] = useState({});
-  const [aliasAddState, setAliasAddState] = useState({
-    managerNameId: null,
-    season: '',
-    sleeper_user_id: '',
-    loading: false,
-    error: null
-  });
+  const [aliasAddState, setAliasAddState] = useState(INITIAL_ALIAS_ADD_STATE);
   const [keeperLockStates, setKeeperLockStates] = useState({});
   const [keeperLockUpdating, setKeeperLockUpdating] = useState({});
   const [keeperLockErrors, setKeeperLockErrors] = useState({});
@@ -45,6 +47,8 @@ const SleeperAdmin = ({
     loading: false,
     error: null
   });
+  const [managerRowEditingId, setManagerRowEditingId] = useState(null);
+  const [managerRowSaving, setManagerRowSaving] = useState(false);
 
   const adminAuthToken = typeof adminToken === 'string' ? adminToken.trim() : '';
 
@@ -97,6 +101,27 @@ const SleeperAdmin = ({
     });
 
     return sanitized;
+  };
+
+  const areEmailListsEqual = (listA, listB) => {
+    const normalizeListPreservingOrder = (list) => {
+      if (!Array.isArray(list)) {
+        return [];
+      }
+
+      return list
+        .map(value => (typeof value === 'string' ? value.trim().toLowerCase() : ''))
+        .filter(Boolean);
+    };
+
+    const normalizedA = normalizeListPreservingOrder(listA);
+    const normalizedB = normalizeListPreservingOrder(listB);
+
+    if (normalizedA.length !== normalizedB.length) {
+      return false;
+    }
+
+    return normalizedA.every((value, index) => value === normalizedB[index]);
   };
 
   const formatManagerRecord = (manager) => {
@@ -542,29 +567,29 @@ const SleeperAdmin = ({
       return;
     }
 
+    if (managerRowEditingId !== manager.id) {
+      return;
+    }
+
     setEditingMappingId(null);
     setEditingMapping({});
     setAliasAddState({
-      managerNameId: manager.name_id,
-      season: '',
-      sleeper_user_id: '',
-      loading: false,
-      error: null
+      ...INITIAL_ALIAS_ADD_STATE,
+      managerNameId: manager.name_id
     });
   };
 
   const cancelAliasAdd = () => {
-    setAliasAddState({
-      managerNameId: null,
-      season: '',
-      sleeper_user_id: '',
-      loading: false,
-      error: null
-    });
+    setAliasAddState(INITIAL_ALIAS_ADD_STATE);
   };
 
   const saveAliasAdd = async () => {
     if (!aliasAddState.managerNameId) {
+      return;
+    }
+
+    const editingManager = managers.find(manager => manager.id === managerRowEditingId);
+    if (!editingManager || editingManager.name_id !== aliasAddState.managerNameId) {
       return;
     }
 
@@ -607,13 +632,7 @@ const SleeperAdmin = ({
 
       await fetchMappings();
       const managerLabel = managerNameMap[aliasAddState.managerNameId] || aliasAddState.managerNameId;
-      setAliasAddState({
-        managerNameId: null,
-        season: '',
-        sleeper_user_id: '',
-        loading: false,
-        error: null
-      });
+      setAliasAddState(INITIAL_ALIAS_ADD_STATE);
       setMessage({ type: 'success', text: `Alias added for ${managerLabel}` });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
@@ -628,6 +647,11 @@ const SleeperAdmin = ({
 
   const startEditMapping = (mapping) => {
     if (!mapping) {
+      return;
+    }
+
+    const editingManager = managers.find(manager => manager.id === managerRowEditingId);
+    if (!editingManager || editingManager.name_id !== mapping.name_id) {
       return;
     }
 
@@ -692,6 +716,10 @@ const SleeperAdmin = ({
     if (!window.confirm('Delete this mapping?')) return;
     try {
       const targetMapping = managerMappings.find(mapping => mapping.id === id);
+      const editingManager = managers.find(manager => manager.id === managerRowEditingId);
+      if (!targetMapping || !editingManager || editingManager.name_id !== targetMapping.name_id) {
+        return;
+      }
       const response = await fetch(`${API_BASE_URL}/manager-sleeper-ids/${id}`, { method: 'DELETE' });
       if (response.ok) {
         await fetchMappings();
@@ -756,19 +784,19 @@ const SleeperAdmin = ({
 
   const saveEmailEdit = async () => {
     if (!emailEdit.managerId) {
-      return;
+      return false;
     }
 
     const managerToUpdate = managers.find(m => m.id === emailEdit.managerId);
     if (!managerToUpdate) {
       setEmailEdit(prev => ({ ...prev, error: 'Manager not found' }));
-      return;
+      return false;
     }
 
     const pendingEmail = typeof emailEdit.newEmail === 'string' ? emailEdit.newEmail.trim() : '';
     if (pendingEmail && !isValidEmail(pendingEmail)) {
       setEmailEdit(prev => ({ ...prev, error: `Enter a valid email address (${pendingEmail})` }));
-      return;
+      return false;
     }
 
     const combinedEmails = Array.isArray(emailEdit.emails) ? [...emailEdit.emails] : [];
@@ -801,7 +829,7 @@ const SleeperAdmin = ({
     const invalidEmail = dedupedEmails.find(email => !isValidEmail(email));
     if (invalidEmail) {
       setEmailEdit(prev => ({ ...prev, error: `Enter a valid email address (${invalidEmail})` }));
-      return;
+      return false;
     }
 
     setEmailEdit(prev => ({ ...prev, loading: true, error: null }));
@@ -841,12 +869,14 @@ const SleeperAdmin = ({
         text: `Email addresses updated for ${getManagerName(managerToUpdate)}`
       });
       setTimeout(() => setMessage(null), 3000);
+      return true;
     } catch (error) {
       setEmailEdit(prev => ({
         ...prev,
         loading: false,
         error: error.message || 'Failed to update emails'
       }));
+      return false;
     }
   };
 
@@ -907,16 +937,6 @@ const SleeperAdmin = ({
     }
   };
 
-  const startPasscodeEdit = (manager) => {
-    setPasscodeEdit({
-      managerId: manager.name_id,
-      passcode: '',
-      confirm: '',
-      loading: false,
-      error: null
-    });
-  };
-
   const cancelPasscodeEdit = () => {
     setPasscodeEdit({
       managerId: null,
@@ -929,17 +949,17 @@ const SleeperAdmin = ({
 
   const savePasscodeEdit = async () => {
     if (!passcodeEdit.managerId) {
-      return;
+      return false;
     }
 
     if (!passcodeEdit.passcode) {
       setPasscodeEdit(prev => ({ ...prev, error: 'Enter a passcode.' }));
-      return;
+      return false;
     }
 
     if (passcodeEdit.passcode !== passcodeEdit.confirm) {
       setPasscodeEdit(prev => ({ ...prev, error: 'Passcodes do not match.' }));
-      return;
+      return false;
     }
 
     const targetManagerId = passcodeEdit.managerId;
@@ -960,18 +980,103 @@ const SleeperAdmin = ({
         throw new Error(data.error || 'Failed to update passcode');
       }
 
-      cancelPasscodeEdit();
+      setPasscodeEdit({
+        managerId: targetManagerId,
+        passcode: '',
+        confirm: '',
+        loading: false,
+        error: null
+      });
       setMessage({
         type: 'success',
         text: `Passcode updated for ${managerNameMap[targetManagerId] || targetManagerId}`
       });
       setTimeout(() => setMessage(null), 3000);
+      return true;
     } catch (error) {
       setPasscodeEdit(prev => ({
         ...prev,
         loading: false,
         error: error.message || 'Failed to update passcode'
       }));
+      return false;
+    }
+  };
+
+  const cancelManagerRowEdit = () => {
+    setManagerRowSaving(false);
+    cancelEmailEdit();
+    cancelPasscodeEdit();
+    setAliasAddState(INITIAL_ALIAS_ADD_STATE);
+    setEditingMappingId(null);
+    setEditingMapping({});
+    setManagerRowEditingId(null);
+  };
+
+  const startManagerRowEdit = (manager) => {
+    if (!manager) {
+      return;
+    }
+
+    if (managerRowEditingId && managerRowEditingId !== manager.id) {
+      cancelManagerRowEdit();
+    }
+
+    setManagerRowEditingId(manager.id);
+    startEmailEdit(manager);
+    setPasscodeEdit({
+      managerId: manager.name_id,
+      passcode: '',
+      confirm: '',
+      loading: false,
+      error: null
+    });
+    setAliasAddState(INITIAL_ALIAS_ADD_STATE);
+    setEditingMappingId(null);
+    setEditingMapping({});
+  };
+
+  const saveManagerRowEdit = async () => {
+    const editingManager = managers.find(manager => manager.id === managerRowEditingId);
+    if (!editingManager) {
+      return;
+    }
+
+    setManagerRowSaving(true);
+
+    try {
+      const originalEmails = Array.isArray(editingManager.emails) ? editingManager.emails : [];
+      const editedEmails = Array.isArray(emailEdit.emails) ? emailEdit.emails : [];
+      const pendingEmail = typeof emailEdit.newEmail === 'string' ? emailEdit.newEmail.trim() : '';
+      const needsEmailSave = emailEdit.managerId === editingManager.id && (
+        Boolean(pendingEmail) || !areEmailListsEqual(originalEmails, editedEmails)
+      );
+
+      let emailResult = true;
+      if (needsEmailSave) {
+        emailResult = await saveEmailEdit();
+      }
+
+      let passcodeResult = true;
+      const hasPasscodeInput =
+        passcodeEdit.managerId === editingManager.name_id &&
+        (Boolean(passcodeEdit.passcode) || Boolean(passcodeEdit.confirm));
+
+      if (emailResult && hasPasscodeInput) {
+        passcodeResult = await savePasscodeEdit();
+      } else if (
+        !hasPasscodeInput &&
+        passcodeEdit.managerId === editingManager.name_id &&
+        passcodeEdit.error
+      ) {
+        setPasscodeEdit(prev => ({ ...prev, error: null }));
+      }
+
+      if (emailResult && passcodeResult) {
+        cancelManagerRowEdit();
+      }
+    } finally {
+      setManagerRowSaving(false);
     }
   };
 
@@ -1189,6 +1294,7 @@ const SleeperAdmin = ({
                 <th className="px-3 py-2 text-left">Aliases</th>
                 <th className="px-3 py-2 text-left">Active</th>
                 <th className="px-3 py-2 text-left">Passcode</th>
+                <th className="px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -1196,103 +1302,98 @@ const SleeperAdmin = ({
                 const managerAliases = Array.isArray(aliasesByManager[manager.name_id])
                   ? aliasesByManager[manager.name_id]
                   : [];
-                const isAddingAlias = aliasAddState.managerNameId === manager.name_id;
+                const isEditingManager = managerRowEditingId === manager.id;
+                const isEmailEditing = isEditingManager && emailEdit.managerId === manager.id;
+                const isPasscodeEditing =
+                  isEditingManager && passcodeEdit.managerId === manager.name_id;
+                const isAddingAlias =
+                  isEditingManager && aliasAddState.managerNameId === manager.name_id;
+                const isRowSaving =
+                  isEditingManager &&
+                  (managerRowSaving ||
+                    emailEdit.loading ||
+                    passcodeEdit.loading ||
+                    (isAddingAlias && aliasAddState.loading));
 
                 return (
                   <tr key={manager.id}>
-                  <td className="px-3 py-2 font-mono text-xs">{manager.name_id}</td>
-                  <td className="px-3 py-2">
-                    <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                      {getManagerName(manager) || '-'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-gray-600">{manager.sleeper_username || '-'}</td>
-                  <td className="px-3 py-2 text-gray-600">{manager.sleeper_user_id || '-'}</td>
-                  <td className="px-3 py-2 align-top">
-                    {emailEdit.managerId === manager.id ? (
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap gap-2">
-                          {Array.isArray(emailEdit.emails) && emailEdit.emails.length ? (
-                            emailEdit.emails.map((email, index) => {
-                              const normalizedEmail = typeof email === 'string' ? email : '';
-                              if (!normalizedEmail) {
-                                return null;
-                              }
-                              const isPrimary = index === 0;
-                              return (
-                                <span
-                                  key={`${normalizedEmail}-${index}`}
-                                  className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium"
-                                >
-                                  <span>{normalizedEmail}</span>
-                                  {isPrimary && (
-                                    <span className="ml-2 text-[10px] uppercase text-indigo-600 font-semibold">Primary</span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => removeEmailFromEdit(normalizedEmail)}
-                                    className="ml-1 inline-flex items-center justify-center text-gray-500 hover:text-gray-700 disabled:opacity-50"
-                                    disabled={emailEdit.loading}
-                                    aria-label={`Remove ${normalizedEmail}`}
+                    <td className="px-3 py-2 font-mono text-xs">{manager.name_id}</td>
+                    <td className="px-3 py-2">
+                      <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                        {getManagerName(manager) || '-'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-gray-600">{manager.sleeper_username || '-'}</td>
+                    <td className="px-3 py-2 text-gray-600">{manager.sleeper_user_id || '-'}</td>
+                    <td className="px-3 py-2 align-top">
+                      {isEmailEditing ? (
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap gap-2">
+                            {Array.isArray(emailEdit.emails) && emailEdit.emails.length ? (
+                              emailEdit.emails.map((email, index) => {
+                                const normalizedEmail = typeof email === 'string' ? email : '';
+                                if (!normalizedEmail) {
+                                  return null;
+                                }
+                                const isPrimary = index === 0;
+                                return (
+                                  <span
+                                    key={`${normalizedEmail}-${index}`}
+                                    className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium"
                                   >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </span>
-                              );
-                            })
-                          ) : (
-                            <span className="text-xs text-gray-500">No email addresses added yet.</span>
-                          )}
-                        </div>
-                        <div className="flex flex-col lg:flex-row lg:items-center gap-2">
-                          <input
-                            type="email"
-                            placeholder="Add email"
-                            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            value={emailEdit.newEmail}
-                            onChange={(e) =>
-                              setEmailEdit(prev => ({
-                                ...prev,
-                                newEmail: e.target.value,
-                                error: null
-                              }))
-                            }
-                            onKeyDown={handleEmailInputKeyDown}
-                            disabled={emailEdit.loading}
-                          />
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={addEmailToEdit}
-                              className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
-                              disabled={emailEdit.loading}
-                            >
-                              Add Email
-                            </button>
-                            <button
-                              type="button"
-                              onClick={saveEmailEdit}
-                              className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
-                              disabled={emailEdit.loading}
-                            >
-                              {emailEdit.loading ? 'Saving…' : 'Save'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelEmailEdit}
-                              className="text-xs font-medium text-gray-600 hover:underline"
-                              disabled={emailEdit.loading}
-                            >
-                              Cancel
-                            </button>
+                                    <span>{normalizedEmail}</span>
+                                    {isPrimary && (
+                                      <span className="ml-2 text-[10px] uppercase text-indigo-600 font-semibold">Primary</span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => removeEmailFromEdit(normalizedEmail)}
+                                      className="ml-1 inline-flex items-center justify-center text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                                      disabled={emailEdit.loading || isRowSaving}
+                                      aria-label={`Remove ${normalizedEmail}`}
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </span>
+                                );
+                              })
+                            ) : (
+                              <span className="text-xs text-gray-500">No email addresses added yet.</span>
+                            )}
                           </div>
+                          <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+                            <input
+                              type="email"
+                              placeholder="Add email"
+                              className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              value={emailEdit.newEmail}
+                              onChange={(e) =>
+                                setEmailEdit(prev => ({
+                                  ...prev,
+                                  newEmail: e.target.value,
+                                  error: null
+                                }))
+                              }
+                              onKeyDown={handleEmailInputKeyDown}
+                              disabled={emailEdit.loading || isRowSaving}
+                            />
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={addEmailToEdit}
+                                className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                                disabled={emailEdit.loading || isRowSaving}
+                              >
+                                Add Email
+                              </button>
+                            </div>
+                          </div>
+                          {emailEdit.error && (
+                            <div className="text-xs text-red-600">{emailEdit.error}</div>
+                          )}
+                          <div className="text-[11px] text-gray-500">Emails are saved when you select Save.</div>
                         </div>
-                        {emailEdit.error && (
-                          <div className="text-xs text-red-600">{emailEdit.error}</div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2">
+                      ) : (
                         <div className="flex flex-wrap gap-2">
                           {Array.isArray(manager.emails) && manager.emails.length ? (
                             manager.emails.map((email, index) => {
@@ -1317,247 +1418,258 @@ const SleeperAdmin = ({
                             <span className="text-xs text-gray-400">No email addresses configured</span>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => startEmailEdit(manager)}
-                          className="self-start text-xs font-medium text-blue-600 hover:underline"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 align-top">
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        {managerAliases.length ? (
-                          managerAliases.map(alias => (
-                            <div
-                              key={alias.id}
-                              className="border border-gray-200 rounded-md p-2 bg-white"
-                            >
-                              {editingMappingId === alias.id ? (
-                                <div className="space-y-2">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <div className="flex flex-col space-y-1">
-                                      <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
-                                        Season
-                                      </span>
-                                      <input
-                                        type="number"
-                                        className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                        value={editingMapping?.season ?? ''}
-                                        onChange={(e) =>
-                                          setEditingMapping(prev => ({
-                                            ...prev,
-                                            season: e.target.value
-                                          }))
-                                        }
-                                      />
+                      )}
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          {managerAliases.length ? (
+                            managerAliases.map(alias => {
+                              const isEditingAlias = isEditingManager && editingMappingId === alias.id;
+                              return (
+                                <div
+                                  key={alias.id}
+                                  className="border border-gray-200 rounded-md p-2 bg-white"
+                                >
+                                  {isEditingAlias ? (
+                                    <div className="space-y-2">
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <div className="flex flex-col space-y-1">
+                                          <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                                            Season
+                                          </span>
+                                          <input
+                                            type="number"
+                                            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            value={editingMapping?.season ?? ''}
+                                            onChange={(e) =>
+                                              setEditingMapping(prev => ({
+                                                ...prev,
+                                                season: e.target.value
+                                              }))
+                                            }
+                                          />
+                                        </div>
+                                        <div className="flex flex-col space-y-1">
+                                          <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                                            Sleeper User ID
+                                          </span>
+                                          <input
+                                            type="text"
+                                            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            value={editingMapping?.sleeper_user_id ?? ''}
+                                            onChange={(e) =>
+                                              setEditingMapping(prev => ({
+                                                ...prev,
+                                                sleeper_user_id: e.target.value
+                                              }))
+                                            }
+                                          />
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={saveEditMapping}
+                                          className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700"
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingMappingId(null);
+                                            setEditingMapping({});
+                                          }}
+                                          className="text-xs font-medium text-gray-600 hover:underline"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
                                     </div>
-                                    <div className="flex flex-col space-y-1">
-                                      <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
-                                        Sleeper User ID
-                                      </span>
-                                      <input
-                                        type="text"
-                                        className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                        value={editingMapping?.sleeper_user_id ?? ''}
-                                        onChange={(e) =>
-                                          setEditingMapping(prev => ({
-                                            ...prev,
-                                            sleeper_user_id: e.target.value
-                                          }))
-                                        }
-                                      />
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="font-semibold text-gray-700">
+                                          Season {alias.season ?? '—'}
+                                        </span>
+                                        {isEditingManager && (
+                                          <div className="flex items-center gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => startEditMapping(alias)}
+                                              className="text-blue-600 hover:underline"
+                                            >
+                                              Edit
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => deleteMapping(alias.id)}
+                                              className="text-red-600 hover:underline"
+                                            >
+                                              Delete
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="text-sm font-mono text-gray-700 break-all">
+                                        {alias.sleeper_user_id || '—'}
+                                      </div>
                                     </div>
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={saveEditMapping}
-                                      className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700"
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingMappingId(null);
-                                        setEditingMapping({});
-                                      }}
-                                      className="text-xs font-medium text-gray-600 hover:underline"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
+                                  )}
                                 </div>
-                              ) : (
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold text-gray-700">
-                                      Season {alias.season ?? '—'}
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => startEditMapping(alias)}
-                                        className="text-blue-600 hover:underline"
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => deleteMapping(alias.id)}
-                                        className="text-red-600 hover:underline"
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </div>
-                                  <div className="text-sm font-mono text-gray-700 break-all">
-                                    {alias.sleeper_user_id || '—'}
-                                  </div>
-                                </div>
-                              )}
+                              );
+                            })
+                          ) : (
+                            <span className="text-xs text-gray-400">No aliases configured</span>
+                          )}
+                        </div>
+                        {isAddingAlias ? (
+                          <div className="bg-gray-50 border border-dashed border-gray-300 rounded-md p-3 space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <input
+                                type="number"
+                                placeholder="Season"
+                                className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                value={aliasAddState.season}
+                                onChange={(e) =>
+                                  setAliasAddState(prev => ({
+                                    ...prev,
+                                    season: e.target.value,
+                                    error: null
+                                  }))
+                                }
+                                disabled={aliasAddState.loading || isRowSaving}
+                              />
+                              <input
+                                type="text"
+                                placeholder="Sleeper User ID"
+                                className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                value={aliasAddState.sleeper_user_id}
+                                onChange={(e) =>
+                                  setAliasAddState(prev => ({
+                                    ...prev,
+                                    sleeper_user_id: e.target.value,
+                                    error: null
+                                  }))
+                                }
+                                disabled={aliasAddState.loading || isRowSaving}
+                              />
                             </div>
-                          ))
+                            {aliasAddState.error && (
+                              <div className="text-xs text-red-600">{aliasAddState.error}</div>
+                            )}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={saveAliasAdd}
+                                className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+                                disabled={aliasAddState.loading || isRowSaving}
+                              >
+                                {aliasAddState.loading ? 'Saving…' : 'Save Alias'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelAliasAdd}
+                                className="text-xs font-medium text-gray-600 hover:underline disabled:opacity-50"
+                                disabled={aliasAddState.loading || isRowSaving}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
                         ) : (
-                          <span className="text-xs text-gray-400">No aliases configured</span>
+                          isEditingManager && (
+                            <button
+                              type="button"
+                              onClick={() => startAliasAdd(manager)}
+                              className="text-xs font-medium text-blue-600 hover:underline"
+                            >
+                              Add Alias
+                            </button>
+                          )
                         )}
                       </div>
-                      {isAddingAlias ? (
-                        <div className="bg-gray-50 border border-dashed border-gray-300 rounded-md p-3 space-y-2">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${manager.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {manager.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      {isPasscodeEditing ? (
+                        <div className="space-y-2">
+                          <div className="flex flex-col lg:flex-row lg:items-center gap-2">
                             <input
-                              type="number"
-                              placeholder="Season"
+                              type="password"
+                              placeholder="New passcode"
                               className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                              value={aliasAddState.season}
+                              value={passcodeEdit.passcode}
                               onChange={(e) =>
-                                setAliasAddState(prev => ({
+                                setPasscodeEdit(prev => ({
                                   ...prev,
-                                  season: e.target.value,
+                                  passcode: e.target.value,
                                   error: null
                                 }))
                               }
-                              disabled={aliasAddState.loading}
+                              disabled={passcodeEdit.loading || isRowSaving}
                             />
                             <input
-                              type="text"
-                              placeholder="Sleeper User ID"
+                              type="password"
+                              placeholder="Confirm passcode"
                               className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                              value={aliasAddState.sleeper_user_id}
+                              value={passcodeEdit.confirm}
                               onChange={(e) =>
-                                setAliasAddState(prev => ({
+                                setPasscodeEdit(prev => ({
                                   ...prev,
-                                  sleeper_user_id: e.target.value,
+                                  confirm: e.target.value,
                                   error: null
                                 }))
                               }
-                              disabled={aliasAddState.loading}
+                              disabled={passcodeEdit.loading || isRowSaving}
                             />
                           </div>
-                          {aliasAddState.error && (
-                            <div className="text-xs text-red-600">{aliasAddState.error}</div>
+                          {passcodeEdit.error && (
+                            <div className="text-xs text-red-600">{passcodeEdit.error}</div>
                           )}
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={saveAliasAdd}
-                              className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
-                              disabled={aliasAddState.loading}
-                            >
-                              {aliasAddState.loading ? 'Saving…' : 'Save Alias'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelAliasAdd}
-                              className="text-xs font-medium text-gray-600 hover:underline disabled:opacity-50"
-                              disabled={aliasAddState.loading}
-                            >
-                              Cancel
-                            </button>
-                          </div>
+                          <div className="text-[11px] text-gray-500">Leave blank to keep the current passcode.</div>
                         </div>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => startAliasAdd(manager)}
-                          className="text-xs font-medium text-blue-600 hover:underline"
-                        >
-                          Add Alias
-                        </button>
+                        <span className="text-xs text-gray-500">Use Edit to update passcode</span>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${manager.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {manager.active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    {passcodeEdit.managerId === manager.name_id ? (
-                      <div className="space-y-2">
-                        <div className="flex flex-col lg:flex-row lg:items-center gap-2">
-                          <input
-                            type="password"
-                            placeholder="New passcode"
-                            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            value={passcodeEdit.passcode}
-                            onChange={(e) =>
-                              setPasscodeEdit(prev => ({
-                                ...prev,
-                                passcode: e.target.value,
-                                error: null
-                              }))
-                            }
-                            disabled={passcodeEdit.loading}
-                          />
-                          <input
-                            type="password"
-                            placeholder="Confirm passcode"
-                            className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            value={passcodeEdit.confirm}
-                            onChange={(e) =>
-                              setPasscodeEdit(prev => ({
-                                ...prev,
-                                confirm: e.target.value,
-                                error: null
-                              }))
-                            }
-                            disabled={passcodeEdit.loading}
-                          />
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={savePasscodeEdit}
-                              className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
-                              disabled={passcodeEdit.loading}
-                            >
-                              {passcodeEdit.loading ? 'Saving…' : 'Save'}
-                            </button>
-                            <button
-                              onClick={cancelPasscodeEdit}
-                              className="text-xs font-medium text-gray-600 hover:underline"
-                              disabled={passcodeEdit.loading}
-                            >
-                              Cancel
-                            </button>
-                          </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      {isEditingManager ? (
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={cancelManagerRowEdit}
+                            className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50"
+                            disabled={isRowSaving}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={saveManagerRowEdit}
+                            className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                            disabled={isRowSaving}
+                          >
+                            {isRowSaving ? 'Saving…' : 'Save'}
+                          </button>
                         </div>
-                        {passcodeEdit.error && (
-                          <div className="text-xs text-red-600">{passcodeEdit.error}</div>
-                        )}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => startPasscodeEdit(manager)}
-                        className="text-sm font-medium text-blue-600 hover:underline"
-                      >
-                        Set Passcode
-                      </button>
-                    )}
-                  </td>
+                      ) : (
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => startManagerRowEdit(manager)}
+                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-200"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
