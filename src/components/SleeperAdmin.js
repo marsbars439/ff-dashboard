@@ -264,6 +264,10 @@ const SleeperAdmin = ({
       .join(' ');
   };
 
+  const getStatusForYear = (year) => {
+    return syncStatus.find(s => s.year === year);
+  };
+
   const modalManager = managerModalManager
     ? managers.find(manager => manager.id === managerModalManager.id) || managerModalManager
     : null;
@@ -1287,10 +1291,6 @@ const SleeperAdmin = ({
       default:
         return <Clock className="w-4 h-4 text-gray-400" />;
     }
-  };
-
-  const getStatusForYear = (year) => {
-    return syncStatus.find(s => s.year === year);
   };
 
   const managerNameMap = useMemo(() => {
