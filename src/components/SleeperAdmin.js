@@ -104,19 +104,18 @@ const SleeperAdmin = ({
   };
 
   const areEmailListsEqual = (listA, listB) => {
-    const normalizeList = (list) => {
+    const normalizeListPreservingOrder = (list) => {
       if (!Array.isArray(list)) {
         return [];
       }
 
       return list
         .map(value => (typeof value === 'string' ? value.trim().toLowerCase() : ''))
-        .filter(Boolean)
-        .sort();
+        .filter(Boolean);
     };
 
-    const normalizedA = normalizeList(listA);
-    const normalizedB = normalizeList(listB);
+    const normalizedA = normalizeListPreservingOrder(listA);
+    const normalizedB = normalizeListPreservingOrder(listB);
 
     if (normalizedA.length !== normalizedB.length) {
       return false;
