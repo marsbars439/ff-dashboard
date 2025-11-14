@@ -355,12 +355,34 @@ const SleeperAdmin = ({
 
   const updateLeagueId = async (year, leagueId) => {
     const numericYear = Number(year);
+
+    if (!adminAuthToken) {
+      setMessage({ type: 'error', text: 'Admin authentication is required to update the league ID.' });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/league-settings/${year}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminAuthToken
+        },
         body: JSON.stringify({ league_id: leagueId })
       });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
+        setMessage({ type: 'error', text: errorMessage });
+        setTimeout(() => setMessage(null), 3000);
+        if (onAdminSessionInvalid) {
+          onAdminSessionInvalid();
+        }
+        return;
+      }
 
       if (response.ok) {
         setLeagueSettings(prev => ({ ...prev, [year]: leagueId }));
@@ -541,12 +563,32 @@ const SleeperAdmin = ({
       return;
     }
 
+    if (!adminAuthToken) {
+      setSeasonModalSeasons([]);
+      setSeasonModalError('Admin authentication is required to load season data.');
+      return;
+    }
+
     setSeasonModalLoading(true);
     setSeasonModalError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/team-seasons/${year}`);
+      const response = await fetch(`${API_BASE_URL}/team-seasons/${year}`, {
+        headers: {
+          'X-Admin-Token': adminAuthToken
+        }
+      });
       const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
+        setSeasonModalSeasons([]);
+        setSeasonModalError(errorMessage);
+        if (onAdminSessionInvalid) {
+          onAdminSessionInvalid();
+        }
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data?.error || 'Failed to load season data');
@@ -618,16 +660,39 @@ const SleeperAdmin = ({
     const previousSource = seasonModalDataSource;
     const numericYear = seasonModalYear;
 
+    if (!adminAuthToken) {
+      setMessage({
+        type: 'error',
+        text: 'Admin authentication is required to update the season data source.'
+      });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
     setSeasonModalDataSource(nextSource);
 
     try {
       const response = await fetch(`${API_BASE_URL}/league-settings/${numericYear}/manual-complete`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminAuthToken
+        },
         body: JSON.stringify({ complete: nextSource === 'manual' })
       });
 
       const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
+        setSeasonModalDataSource(previousSource);
+        setMessage({ type: 'error', text: errorMessage });
+        setTimeout(() => setMessage(null), 3000);
+        if (onAdminSessionInvalid) {
+          onAdminSessionInvalid();
+        }
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data?.error || 'Failed to update data source');
@@ -771,16 +836,35 @@ const SleeperAdmin = ({
       high_game: seasonModalEditedRow.high_game ?? null
     };
 
+    if (!adminAuthToken) {
+      setMessage({ type: 'error', text: 'Admin authentication is required to update season data.' });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
     setSeasonModalSaving(true);
 
     try {
       const response = await fetch(`${API_BASE_URL}/team-seasons/${seasonModalEditingId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminAuthToken
+        },
         body: JSON.stringify(payload)
       });
 
       const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
+        setMessage({ type: 'error', text: errorMessage });
+        setTimeout(() => setMessage(null), 3000);
+        if (onAdminSessionInvalid) {
+          onAdminSessionInvalid();
+        }
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data?.error || 'Failed to update season data');
@@ -828,15 +912,37 @@ const SleeperAdmin = ({
     const formData = new FormData();
     formData.append('file', file);
 
+    if (!adminAuthToken) {
+      setMessage({ type: 'error', text: 'Admin authentication is required to upload season data.' });
+      setTimeout(() => setMessage(null), 3000);
+      if (event.target) {
+        event.target.value = '';
+      }
+      return;
+    }
+
     setSeasonModalUploadLoading(true);
 
     try {
       const response = await fetch(`${API_BASE_URL}/upload-excel`, {
         method: 'POST',
+        headers: {
+          'X-Admin-Token': adminAuthToken
+        },
         body: formData
       });
 
       const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
+        setMessage({ type: 'error', text: errorMessage });
+        setTimeout(() => setMessage(null), 3000);
+        if (onAdminSessionInvalid) {
+          onAdminSessionInvalid();
+        }
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data?.error || 'Failed to upload file');
