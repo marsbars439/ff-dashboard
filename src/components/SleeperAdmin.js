@@ -179,6 +179,22 @@ const SleeperAdmin = ({
     return '';
   };
 
+  const normalizeManagerNameForSort = (value) => {
+    if (typeof value === 'string') {
+      return value.toLowerCase();
+    }
+
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    try {
+      return String(value).toLowerCase();
+    } catch (error) {
+      return '';
+    }
+  };
+
   const sortedManagers = useMemo(() => {
     return managers
       .filter(manager => manager && typeof manager === 'object')
@@ -603,8 +619,8 @@ const SleeperAdmin = ({
               if (rankA !== rankB) {
                 return rankA - rankB;
               }
-              const nameA = (a?.manager_name || '').toLowerCase();
-              const nameB = (b?.manager_name || '').toLowerCase();
+              const nameA = normalizeManagerNameForSort(a?.manager_name ?? a?.name_id);
+              const nameB = normalizeManagerNameForSort(b?.manager_name ?? b?.name_id);
               return nameA.localeCompare(nameB);
             })
         : [];
