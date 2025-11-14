@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { RefreshCw, AlertCircle, CheckCircle, Clock, Lock, Unlock, X } from 'lucide-react';
+import {
+  RefreshCw,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Lock,
+  Unlock,
+  X,
+  Upload,
+  Edit3,
+  Save
+} from 'lucide-react';
 import { formatDateTimeForDisplay } from '../utils/date';
 
 const INITIAL_ALIAS_ADD_STATE = {
@@ -50,6 +61,17 @@ const SleeperAdmin = ({
   const [managerRowEditingId, setManagerRowEditingId] = useState(null);
   const [managerRowSaving, setManagerRowSaving] = useState(false);
   const [managerModalManager, setManagerModalManager] = useState(null);
+  const [seasonModalYear, setSeasonModalYear] = useState(null);
+  const [seasonModalOpen, setSeasonModalOpen] = useState(false);
+  const [seasonModalLoading, setSeasonModalLoading] = useState(false);
+  const [seasonModalError, setSeasonModalError] = useState(null);
+  const [seasonModalSeasons, setSeasonModalSeasons] = useState([]);
+  const [seasonModalDataSource, setSeasonModalDataSource] = useState('sleeper');
+  const [seasonModalLeagueId, setSeasonModalLeagueId] = useState('');
+  const [seasonModalEditingId, setSeasonModalEditingId] = useState(null);
+  const [seasonModalEditedRow, setSeasonModalEditedRow] = useState(null);
+  const [seasonModalSaving, setSeasonModalSaving] = useState(false);
+  const [seasonModalUploadLoading, setSeasonModalUploadLoading] = useState(false);
 
   const adminAuthToken = typeof adminToken === 'string' ? adminToken.trim() : '';
 
@@ -233,6 +255,10 @@ const SleeperAdmin = ({
       ? aliasesByManager[modalManager.name_id]
       : []
     : [];
+  const isSeasonModalVisible = Boolean(seasonModalOpen && seasonModalYear != null);
+  const seasonModalStatus = isSeasonModalVisible ? getStatusForYear(seasonModalYear) : null;
+  const seasonModalManual = Boolean(seasonModalStatus?.manual_complete);
+  const isManualSeasonMode = seasonModalDataSource === 'manual';
   const isEmailEditActive = Boolean(modalManager && emailEdit.managerId === modalManager.id);
   const displayedEmails = isEmailEditActive && Array.isArray(emailEdit.emails)
     ? emailEdit.emails
@@ -506,6 +532,331 @@ const SleeperAdmin = ({
     }
   };
 
+  const fetchSeasonModalSeasons = async (year) => {
+    if (!Number.isInteger(year)) {
+      setSeasonModalSeasons([]);
+      setSeasonModalError('A valid season year is required to load season data.');
+      return;
+    }
+
+    setSeasonModalLoading(true);
+    setSeasonModalError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/team-seasons/${year}`);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to load season data');
+      }
+
+      const seasons = Array.isArray(data?.teamSeasons)
+        ? [...data.teamSeasons].sort((a, b) => {
+            const rankA = Number(a?.regular_season_rank) || 99;
+            const rankB = Number(b?.regular_season_rank) || 99;
+            if (rankA !== rankB) {
+              return rankA - rankB;
+            }
+            const nameA = (a?.manager_name || '').toLowerCase();
+            const nameB = (b?.manager_name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+          })
+        : [];
+
+      setSeasonModalSeasons(seasons);
+    } catch (error) {
+      console.error('Error loading season data:', error);
+      setSeasonModalSeasons([]);
+      setSeasonModalError(error.message || 'Failed to load season data');
+    } finally {
+      setSeasonModalLoading(false);
+    }
+  };
+
+  const openSeasonModal = (year) => {
+    const numericYear = Number(year);
+
+    if (!Number.isInteger(numericYear)) {
+      return;
+    }
+
+    const status = getStatusForYear(numericYear);
+    setSeasonModalYear(numericYear);
+    setSeasonModalOpen(true);
+    setSeasonModalEditingId(null);
+    setSeasonModalEditedRow(null);
+    setSeasonModalError(null);
+    setSeasonModalDataSource(status?.manual_complete ? 'manual' : 'sleeper');
+    setSeasonModalLeagueId(leagueSettings?.[numericYear] || '');
+    fetchSeasonModalSeasons(numericYear);
+  };
+
+  const closeSeasonModal = () => {
+    setSeasonModalOpen(false);
+    setSeasonModalYear(null);
+    setSeasonModalSeasons([]);
+    setSeasonModalEditingId(null);
+    setSeasonModalEditedRow(null);
+    setSeasonModalLoading(false);
+    setSeasonModalError(null);
+    setSeasonModalUploadLoading(false);
+  };
+
+  const handleSeasonDataSourceChange = async (nextSource) => {
+    if (!isSeasonModalVisible) {
+      return;
+    }
+
+    if (nextSource !== 'manual' && nextSource !== 'sleeper') {
+      return;
+    }
+
+    const previousSource = seasonModalDataSource;
+    const numericYear = seasonModalYear;
+
+    setSeasonModalDataSource(nextSource);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/league-settings/${numericYear}/manual-complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ complete: nextSource === 'manual' })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to update data source');
+      }
+
+      const successMessage =
+        nextSource === 'manual'
+          ? `Season ${numericYear} set to manual management.`
+          : `Season ${numericYear} set to Sleeper sync.`;
+      setMessage({ type: 'success', text: successMessage });
+      setTimeout(() => setMessage(null), 3000);
+
+      fetchSyncStatus();
+      if (onDataUpdate) {
+        onDataUpdate({ silent: true });
+      }
+    } catch (error) {
+      console.error('Error updating data source:', error);
+      setSeasonModalDataSource(previousSource);
+      setMessage({ type: 'error', text: error.message || 'Failed to update data source' });
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const handleSeasonLeagueIdSave = async () => {
+    if (!isSeasonModalVisible) {
+      return;
+    }
+
+    const trimmedLeagueId = (seasonModalLeagueId || '').trim();
+    await updateLeagueId(seasonModalYear, trimmedLeagueId);
+    if (onDataUpdate) {
+      onDataUpdate({ silent: true });
+    }
+  };
+
+  const startSeasonRowEdit = (season) => {
+    if (!season || !season.id) {
+      return;
+    }
+
+    setSeasonModalEditingId(season.id);
+    setSeasonModalEditedRow({
+      ...season,
+      name_id: season.name_id || '',
+      team_name: season.team_name || '',
+      wins: season.wins ?? 0,
+      losses: season.losses ?? 0,
+      points_for: season.points_for ?? 0,
+      points_against: season.points_against ?? 0,
+      regular_season_rank:
+        season.regular_season_rank === null || season.regular_season_rank === undefined
+          ? ''
+          : season.regular_season_rank,
+      playoff_finish: season.playoff_finish || '',
+      dues: season.dues ?? 0,
+      payout: season.payout ?? 0,
+      dues_chumpion: season.dues_chumpion ?? 0,
+      high_game: season.high_game ?? null
+    });
+  };
+
+  const cancelSeasonRowEdit = () => {
+    setSeasonModalEditingId(null);
+    setSeasonModalEditedRow(null);
+  };
+
+  const updateSeasonEditedField = (field, value) => {
+    setSeasonModalEditedRow(prev => {
+      if (!prev) {
+        return prev;
+      }
+
+      const next = { ...prev };
+
+      switch (field) {
+        case 'name_id':
+          next.name_id = value;
+          break;
+        case 'team_name':
+          next.team_name = value;
+          break;
+        case 'wins':
+        case 'losses':
+          next[field] = Number.isNaN(Number(value)) ? 0 : Number(value);
+          break;
+        case 'points_for':
+        case 'points_against':
+        case 'dues':
+        case 'payout':
+        case 'dues_chumpion':
+          next[field] = Number.isNaN(Number(value)) ? 0 : Number(value);
+          break;
+        case 'regular_season_rank':
+          next.regular_season_rank = value === '' ? '' : Number(value);
+          break;
+        case 'playoff_finish':
+          next.playoff_finish = value;
+          break;
+        default:
+          next[field] = value;
+          break;
+      }
+
+      return next;
+    });
+  };
+
+  const saveSeasonRowEdit = async () => {
+    if (!seasonModalEditedRow || !seasonModalEditingId) {
+      return;
+    }
+
+    if (!seasonModalEditedRow.name_id) {
+      setMessage({ type: 'error', text: 'Select a manager before saving season data.' });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
+    const numericYear = seasonModalYear;
+    const payload = {
+      ...seasonModalEditedRow,
+      year: numericYear,
+      name_id: seasonModalEditedRow.name_id,
+      team_name: seasonModalEditedRow.team_name || '',
+      wins: Number(seasonModalEditedRow.wins) || 0,
+      losses: Number(seasonModalEditedRow.losses) || 0,
+      points_for: Number(seasonModalEditedRow.points_for) || 0,
+      points_against: Number(seasonModalEditedRow.points_against) || 0,
+      regular_season_rank:
+        seasonModalEditedRow.regular_season_rank === '' || seasonModalEditedRow.regular_season_rank === null
+          ? null
+          : Number(seasonModalEditedRow.regular_season_rank),
+      playoff_finish: seasonModalEditedRow.playoff_finish || null,
+      dues: Number(seasonModalEditedRow.dues) || 0,
+      payout: Number(seasonModalEditedRow.payout) || 0,
+      dues_chumpion:
+        seasonModalEditedRow.dues_chumpion === '' || seasonModalEditedRow.dues_chumpion === null
+          ? 0
+          : Number(seasonModalEditedRow.dues_chumpion),
+      high_game: seasonModalEditedRow.high_game ?? null
+    };
+
+    setSeasonModalSaving(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/team-seasons/${seasonModalEditingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to update season data');
+      }
+
+      const managerLabel = managerNameMap[payload.name_id] || payload.name_id;
+      setSeasonModalSeasons(prev =>
+        prev.map(season =>
+          season.id === seasonModalEditingId
+            ? {
+                ...season,
+                ...payload,
+                manager_name: managerLabel
+              }
+            : season
+        )
+      );
+      setSeasonModalEditingId(null);
+      setSeasonModalEditedRow(null);
+      setMessage({ type: 'success', text: `Updated season data for ${managerLabel} (${numericYear})` });
+      setTimeout(() => setMessage(null), 3000);
+
+      if (onDataUpdate) {
+        onDataUpdate({ silent: true });
+      }
+    } catch (error) {
+      console.error('Error saving season data:', error);
+      setMessage({ type: 'error', text: error.message || 'Failed to update season data' });
+      setTimeout(() => setMessage(null), 3000);
+    } finally {
+      setSeasonModalSaving(false);
+    }
+  };
+
+  const handleSeasonFileUpload = async (event) => {
+    if (!isSeasonModalVisible) {
+      return;
+    }
+
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setSeasonModalUploadLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/upload-excel`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to upload file');
+      }
+
+      setMessage({ type: 'success', text: 'Season data imported successfully.' });
+      setTimeout(() => setMessage(null), 3000);
+
+      fetchSeasonModalSeasons(seasonModalYear);
+      if (onDataUpdate) {
+        onDataUpdate({ silent: true });
+      }
+    } catch (error) {
+      console.error('Error uploading season data:', error);
+      setMessage({ type: 'error', text: error.message || 'Failed to upload file' });
+      setTimeout(() => setMessage(null), 3000);
+    } finally {
+      setSeasonModalUploadLoading(false);
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
   const syncSeason = async (year, options = {}) => {
     const { silent = false, preserveManualFields = true } = options;
     const leagueId = leagueSettings[year];
@@ -601,6 +952,27 @@ const SleeperAdmin = ({
       setManagerModalManager(latest);
     }
   }, [managers, managerModalManager]);
+
+  useEffect(() => {
+    if (!isSeasonModalVisible) {
+      return;
+    }
+
+    const status = getStatusForYear(seasonModalYear);
+    const desiredSource = status?.manual_complete ? 'manual' : 'sleeper';
+    if (desiredSource && desiredSource !== seasonModalDataSource) {
+      setSeasonModalDataSource(desiredSource);
+    }
+  }, [isSeasonModalVisible, seasonModalYear, seasonModalDataSource, syncStatus]);
+
+  useEffect(() => {
+    if (!isSeasonModalVisible) {
+      return;
+    }
+
+    const nextLeagueId = leagueSettings?.[seasonModalYear] || '';
+    setSeasonModalLeagueId(nextLeagueId);
+  }, [isSeasonModalVisible, seasonModalYear, leagueSettings]);
 
   const startAliasAdd = (manager) => {
     if (!manager || manager.name_id == null) {
@@ -1245,6 +1617,13 @@ const SleeperAdmin = ({
                           <span className="block text-xs text-gray-500">{autoSyncMessage}</span>
                           <div className="flex flex-wrap gap-2">
                             <button
+                              onClick={() => openSeasonModal(year)}
+                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                              type="button"
+                            >
+                              <Edit3 className="w-3 h-3 mr-1" /> Manage Season
+                            </button>
+                            <button
                               onClick={() => toggleKeeperLock(year, !isKeeperLocked)}
                               disabled={isKeeperLockUpdating}
                               className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -1316,9 +1695,349 @@ const SleeperAdmin = ({
                 })}
               </tbody>
             </table>
+        </div>
+      </div>
+    </div>
+
+    {isSeasonModalVisible && (
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex items-start justify-between px-6 py-4 border-b border-gray-200">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">
+                Season Management · {seasonModalYear}
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {seasonModalManual ? 'Manual data entry enabled' : 'Sleeper sync active'} ·{' '}
+                {(seasonModalStatus?.team_count || seasonModalSeasons.length || 0)} teams tracked
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeSeasonModal}
+              className="text-gray-400 hover:text-gray-600"
+              aria-label="Close season management dialog"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="px-6 py-4 space-y-6">
+            {seasonModalError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {seasonModalError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 space-y-2">
+                <label className="text-sm font-medium text-gray-700">Data Source</label>
+                <select
+                  value={seasonModalDataSource}
+                  onChange={e => handleSeasonDataSourceChange(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                >
+                  <option value="sleeper">Sleeper</option>
+                  <option value="manual">Manual</option>
+                </select>
+                <p className="text-xs text-gray-500">
+                  Choose whether this season should sync automatically from Sleeper or be managed manually.
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-semibold uppercase text-gray-500">Sync Status</p>
+                <p className="mt-1 text-sm font-medium text-gray-900">
+                  {formatSyncStatusLabel(seasonModalStatus?.sync_status)}
+                </p>
+                <p className="mt-2 text-xs text-gray-500">
+                  Last sync:{' '}
+                  {seasonModalStatus?.last_sync
+                    ? formatDateTimeForDisplay(seasonModalStatus.last_sync)
+                    : '—'}
+                </p>
+              </div>
+            </div>
+
+            {seasonModalDataSource === 'sleeper' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Sleeper League ID</label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={seasonModalLeagueId}
+                    onChange={e => setSeasonModalLeagueId(e.target.value)}
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    placeholder="Enter league ID"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSeasonLeagueIdSave}
+                    className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    Save League ID
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Updating the league ID will refresh Sleeper sync settings for this season.
+                </p>
+              </div>
+            )}
+
+            {seasonModalDataSource === 'manual' && (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <Upload className="mx-auto h-10 w-10 text-gray-400" />
+                <div className="mt-4">
+                  <label className="cursor-pointer text-sm font-medium text-gray-900">
+                    <span>{seasonModalUploadLoading ? 'Uploading…' : 'Upload Excel file to import season data'}</span>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      className="sr-only"
+                      onChange={handleSeasonFileUpload}
+                      disabled={seasonModalUploadLoading}
+                    />
+                  </label>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Uploading a file replaces existing season records with the contents of the spreadsheet.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-gray-900">Season Data</h4>
+                {!seasonModalLoading && seasonModalSeasons.length > 0 && (
+                  <span className="text-xs text-gray-500">
+                    {isManualSeasonMode
+                      ? 'All fields are editable while in Manual mode.'
+                      : 'Only financial fields are editable while syncing from Sleeper.'}
+                  </span>
+                )}
+              </div>
+
+              {seasonModalLoading ? (
+                <div className="flex items-center justify-center py-12 text-gray-500">
+                  <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading season data...
+                </div>
+              ) : seasonModalSeasons.length === 0 ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-600">
+                  No season records found for {seasonModalYear}. Upload data or sync from Sleeper to get started.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Year</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Manager</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Team</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">W-L</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">PF</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">PA</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Rank</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Playoff</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Dues</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Payout</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Chumpion</th>
+                        <th className="px-3 py-2 text-right font-medium text-gray-600">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {seasonModalSeasons.map(season => {
+                        const isEditing = seasonModalEditingId === season.id;
+                        const managerLabel = managerNameMap[season.name_id] || season.manager_name || season.name_id;
+                        const edited = seasonModalEditedRow || {};
+
+                        return (
+                          <tr key={season.id} className="bg-white">
+                            <td className="px-3 py-2 text-sm text-gray-600">{season.year}</td>
+                            <td className="px-3 py-2">
+                              {isEditing && isManualSeasonMode ? (
+                                <select
+                                  value={edited.name_id ?? ''}
+                                  onChange={e => updateSeasonEditedField('name_id', e.target.value)}
+                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                >
+                                  <option value="">Select manager</option>
+                                  {sortedManagers.map(manager => (
+                                    <option key={manager.name_id || manager.id} value={manager.name_id || ''}>
+                                      {getManagerName(manager)}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className="text-sm text-gray-900">{managerLabel}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {isEditing && isManualSeasonMode ? (
+                                <input
+                                  type="text"
+                                  value={edited.team_name ?? ''}
+                                  onChange={e => updateSeasonEditedField('team_name', e.target.value)}
+                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                />
+                              ) : (
+                                <span className="text-sm text-gray-700">{season.team_name}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {isEditing && isManualSeasonMode ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    value={edited.wins ?? 0}
+                                    onChange={e => updateSeasonEditedField('wins', e.target.value)}
+                                    className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                  />
+                                  <span className="text-xs text-gray-500">-</span>
+                                  <input
+                                    type="number"
+                                    value={edited.losses ?? 0}
+                                    onChange={e => updateSeasonEditedField('losses', e.target.value)}
+                                    className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-sm text-gray-700">{season.wins}-{season.losses}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {isEditing && isManualSeasonMode ? (
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={edited.points_for ?? 0}
+                                  onChange={e => updateSeasonEditedField('points_for', e.target.value)}
+                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                />
+                              ) : (
+                                <span className="text-sm text-gray-700">{season.points_for}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {isEditing && isManualSeasonMode ? (
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={edited.points_against ?? 0}
+                                  onChange={e => updateSeasonEditedField('points_against', e.target.value)}
+                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                />
+                              ) : (
+                                <span className="text-sm text-gray-700">{season.points_against}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {isEditing && isManualSeasonMode ? (
+                                <input
+                                  type="number"
+                                  value={edited.regular_season_rank === '' ? '' : edited.regular_season_rank ?? ''}
+                                  onChange={e => updateSeasonEditedField('regular_season_rank', e.target.value)}
+                                  className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                />
+                              ) : (
+                                <span className="text-sm text-gray-700">{season.regular_season_rank ?? '—'}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {isEditing && isManualSeasonMode ? (
+                                <input
+                                  type="text"
+                                  value={edited.playoff_finish ?? ''}
+                                  onChange={e => updateSeasonEditedField('playoff_finish', e.target.value)}
+                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                />
+                              ) : (
+                                <span className="text-sm text-gray-700">{season.playoff_finish || '—'}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={edited.dues ?? 0}
+                                  onChange={e => updateSeasonEditedField('dues', e.target.value)}
+                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                />
+                              ) : (
+                                <span className="text-sm font-medium text-gray-900">${season.dues}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={edited.payout ?? 0}
+                                  onChange={e => updateSeasonEditedField('payout', e.target.value)}
+                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                />
+                              ) : (
+                                <span className="text-sm font-medium text-gray-900">${season.payout}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={edited.dues_chumpion ?? 0}
+                                  onChange={e => updateSeasonEditedField('dues_chumpion', e.target.value)}
+                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                />
+                              ) : (
+                                <span className="text-sm font-medium text-gray-900">${season.dues_chumpion || 0}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {isEditing ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={saveSeasonRowEdit}
+                                    disabled={seasonModalSaving}
+                                    className="inline-flex items-center rounded-md bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-400"
+                                  >
+                                    {seasonModalSaving ? (
+                                      <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Save className="mr-1 h-3 w-3" />
+                                    )}
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelSeasonRowEdit}
+                                    className="inline-flex items-center rounded-md bg-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-300"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => startSeasonRowEdit(season)}
+                                  className="inline-flex items-center rounded-md bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                                >
+                                  <Edit3 className="mr-1 h-3 w-3" /> Edit
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-    </div>
+      </div>
+    )}
 
     {/* Manager IDs */}
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
