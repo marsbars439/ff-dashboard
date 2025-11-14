@@ -4379,35 +4379,43 @@ const FantasyFootballApp = () => {
               onKeeperLockChange={handleKeeperLockChange}
               onVotingLockChange={handleVotingLockChange}
             >
-              {({ renderMessageBanner, renderDataManagementSection, renderManagerSection }) => (
-                <>
-                  <CollapsibleSection
-                    title={
-                      <div className="flex items-center space-x-2">
-                        <Database className="w-5 h-5 text-blue-500" />
-                        <span>Data Management</span>
+              {({ renderMessageBanner, renderDataManagementSection, renderManagerSection }) => {
+                const banner = renderMessageBanner();
+
+                return (
+                  <>
+                    {banner && (
+                      <div className="mb-4">
+                        {banner}
                       </div>
-                    }
-                  >
-                    <div className="space-y-4">
-                      {renderMessageBanner()}
-                      {renderDataManagementSection()}
-                    </div>
-                  </CollapsibleSection>
-                  <CollapsibleSection
-                    title={
-                      <div className="flex items-center space-x-2">
-                        <Users className="w-5 h-5 text-blue-500" />
-                        <span>Managers</span>
+                    )}
+                    <CollapsibleSection
+                      title={
+                        <div className="flex items-center space-x-2">
+                          <Database className="w-5 h-5 text-blue-500" />
+                          <span>Data Management</span>
+                        </div>
+                      }
+                    >
+                      <div className="space-y-4">
+                        {renderDataManagementSection()}
                       </div>
-                    }
-                  >
-                    <div className="space-y-4">
-                      {renderManagerSection()}
-                    </div>
-                  </CollapsibleSection>
-                </>
-              )}
+                    </CollapsibleSection>
+                    <CollapsibleSection
+                      title={
+                        <div className="flex items-center space-x-2">
+                          <Users className="w-5 h-5 text-blue-500" />
+                          <span>Managers</span>
+                        </div>
+                      }
+                    >
+                      <div className="space-y-4">
+                        {renderManagerSection()}
+                      </div>
+                    </CollapsibleSection>
+                  </>
+                );
+              }}
             </SleeperAdmin>
 
             <CollapsibleSection
