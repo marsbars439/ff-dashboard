@@ -180,15 +180,17 @@ const SleeperAdmin = ({
   };
 
   const sortedManagers = useMemo(() => {
-    return [...managers].sort((a, b) => {
-      if (a?.active !== b?.active) {
-        return Number(Boolean(b?.active)) - Number(Boolean(a?.active));
-      }
+    return managers
+      .filter(manager => manager && typeof manager === 'object')
+      .sort((a, b) => {
+        if (a?.active !== b?.active) {
+          return Number(Boolean(b?.active)) - Number(Boolean(a?.active));
+        }
 
-      const nameA = getManagerName(a);
-      const nameB = getManagerName(b);
-      return nameA.localeCompare(nameB);
-    });
+        const nameA = getManagerName(a);
+        const nameB = getManagerName(b);
+        return nameA.localeCompare(nameB);
+      });
   }, [managers]);
 
   const aliasesByManager = useMemo(() => {
@@ -1865,11 +1867,20 @@ const SleeperAdmin = ({
                                   className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
                                 >
                                   <option value="">Select manager</option>
-                                  {sortedManagers.map(manager => (
-                                    <option key={manager.name_id || manager.id} value={manager.name_id || ''}>
-                                      {getManagerName(manager)}
-                                    </option>
-                                  ))}
+                                  {sortedManagers.map((manager, index) => {
+                                    if (!manager || typeof manager !== 'object') {
+                                      return null;
+                                    }
+
+                                    const optionValue = manager.name_id || '';
+                                    const optionKey = manager.name_id || manager.id || `manager-option-${index}`;
+
+                                    return (
+                                      <option key={optionKey} value={optionValue}>
+                                        {getManagerName(manager)}
+                                      </option>
+                                    );
+                                  })}
                                 </select>
                               ) : (
                                 <span className="text-sm text-gray-900">{managerLabel}</span>
@@ -2062,7 +2073,10 @@ const SleeperAdmin = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {sortedManagers.map(manager => {
+              {sortedManagers.map((manager, index) => {
+                if (!manager || typeof manager !== 'object') {
+                  return null;
+                }
                 const managerAliases = Array.isArray(aliasesByManager[manager.name_id])
                   ? aliasesByManager[manager.name_id]
                   : [];
@@ -2078,8 +2092,10 @@ const SleeperAdmin = ({
                   }
                 });
 
+                const rowKey = manager.id || manager.name_id || `manager-row-${index}`;
+
                 return (
-                  <tr key={manager.id}>
+                  <tr key={rowKey}>
                     <td className="px-3 py-2">
                       <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
                         {getManagerName(manager) || '-'}
