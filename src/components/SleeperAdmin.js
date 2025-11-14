@@ -2893,7 +2893,6 @@ export const SleeperAdminManagersSection = () => {
               </div>
             </div>
           )}
-        </div>
     </>
   );
 };
