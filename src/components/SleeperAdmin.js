@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useContext, useState, useEffect, useMemo, useRef } from 'react';
 import {
   RefreshCw,
   AlertCircle,
@@ -13,6 +13,16 @@ import {
 } from 'lucide-react';
 import { formatDateTimeForDisplay } from '../utils/date';
 
+const SleeperAdminContext = React.createContext(null);
+
+export const useSleeperAdminContext = () => {
+  const context = useContext(SleeperAdminContext);
+  if (!context) {
+    throw new Error('useSleeperAdminContext must be used within a SleeperAdminProvider');
+  }
+  return context;
+};
+
 const INITIAL_ALIAS_ADD_STATE = {
   managerNameId: null,
   season: '',
@@ -21,13 +31,14 @@ const INITIAL_ALIAS_ADD_STATE = {
   error: null
 };
 
-const SleeperAdmin = ({
+export const SleeperAdminProvider = ({
   API_BASE_URL,
   onDataUpdate,
   adminToken,
   onAdminSessionInvalid,
   onKeeperLockChange,
-  onVotingLockChange
+  onVotingLockChange,
+  children
 }) => {
   const [leagueSettings, setLeagueSettings] = useState({});
   const [syncStatus, setSyncStatus] = useState([]);
@@ -1620,615 +1631,973 @@ const SleeperAdmin = ({
     }
   };
 
-  return (
+  const contextValue = {
+    API_BASE_URL,
+    adminAuthToken,
+    onDataUpdate,
+    onAdminSessionInvalid,
+    onKeeperLockChange,
+    onVotingLockChange,
+    message,
+    setMessage,
+    leagueSettings,
+    setLeagueSettings,
+    syncStatus,
+    setSyncStatus,
+    managerMappings,
+    setManagerMappings,
+    managers,
+    setManagers,
+    editingMappingId,
+    setEditingMappingId,
+    editingMapping,
+    setEditingMapping,
+    aliasAddState,
+    setAliasAddState,
+    keeperLockStates,
+    setKeeperLockStates,
+    keeperLockUpdating,
+    setKeeperLockUpdating,
+    keeperLockErrors,
+    setKeeperLockErrors,
+    votingLockStates,
+    setVotingLockStates,
+    votingLockUpdating,
+    setVotingLockUpdating,
+    votingLockErrors,
+    setVotingLockErrors,
+    syncErrors,
+    setSyncErrors,
+    emailEdit,
+    setEmailEdit,
+    passcodeEdit,
+    setPasscodeEdit,
+    managerRowEditingId,
+    setManagerRowEditingId,
+    managerRowSaving,
+    setManagerRowSaving,
+    managerModalManager,
+    setManagerModalManager,
+    seasonModalYear,
+    setSeasonModalYear,
+    seasonModalOpen,
+    setSeasonModalOpen,
+    seasonModalLoading,
+    setSeasonModalLoading,
+    seasonModalError,
+    setSeasonModalError,
+    seasonModalSeasons,
+    setSeasonModalSeasons,
+    seasonModalDataSource,
+    setSeasonModalDataSource,
+    seasonModalLeagueId,
+    setSeasonModalLeagueId,
+    seasonModalEditingId,
+    setSeasonModalEditingId,
+    seasonModalEditedRow,
+    setSeasonModalEditedRow,
+    seasonModalSaving,
+    setSeasonModalSaving,
+    seasonModalUploadLoading,
+    setSeasonModalUploadLoading,
+    years,
+    formatSyncStatusLabel,
+    getStatusForYear,
+    getSyncStatusIcon,
+    modalManager,
+    isModalOpen,
+    modalManagerAliases,
+    isSeasonModalVisible,
+    seasonModalStatus,
+    seasonModalManual,
+    isManualSeasonMode,
+    isEmailEditActive,
+    displayedEmails,
+    pendingEmailValue,
+    isPasscodeEditActive,
+    isAliasAddActive,
+    isAliasSaving,
+    isSaveDisabled,
+    isModalBusy,
+    fetchLeagueSettings,
+    fetchSyncStatus,
+    fetchManagers,
+    fetchMappings,
+    updateLeagueId,
+    fetchSeasonModalSeasons,
+    openSeasonModal,
+    closeSeasonModal,
+    handleSeasonDataSourceChange,
+    handleSeasonLeagueIdSave,
+    startSeasonRowEdit,
+    cancelSeasonRowEdit,
+    updateSeasonEditedField,
+    saveSeasonRowEdit,
+    handleSeasonFileUpload,
+    syncSeason,
+    toggleKeeperLock,
+    toggleVotingLock,
+    startAliasAdd,
+    cancelAliasAdd,
+    saveAliasAdd,
+    startEditMapping,
+    saveEditMapping,
+    deleteMapping,
+    managerNameMap,
+    startEmailEdit,
+    cancelEmailEdit,
+    saveEmailEdit,
+    addEmailToEdit,
+    removeEmailFromEdit,
+    handleEmailInputKeyDown,
+    cancelPasscodeEdit,
+    savePasscodeEdit,
+    cancelManagerRowEdit,
+    startManagerRowEdit,
+    saveManagerRowEdit,
+    aliasesByManager,
+    getManagerName,
+    sortedManagers,
+    isValidEmail,
+    normalizeManagerEmails,
+    areEmailListsEqual,
+    formatManagerRecord,
+    autoSyncYearsRef
+  };
+
+  const content = children ?? (
     <div className="space-y-6">
-      {message && (
-        <div className={`p-3 rounded-lg ${
-          message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-        }`}>
-          {message.text}
-        </div>
-      )}
-      {/* League ID History */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="p-6">
-          <h4 className="text-lg font-semibold mb-4">League ID History</h4>
+      <SleeperAdminMessageBanner />
+      <SleeperAdminDataManagementSection />
+      <SleeperAdminManagersSection />
+    </div>
+  );
+
+  return (
+    <SleeperAdminContext.Provider value={contextValue}>
+      {content}
+    </SleeperAdminContext.Provider>
+  );
+};
+
+export const SleeperAdminMessageBanner = () => {
+  const { message } = useSleeperAdminContext();
+  if (!message) {
+    return null;
+  }
+
+  const bannerStyles = message.type === 'success'
+    ? 'bg-green-100 text-green-700'
+    : 'bg-red-100 text-red-700';
+
+  return (
+    <div className={`p-3 rounded-lg ${bannerStyles}`}>
+      {message.text}
+    </div>
+  );
+};
+
+export const SleeperAdminDataManagementSection = () => {
+  const {
+    years,
+    leagueSettings,
+    setLeagueSettings,
+    getStatusForYear,
+    keeperLockStates,
+    keeperLockUpdating,
+    keeperLockErrors,
+    votingLockStates,
+    votingLockUpdating,
+    votingLockErrors,
+    updateLeagueId,
+    openSeasonModal,
+    toggleKeeperLock,
+    toggleVotingLock,
+    syncErrors,
+    formatSyncStatusLabel,
+    getSyncStatusIcon,
+    isSeasonModalVisible,
+    seasonModalYear,
+    seasonModalManual,
+    seasonModalStatus,
+    closeSeasonModal,
+    seasonModalError,
+    seasonModalDataSource,
+    handleSeasonDataSourceChange,
+    seasonModalLeagueId,
+    setSeasonModalLeagueId,
+    handleSeasonLeagueIdSave,
+    seasonModalUploadLoading,
+    handleSeasonFileUpload,
+    seasonModalLoading,
+    seasonModalSeasons,
+    seasonModalEditingId,
+    seasonModalEditedRow,
+    seasonModalSaving,
+    cancelSeasonRowEdit,
+    startSeasonRowEdit,
+    updateSeasonEditedField,
+    managerNameMap,
+    sortedManagers,
+    isManualSeasonMode,
+    syncSeason
+  } = useSleeperAdminContext();
+
+  return (
+    <>
+            {/* League ID History */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="p-6">
+                <h4 className="text-lg font-semibold mb-4">League ID History</h4>
           
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Year
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    League ID
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Teams
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {years.map(year => {
-                  const status = getStatusForYear(year);
-                  const keeperLockState = keeperLockStates[year] || { locked: false, lockedAt: null, updatedAt: null };
-                  const isKeeperLocked = Boolean(keeperLockState.locked);
-                  const isKeeperLockUpdating = Boolean(keeperLockUpdating[year]);
-                  const keeperLockError = keeperLockErrors[year];
-                  const votingLockState = votingLockStates[year] || { locked: false, lockedAt: null, updatedAt: null };
-                  const isVotingLocked = Boolean(votingLockState.locked);
-                  const isVotingLockUpdating = Boolean(votingLockUpdating[year]);
-                  const votingLockError = votingLockErrors[year];
-                  const sleeperStatusValue = typeof status?.sleeper_status === 'string'
-                    ? status.sleeper_status.toLowerCase()
-                    : null;
-                  const hasLeagueId = Boolean(leagueSettings[year]);
-                  const manualComplete = Boolean(status?.manual_complete);
-                  const autoSyncMessage = (() => {
-                    if (manualComplete) {
-                      return 'Auto sync disabled for manually managed data.';
-                    }
-                    if (!hasLeagueId) {
-                      return 'Enter a Sleeper league ID to enable syncing.';
-                    }
-                    if (sleeperStatusValue === 'complete') {
-                      return 'Sleeper season is complete; syncing has stopped automatically.';
-                    }
-                    if (status?.sync_status === 'syncing') {
-                      return 'Syncing latest data from Sleeper…';
-                    }
-                    if (status?.sync_status === 'failed') {
-                      return 'Last sync attempt failed. Fix issues and reload to try again.';
-                    }
-                    if (status?.sync_status === 'completed') {
-                      return 'Auto sync is active while the season remains in progress.';
-                    }
-                    return 'Awaiting first successful sync.';
-                  })();
-                  return (
-                    <tr key={year}>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {year}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <input
-                          type="text"
-                          className="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-40"
-                          placeholder="Enter league ID"
-                          value={leagueSettings[year] || ''}
-                          onChange={(e) => setLeagueSettings(prev => ({
-                            ...prev,
-                            [year]: e.target.value
-                          }))}
-                          onBlur={(e) => {
-                            if (e.target.value && e.target.value !== status?.league_id) {
-                              updateLeagueId(year, e.target.value);
-                            }
-                          }}
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap align-top">
-                        <div className="flex flex-col space-y-1">
-                          <div className="flex items-center space-x-1">
-                            {status && getSyncStatusIcon(status.sync_status)}
-                            <span className="text-sm text-gray-600">
-                              {formatSyncStatusLabel(status?.sync_status)}
-                            </span>
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {status?.last_sync
-                              ? formatDateTimeForDisplay(status.last_sync)
-                              : '—'}
-                          </span>
-                          {syncErrors[year] && (
-                            <div className="flex items-start space-x-1 text-xs text-red-600">
-                              <AlertCircle className="w-3 h-3 mt-0.5" />
-                              <span>{syncErrors[year]}</span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {status?.team_count || 0}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm align-top">
-                        <div className="space-y-2">
-                          <span className="block text-xs text-gray-500">{autoSyncMessage}</span>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => openSeasonModal(year)}
-                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
-                              type="button"
-                            >
-                              <Edit3 className="w-3 h-3 mr-1" /> Manage Season
-                            </button>
-                            <button
-                              onClick={() => toggleKeeperLock(year, !isKeeperLocked)}
-                              disabled={isKeeperLockUpdating}
-                              className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
-                                isKeeperLocked
-                                  ? 'bg-green-600 hover:bg-green-700'
-                                  : 'bg-red-600 hover:bg-red-700'
-                              }`}
-                            >
-                              {isKeeperLockUpdating ? (
-                                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                              ) : isKeeperLocked ? (
-                                <Unlock className="w-3 h-3 mr-1" />
-                              ) : (
-                                <Lock className="w-3 h-3 mr-1" />
-                              )}
-                              {isKeeperLockUpdating
-                                ? isKeeperLocked
-                                  ? 'Unlocking…'
-                                  : 'Locking…'
-                                : isKeeperLocked
-                                ? 'Unlock Keepers'
-                                : 'Lock Keepers'}
-                            </button>
-                            <button
-                              onClick={() => toggleVotingLock(year, !isVotingLocked)}
-                              disabled={isVotingLockUpdating}
-                              className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
-                                isVotingLocked
-                                  ? 'bg-green-600 hover:bg-green-700'
-                                  : 'bg-blue-600 hover:bg-blue-700'
-                              }`}
-                            >
-                              {isVotingLockUpdating ? (
-                                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                              ) : isVotingLocked ? (
-                                <Unlock className="w-3 h-3 mr-1" />
-                              ) : (
-                                <Lock className="w-3 h-3 mr-1" />
-                              )}
-                              {isVotingLockUpdating
-                                ? isVotingLocked
-                                  ? 'Unlocking…'
-                                  : 'Locking…'
-                                : isVotingLocked
-                                ? 'Unlock Voting'
-                                : 'Lock Voting'}
-                            </button>
-                            {(keeperLockError || votingLockError) && (
-                              <div className="w-full space-y-1 text-xs text-red-600">
-                                {keeperLockError && (
-                                  <div className="flex items-start space-x-1">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Year
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          League ID
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Teams
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {years.map(year => {
+                        const status = getStatusForYear(year);
+                        const keeperLockState = keeperLockStates[year] || { locked: false, lockedAt: null, updatedAt: null };
+                        const isKeeperLocked = Boolean(keeperLockState.locked);
+                        const isKeeperLockUpdating = Boolean(keeperLockUpdating[year]);
+                        const keeperLockError = keeperLockErrors[year];
+                        const votingLockState = votingLockStates[year] || { locked: false, lockedAt: null, updatedAt: null };
+                        const isVotingLocked = Boolean(votingLockState.locked);
+                        const isVotingLockUpdating = Boolean(votingLockUpdating[year]);
+                        const votingLockError = votingLockErrors[year];
+                        const sleeperStatusValue = typeof status?.sleeper_status === 'string'
+                          ? status.sleeper_status.toLowerCase()
+                          : null;
+                        const hasLeagueId = Boolean(leagueSettings[year]);
+                        const manualComplete = Boolean(status?.manual_complete);
+                        const autoSyncMessage = (() => {
+                          if (manualComplete) {
+                            return 'Auto sync disabled for manually managed data.';
+                          }
+                          if (!hasLeagueId) {
+                            return 'Enter a Sleeper league ID to enable syncing.';
+                          }
+                          if (sleeperStatusValue === 'complete') {
+                            return 'Sleeper season is complete; syncing has stopped automatically.';
+                          }
+                          if (status?.sync_status === 'syncing') {
+                            return 'Syncing latest data from Sleeper…';
+                          }
+                          if (status?.sync_status === 'failed') {
+                            return 'Last sync attempt failed. Fix issues and reload to try again.';
+                          }
+                          if (status?.sync_status === 'completed') {
+                            return 'Auto sync is active while the season remains in progress.';
+                          }
+                          return 'Awaiting first successful sync.';
+                        })();
+                        return (
+                          <tr key={year}>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {year}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <input
+                                type="text"
+                                className="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-40"
+                                placeholder="Enter league ID"
+                                value={leagueSettings[year] || ''}
+                                onChange={(e) => setLeagueSettings(prev => ({
+                                  ...prev,
+                                  [year]: e.target.value
+                                }))}
+                                onBlur={(e) => {
+                                  if (e.target.value && e.target.value !== status?.league_id) {
+                                    updateLeagueId(year, e.target.value);
+                                  }
+                                }}
+                              />
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap align-top">
+                              <div className="flex flex-col space-y-1">
+                                <div className="flex items-center space-x-1">
+                                  {status && getSyncStatusIcon(status.sync_status)}
+                                  <span className="text-sm text-gray-600">
+                                    {formatSyncStatusLabel(status?.sync_status)}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-gray-500">
+                                  {status?.last_sync
+                                    ? formatDateTimeForDisplay(status.last_sync)
+                                    : '—'}
+                                </span>
+                                {syncErrors[year] && (
+                                  <div className="flex items-start space-x-1 text-xs text-red-600">
                                     <AlertCircle className="w-3 h-3 mt-0.5" />
-                                    <span>{keeperLockError}</span>
-                                  </div>
-                                )}
-                                {votingLockError && (
-                                  <div className="flex items-start space-x-1">
-                                    <AlertCircle className="w-3 h-3 mt-0.5" />
-                                    <span>{votingLockError}</span>
+                                    <span>{syncErrors[year]}</span>
                                   </div>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-        </div>
-      </div>
-    </div>
-
-    {isSeasonModalVisible && (
-      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-        <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="flex items-start justify-between px-6 py-4 border-b border-gray-200">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900">
-                Season Management · {seasonModalYear}
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {seasonModalManual ? 'Manual data entry enabled' : 'Sleeper sync active'} ·{' '}
-                {(seasonModalStatus?.team_count || seasonModalSeasons.length || 0)} teams tracked
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={closeSeasonModal}
-              className="text-gray-400 hover:text-gray-600"
-              aria-label="Close season management dialog"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="px-6 py-4 space-y-6">
-            {seasonModalError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {seasonModalError}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2 space-y-2">
-                <label className="text-sm font-medium text-gray-700">Data Source</label>
-                <select
-                  value={seasonModalDataSource}
-                  onChange={e => handleSeasonDataSourceChange(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                >
-                  <option value="sleeper">Sleeper</option>
-                  <option value="manual">Manual</option>
-                </select>
-                <p className="text-xs text-gray-500">
-                  Choose whether this season should sync automatically from Sleeper or be managed manually.
-                </p>
-              </div>
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <p className="text-xs font-semibold uppercase text-gray-500">Sync Status</p>
-                <p className="mt-1 text-sm font-medium text-gray-900">
-                  {formatSyncStatusLabel(seasonModalStatus?.sync_status)}
-                </p>
-                <p className="mt-2 text-xs text-gray-500">
-                  Last sync:{' '}
-                  {seasonModalStatus?.last_sync
-                    ? formatDateTimeForDisplay(seasonModalStatus.last_sync)
-                    : '—'}
-                </p>
-              </div>
-            </div>
-
-            {seasonModalDataSource === 'sleeper' && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Sleeper League ID</label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={seasonModalLeagueId}
-                    onChange={e => setSeasonModalLeagueId(e.target.value)}
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                    placeholder="Enter league ID"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSeasonLeagueIdSave}
-                    className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    Save League ID
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500">
-                  Updating the league ID will refresh Sleeper sync settings for this season.
-                </p>
-              </div>
-            )}
-
-            {seasonModalDataSource === 'manual' && (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <Upload className="mx-auto h-10 w-10 text-gray-400" />
-                <div className="mt-4">
-                  <label className="cursor-pointer text-sm font-medium text-gray-900">
-                    <span>{seasonModalUploadLoading ? 'Uploading…' : 'Upload Excel file to import season data'}</span>
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls"
-                      className="sr-only"
-                      onChange={handleSeasonFileUpload}
-                      disabled={seasonModalUploadLoading}
-                    />
-                  </label>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Uploading a file replaces existing season records with the contents of the spreadsheet.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-lg font-semibold text-gray-900">Season Data</h4>
-                {!seasonModalLoading && seasonModalSeasons.length > 0 && (
-                  <span className="text-xs text-gray-500">
-                    {isManualSeasonMode
-                      ? 'All fields are editable while in Manual mode.'
-                      : 'Only financial fields are editable while syncing from Sleeper.'}
-                  </span>
-                )}
-              </div>
-
-              {seasonModalLoading ? (
-                <div className="flex items-center justify-center py-12 text-gray-500">
-                  <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading season data...
-                </div>
-              ) : seasonModalSeasons.length === 0 ? (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-600">
-                  No season records found for {seasonModalYear}. Upload data or sync from Sleeper to get started.
-                </div>
-              ) : (
-                <div className="overflow-x-auto rounded-lg border border-gray-200">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Year</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Manager</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Team</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">W-L</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">PF</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">PA</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Rank</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Playoff</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Dues</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Payout</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Chumpion</th>
-                        <th className="px-3 py-2 text-right font-medium text-gray-600">Actions</th>
-                      </tr>
-                    </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {seasonModalSeasons.map(season => {
-                          if (!season || typeof season !== 'object') {
-                            return null;
-                          }
-                          const isEditing = seasonModalEditingId === season.id;
-                          const managerLabel = managerNameMap[season.name_id] || season.manager_name || season.name_id;
-                          const edited = seasonModalEditedRow || {};
-
-                          return (
-                          <tr key={season.id} className="bg-white">
-                            <td className="px-3 py-2 text-sm text-gray-600">{season.year}</td>
-                            <td className="px-3 py-2">
-                              {isEditing && isManualSeasonMode ? (
-                                <select
-                                  value={edited.name_id ?? ''}
-                                  onChange={e => updateSeasonEditedField('name_id', e.target.value)}
-                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                >
-                                  <option value="">Select manager</option>
-                                  {sortedManagers.map((manager, index) => {
-                                    if (!manager || typeof manager !== 'object') {
-                                      return null;
-                                    }
-
-                                    const optionValue = manager.name_id || '';
-                                    const optionKey = manager.name_id || manager.id || `manager-option-${index}`;
-
-                                    return (
-                                      <option key={optionKey} value={optionValue}>
-                                        {getManagerName(manager)}
-                                      </option>
-                                    );
-                                  })}
-                                </select>
-                              ) : (
-                                <span className="text-sm text-gray-900">{managerLabel}</span>
-                              )}
                             </td>
-                            <td className="px-3 py-2">
-                              {isEditing && isManualSeasonMode ? (
-                                <input
-                                  type="text"
-                                  value={edited.team_name ?? ''}
-                                  onChange={e => updateSeasonEditedField('team_name', e.target.value)}
-                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                />
-                              ) : (
-                                <span className="text-sm text-gray-700">{season.team_name}</span>
-                              )}
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              {status?.team_count || 0}
                             </td>
-                            <td className="px-3 py-2">
-                              {isEditing && isManualSeasonMode ? (
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="number"
-                                    value={edited.wins ?? 0}
-                                    onChange={e => updateSeasonEditedField('wins', e.target.value)}
-                                    className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                  />
-                                  <span className="text-xs text-gray-500">-</span>
-                                  <input
-                                    type="number"
-                                    value={edited.losses ?? 0}
-                                    onChange={e => updateSeasonEditedField('losses', e.target.value)}
-                                    className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                  />
-                                </div>
-                              ) : (
-                                <span className="text-sm text-gray-700">{season.wins}-{season.losses}</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              {isEditing && isManualSeasonMode ? (
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={edited.points_for ?? 0}
-                                  onChange={e => updateSeasonEditedField('points_for', e.target.value)}
-                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                />
-                              ) : (
-                                <span className="text-sm text-gray-700">{season.points_for}</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              {isEditing && isManualSeasonMode ? (
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={edited.points_against ?? 0}
-                                  onChange={e => updateSeasonEditedField('points_against', e.target.value)}
-                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                />
-                              ) : (
-                                <span className="text-sm text-gray-700">{season.points_against}</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              {isEditing && isManualSeasonMode ? (
-                                <input
-                                  type="number"
-                                  value={edited.regular_season_rank === '' ? '' : edited.regular_season_rank ?? ''}
-                                  onChange={e => updateSeasonEditedField('regular_season_rank', e.target.value)}
-                                  className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                />
-                              ) : (
-                                <span className="text-sm text-gray-700">{season.regular_season_rank ?? '—'}</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              {isEditing && isManualSeasonMode ? (
-                                <input
-                                  type="text"
-                                  value={edited.playoff_finish ?? ''}
-                                  onChange={e => updateSeasonEditedField('playoff_finish', e.target.value)}
-                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                />
-                              ) : (
-                                <span className="text-sm text-gray-700">{season.playoff_finish || '—'}</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={edited.dues ?? 0}
-                                  onChange={e => updateSeasonEditedField('dues', e.target.value)}
-                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                />
-                              ) : (
-                                <span className="text-sm font-medium text-gray-900">${season.dues}</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={edited.payout ?? 0}
-                                  onChange={e => updateSeasonEditedField('payout', e.target.value)}
-                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                />
-                              ) : (
-                                <span className="text-sm font-medium text-gray-900">${season.payout}</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={edited.dues_chumpion ?? 0}
-                                  onChange={e => updateSeasonEditedField('dues_chumpion', e.target.value)}
-                                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                                />
-                              ) : (
-                                <span className="text-sm font-medium text-gray-900">${season.dues_chumpion || 0}</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              {isEditing ? (
-                                <div className="flex items-center justify-end gap-2">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm align-top">
+                              <div className="space-y-2">
+                                <span className="block text-xs text-gray-500">{autoSyncMessage}</span>
+                                <div className="flex flex-wrap gap-2">
                                   <button
+                                    onClick={() => openSeasonModal(year)}
+                                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
                                     type="button"
-                                    onClick={saveSeasonRowEdit}
-                                    disabled={seasonModalSaving}
-                                    className="inline-flex items-center rounded-md bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-400"
                                   >
-                                    {seasonModalSaving ? (
-                                      <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
+                                    <Edit3 className="w-3 h-3 mr-1" /> Manage Season
+                                  </button>
+                                  <button
+                                    onClick={() => toggleKeeperLock(year, !isKeeperLocked)}
+                                    disabled={isKeeperLockUpdating}
+                                    className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+                                      isKeeperLocked
+                                        ? 'bg-green-600 hover:bg-green-700'
+                                        : 'bg-red-600 hover:bg-red-700'
+                                    }`}
+                                  >
+                                    {isKeeperLockUpdating ? (
+                                      <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                                    ) : isKeeperLocked ? (
+                                      <Unlock className="w-3 h-3 mr-1" />
                                     ) : (
-                                      <Save className="mr-1 h-3 w-3" />
+                                      <Lock className="w-3 h-3 mr-1" />
                                     )}
-                                    Save
+                                    {isKeeperLockUpdating
+                                      ? isKeeperLocked
+                                        ? 'Unlocking…'
+                                        : 'Locking…'
+                                      : isKeeperLocked
+                                      ? 'Unlock Keepers'
+                                      : 'Lock Keepers'}
                                   </button>
                                   <button
-                                    type="button"
-                                    onClick={cancelSeasonRowEdit}
-                                    className="inline-flex items-center rounded-md bg-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-300"
+                                    onClick={() => toggleVotingLock(year, !isVotingLocked)}
+                                    disabled={isVotingLockUpdating}
+                                    className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+                                      isVotingLocked
+                                        ? 'bg-green-600 hover:bg-green-700'
+                                        : 'bg-blue-600 hover:bg-blue-700'
+                                    }`}
                                   >
-                                    Cancel
+                                    {isVotingLockUpdating ? (
+                                      <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                                    ) : isVotingLocked ? (
+                                      <Unlock className="w-3 h-3 mr-1" />
+                                    ) : (
+                                      <Lock className="w-3 h-3 mr-1" />
+                                    )}
+                                    {isVotingLockUpdating
+                                      ? isVotingLocked
+                                        ? 'Unlocking…'
+                                        : 'Locking…'
+                                      : isVotingLocked
+                                      ? 'Unlock Voting'
+                                      : 'Lock Voting'}
                                   </button>
+                                  {(keeperLockError || votingLockError) && (
+                                    <div className="w-full space-y-1 text-xs text-red-600">
+                                      {keeperLockError && (
+                                        <div className="flex items-start space-x-1">
+                                          <AlertCircle className="w-3 h-3 mt-0.5" />
+                                          <span>{keeperLockError}</span>
+                                        </div>
+                                      )}
+                                      {votingLockError && (
+                                        <div className="flex items-start space-x-1">
+                                          <AlertCircle className="w-3 h-3 mt-0.5" />
+                                          <span>{votingLockError}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => startSeasonRowEdit(season)}
-                                  className="inline-flex items-center rounded-md bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100"
-                                >
-                                  <Edit3 className="mr-1 h-3 w-3" /> Edit
-                                </button>
-                              )}
+                              </div>
                             </td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
-                </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-    )}
 
-    {/* Manager IDs */}
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-      <div className="p-6">
-        <h4 className="text-lg font-semibold mb-4">Manager IDs</h4>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left">Full Name</th>
-                <th className="px-3 py-2 text-left">Sleeper Username</th>
-                <th className="px-3 py-2 text-left">Sleeper User ID</th>
-                <th className="px-3 py-2 text-left">Emails</th>
-                <th className="px-3 py-2 text-left">Aliases</th>
-                <th className="px-3 py-2 text-left">Active</th>
-                <th className="px-3 py-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {sortedManagers.map((manager, index) => {
-                if (!manager || typeof manager !== 'object') {
-                  return null;
-                }
-                const managerAliases = Array.isArray(aliasesByManager[manager.name_id])
-                  ? aliasesByManager[manager.name_id]
-                  : [];
-                const aliasSeasons = [];
-                managerAliases.forEach(alias => {
-                  const label = String(alias?.season ?? '').trim();
-                  if (!label) {
-                    return;
-                  }
+          {isSeasonModalVisible && (
+            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="flex items-start justify-between px-6 py-4 border-b border-gray-200">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      Season Management · {seasonModalYear}
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {seasonModalManual ? 'Manual data entry enabled' : 'Sleeper sync active'} ·{' '}
+                      {(seasonModalStatus?.team_count || seasonModalSeasons.length || 0)} teams tracked
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeSeasonModal}
+                    className="text-gray-400 hover:text-gray-600"
+                    aria-label="Close season management dialog"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
-                  if (!aliasSeasons.includes(label)) {
-                    aliasSeasons.push(label);
-                  }
-                });
+                <div className="px-6 py-4 space-y-6">
+                  {seasonModalError && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {seasonModalError}
+                    </div>
+                  )}
 
-                const rowKey = manager.id || manager.name_id || `manager-row-${index}`;
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="lg:col-span-2 space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Data Source</label>
+                      <select
+                        value={seasonModalDataSource}
+                        onChange={e => handleSeasonDataSourceChange(e.target.value)}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      >
+                        <option value="sleeper">Sleeper</option>
+                        <option value="manual">Manual</option>
+                      </select>
+                      <p className="text-xs text-gray-500">
+                        Choose whether this season should sync automatically from Sleeper or be managed manually.
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs font-semibold uppercase text-gray-500">Sync Status</p>
+                      <p className="mt-1 text-sm font-medium text-gray-900">
+                        {formatSyncStatusLabel(seasonModalStatus?.sync_status)}
+                      </p>
+                      <p className="mt-2 text-xs text-gray-500">
+                        Last sync:{' '}
+                        {seasonModalStatus?.last_sync
+                          ? formatDateTimeForDisplay(seasonModalStatus.last_sync)
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
 
-                return (
-                  <tr key={rowKey}>
-                    <td className="px-3 py-2">
-                      <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                        {getManagerName(manager) || '-'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">{manager.sleeper_username || '-'}</td>
-                    <td className="px-3 py-2 text-gray-600">{manager.sleeper_user_id || '-'}</td>
-                    <td className="px-3 py-2 align-top">
+                  {seasonModalDataSource === 'sleeper' && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Sleeper League ID</label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          value={seasonModalLeagueId}
+                          onChange={e => setSeasonModalLeagueId(e.target.value)}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                          placeholder="Enter league ID"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSeasonLeagueIdSave}
+                          className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                        >
+                          Save League ID
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Updating the league ID will refresh Sleeper sync settings for this season.
+                      </p>
+                    </div>
+                  )}
+
+                  {seasonModalDataSource === 'manual' && (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                      <Upload className="mx-auto h-10 w-10 text-gray-400" />
+                      <div className="mt-4">
+                        <label className="cursor-pointer text-sm font-medium text-gray-900">
+                          <span>{seasonModalUploadLoading ? 'Uploading…' : 'Upload Excel file to import season data'}</span>
+                          <input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            className="sr-only"
+                            onChange={handleSeasonFileUpload}
+                            disabled={seasonModalUploadLoading}
+                          />
+                        </label>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Uploading a file replaces existing season records with the contents of the spreadsheet.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-lg font-semibold text-gray-900">Season Data</h4>
+                      {!seasonModalLoading && seasonModalSeasons.length > 0 && (
+                        <span className="text-xs text-gray-500">
+                          {isManualSeasonMode
+                            ? 'All fields are editable while in Manual mode.'
+                            : 'Only financial fields are editable while syncing from Sleeper.'}
+                        </span>
+                      )}
+                    </div>
+
+                    {seasonModalLoading ? (
+                      <div className="flex items-center justify-center py-12 text-gray-500">
+                        <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading season data...
+                      </div>
+                    ) : seasonModalSeasons.length === 0 ? (
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-600">
+                        No season records found for {seasonModalYear}. Upload data or sync from Sleeper to get started.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Year</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Manager</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Team</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">W-L</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">PF</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">PA</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Rank</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Playoff</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Dues</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Payout</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Chumpion</th>
+                              <th className="px-3 py-2 text-right font-medium text-gray-600">Actions</th>
+                            </tr>
+                          </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {seasonModalSeasons.map(season => {
+                                if (!season || typeof season !== 'object') {
+                                  return null;
+                                }
+                                const isEditing = seasonModalEditingId === season.id;
+                                const managerLabel = managerNameMap[season.name_id] || season.manager_name || season.name_id;
+                                const edited = seasonModalEditedRow || {};
+
+                                return (
+                                <tr key={season.id} className="bg-white">
+                                  <td className="px-3 py-2 text-sm text-gray-600">{season.year}</td>
+                                  <td className="px-3 py-2">
+                                    {isEditing && isManualSeasonMode ? (
+                                      <select
+                                        value={edited.name_id ?? ''}
+                                        onChange={e => updateSeasonEditedField('name_id', e.target.value)}
+                                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                      >
+                                        <option value="">Select manager</option>
+                                        {sortedManagers.map((manager, index) => {
+                                          if (!manager || typeof manager !== 'object') {
+                                            return null;
+                                          }
+
+                                          const optionValue = manager.name_id || '';
+                                          const optionKey = manager.name_id || manager.id || `manager-option-${index}`;
+
+                                          return (
+                                            <option key={optionKey} value={optionValue}>
+                                              {getManagerName(manager)}
+                                            </option>
+                                          );
+                                        })}
+                                      </select>
+                                    ) : (
+                                      <span className="text-sm text-gray-900">{managerLabel}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {isEditing && isManualSeasonMode ? (
+                                      <input
+                                        type="text"
+                                        value={edited.team_name ?? ''}
+                                        onChange={e => updateSeasonEditedField('team_name', e.target.value)}
+                                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                      />
+                                    ) : (
+                                      <span className="text-sm text-gray-700">{season.team_name}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {isEditing && isManualSeasonMode ? (
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="number"
+                                          value={edited.wins ?? 0}
+                                          onChange={e => updateSeasonEditedField('wins', e.target.value)}
+                                          className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                        />
+                                        <span className="text-xs text-gray-500">-</span>
+                                        <input
+                                          type="number"
+                                          value={edited.losses ?? 0}
+                                          onChange={e => updateSeasonEditedField('losses', e.target.value)}
+                                          className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="text-sm text-gray-700">{season.wins}-{season.losses}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {isEditing && isManualSeasonMode ? (
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={edited.points_for ?? 0}
+                                        onChange={e => updateSeasonEditedField('points_for', e.target.value)}
+                                        className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                      />
+                                    ) : (
+                                      <span className="text-sm text-gray-700">{season.points_for}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {isEditing && isManualSeasonMode ? (
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={edited.points_against ?? 0}
+                                        onChange={e => updateSeasonEditedField('points_against', e.target.value)}
+                                        className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                      />
+                                    ) : (
+                                      <span className="text-sm text-gray-700">{season.points_against}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {isEditing && isManualSeasonMode ? (
+                                      <input
+                                        type="number"
+                                        value={edited.regular_season_rank === '' ? '' : edited.regular_season_rank ?? ''}
+                                        onChange={e => updateSeasonEditedField('regular_season_rank', e.target.value)}
+                                        className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                      />
+                                    ) : (
+                                      <span className="text-sm text-gray-700">{season.regular_season_rank ?? '—'}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {isEditing && isManualSeasonMode ? (
+                                      <input
+                                        type="text"
+                                        value={edited.playoff_finish ?? ''}
+                                        onChange={e => updateSeasonEditedField('playoff_finish', e.target.value)}
+                                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                      />
+                                    ) : (
+                                      <span className="text-sm text-gray-700">{season.playoff_finish || '—'}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {isEditing ? (
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={edited.dues ?? 0}
+                                        onChange={e => updateSeasonEditedField('dues', e.target.value)}
+                                        className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                      />
+                                    ) : (
+                                      <span className="text-sm font-medium text-gray-900">${season.dues}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {isEditing ? (
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={edited.payout ?? 0}
+                                        onChange={e => updateSeasonEditedField('payout', e.target.value)}
+                                        className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                      />
+                                    ) : (
+                                      <span className="text-sm font-medium text-gray-900">${season.payout}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {isEditing ? (
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={edited.dues_chumpion ?? 0}
+                                        onChange={e => updateSeasonEditedField('dues_chumpion', e.target.value)}
+                                        className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                                      />
+                                    ) : (
+                                      <span className="text-sm font-medium text-gray-900">${season.dues_chumpion || 0}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-right">
+                                    {isEditing ? (
+                                      <div className="flex items-center justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={saveSeasonRowEdit}
+                                          disabled={seasonModalSaving}
+                                          className="inline-flex items-center rounded-md bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-400"
+                                        >
+                                          {seasonModalSaving ? (
+                                            <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <Save className="mr-1 h-3 w-3" />
+                                          )}
+                                          Save
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={cancelSeasonRowEdit}
+                                          className="inline-flex items-center rounded-md bg-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-300"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => startSeasonRowEdit(season)}
+                                        className="inline-flex items-center rounded-md bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                                      >
+                                        <Edit3 className="mr-1 h-3 w-3" /> Edit
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+    </>
+  );
+};
+
+export const SleeperAdminManagersSection = () => {
+  const {
+    sortedManagers,
+    aliasesByManager,
+    getManagerName,
+    startManagerRowEdit,
+    isModalOpen,
+    modalManager,
+    modalManagerAliases,
+    cancelManagerRowEdit,
+    displayedEmails,
+    isEmailEditActive,
+    removeEmailFromEdit,
+    emailEdit,
+    managerRowSaving,
+    setEmailEdit,
+    handleEmailInputKeyDown,
+    addEmailToEdit,
+    pendingEmailValue,
+    aliasAddState,
+    setAliasAddState,
+    isAliasAddActive,
+    isAliasSaving,
+    isModalBusy,
+    saveAliasAdd,
+    cancelAliasAdd,
+    startAliasAdd,
+    editingMappingId,
+    editingMapping,
+    setEditingMappingId,
+    setEditingMapping,
+    saveEditMapping,
+    deleteMapping,
+    passcodeEdit,
+    setPasscodeEdit,
+    isPasscodeEditActive,
+    isSaveDisabled,
+    saveManagerRowEdit
+  } = useSleeperAdminContext();
+
+  return (
+    <>
+          {/* Manager IDs */}
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="p-6">
+              <h4 className="text-lg font-semibold mb-4">Manager IDs</h4>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Full Name</th>
+                      <th className="px-3 py-2 text-left">Sleeper Username</th>
+                      <th className="px-3 py-2 text-left">Sleeper User ID</th>
+                      <th className="px-3 py-2 text-left">Emails</th>
+                      <th className="px-3 py-2 text-left">Aliases</th>
+                      <th className="px-3 py-2 text-left">Active</th>
+                      <th className="px-3 py-2 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {sortedManagers.map((manager, index) => {
+                      if (!manager || typeof manager !== 'object') {
+                        return null;
+                      }
+                      const managerAliases = Array.isArray(aliasesByManager[manager.name_id])
+                        ? aliasesByManager[manager.name_id]
+                        : [];
+                      const aliasSeasons = [];
+                      managerAliases.forEach(alias => {
+                        const label = String(alias?.season ?? '').trim();
+                        if (!label) {
+                          return;
+                        }
+
+                        if (!aliasSeasons.includes(label)) {
+                          aliasSeasons.push(label);
+                        }
+                      });
+
+                      const rowKey = manager.id || manager.name_id || `manager-row-${index}`;
+
+                      return (
+                        <tr key={rowKey}>
+                          <td className="px-3 py-2">
+                            <span className={`font-medium ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
+                              {getManagerName(manager) || '-'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-600">{manager.sleeper_username || '-'}</td>
+                          <td className="px-3 py-2 text-gray-600">{manager.sleeper_user_id || '-'}</td>
+                          <td className="px-3 py-2 align-top">
+                            <div className="flex flex-wrap gap-2">
+                              {Array.isArray(manager.emails) && manager.emails.length ? (
+                                manager.emails.map((email, index) => {
+                                  const normalizedEmail = typeof email === 'string' ? email : '';
+                                  if (!normalizedEmail) {
+                                    return null;
+                                  }
+                                  const isPrimary = index === 0;
+                                  return (
+                                    <span
+                                      key={`${manager.id}-${normalizedEmail}-${index}`}
+                                      className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium"
+                                    >
+                                      <span>{normalizedEmail}</span>
+                                      {isPrimary && (
+                                        <span className="ml-2 text-[10px] uppercase text-indigo-600 font-semibold">Primary</span>
+                                      )}
+                                    </span>
+                                  );
+                                })
+                              ) : (
+                                <span className="text-xs text-gray-400">No email addresses configured</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            {aliasSeasons.length ? (
+                              <span className="text-sm text-gray-700">{aliasSeasons.join(', ')}</span>
+                            ) : (
+                              <span className="text-xs text-gray-400">No aliases configured</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${manager.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                              {manager.active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => startManagerRowEdit(manager)}
+                                className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-200"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="flex items-start justify-between px-6 py-4 border-b border-gray-200">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      {getManagerName(modalManager) || 'Manager Details'}
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Name ID:{' '}
+                      <span className="font-mono text-gray-700">{modalManager?.name_id ?? '—'}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={cancelManagerRowEdit}
+                    className="text-gray-400 hover:text-gray-600"
+                    aria-label="Close manager details"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="px-6 py-5 space-y-6">
+                  <section>
+                    <h4 className="text-sm font-semibold text-gray-900">Manager overview</h4>
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Full Name</p>
+                        <p className="mt-1 text-sm text-gray-900">{getManagerName(modalManager) || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sleeper Username</p>
+                        <p className="mt-1 text-sm text-gray-900">{modalManager?.sleeper_username || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sleeper User ID</p>
+                        <p className="mt-1 text-sm font-mono text-gray-900 break-all">{modalManager?.sleeper_user_id || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</p>
+                        <span
+                          className={`mt-1 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${modalManager?.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                        >
+                          {modalManager?.active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                  </section>
+                  <section>
+                    <h4 className="text-sm font-semibold text-gray-900">Email addresses</h4>
+                    <p className="mt-1 text-xs text-gray-500">Update contact emails. The first address is treated as primary.</p>
+                    <div className="mt-3 space-y-3">
                       <div className="flex flex-wrap gap-2">
-                        {Array.isArray(manager.emails) && manager.emails.length ? (
-                          manager.emails.map((email, index) => {
+                        {displayedEmails.length ? (
+                          displayedEmails.map((email, index) => {
                             const normalizedEmail = typeof email === 'string' ? email : '';
                             if (!normalizedEmail) {
                               return null;
@@ -2236,12 +2605,23 @@ const SleeperAdmin = ({
                             const isPrimary = index === 0;
                             return (
                               <span
-                                key={`${manager.id}-${normalizedEmail}-${index}`}
+                                key={`${modalManager?.id || 'manager'}-${normalizedEmail}-${index}`}
                                 className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium"
                               >
                                 <span>{normalizedEmail}</span>
                                 {isPrimary && (
                                   <span className="ml-2 text-[10px] uppercase text-indigo-600 font-semibold">Primary</span>
+                                )}
+                                {isEmailEditActive && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEmailFromEdit(normalizedEmail)}
+                                    className="ml-1 inline-flex items-center justify-center text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={!isEmailEditActive || emailEdit.loading || managerRowSaving}
+                                    aria-label={`Remove ${normalizedEmail}`}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
                                 )}
                               </span>
                             );
@@ -2250,390 +2630,277 @@ const SleeperAdmin = ({
                           <span className="text-xs text-gray-400">No email addresses configured</span>
                         )}
                       </div>
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      {aliasSeasons.length ? (
-                        <span className="text-sm text-gray-700">{aliasSeasons.join(', ')}</span>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <input
+                          type="email"
+                          placeholder="Add email"
+                          className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 flex-1"
+                          value={pendingEmailValue}
+                          onChange={(e) => {
+                            if (!isEmailEditActive) {
+                              return;
+                            }
+                            setEmailEdit(prev => ({
+                              ...prev,
+                              newEmail: e.target.value,
+                              error: null
+                            }));
+                          }}
+                          onKeyDown={handleEmailInputKeyDown}
+                          disabled={!isEmailEditActive || emailEdit.loading || managerRowSaving}
+                        />
+                        <button
+                          type="button"
+                          onClick={addEmailToEdit}
+                          className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={!isEmailEditActive || emailEdit.loading || managerRowSaving}
+                        >
+                          Add Email
+                        </button>
+                      </div>
+                      {isEmailEditActive && emailEdit.error && (
+                        <div className="text-xs text-red-600">{emailEdit.error}</div>
+                      )}
+                      <p className="text-[11px] text-gray-500">Emails are saved when you select Save Changes.</p>
+                    </div>
+                  </section>
+                  <section>
+                    <h4 className="text-sm font-semibold text-gray-900">Sleeper aliases</h4>
+                    <p className="mt-1 text-xs text-gray-500">Track alternate Sleeper IDs by season.</p>
+                    <div className="mt-3 space-y-3">
+                      {modalManagerAliases.length ? (
+                        modalManagerAliases.map(alias => {
+                          const isEditingAlias = editingMappingId === alias.id;
+                          return (
+                            <div key={alias.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                              {isEditingAlias ? (
+                                <div className="space-y-3">
+                                  <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="flex flex-col space-y-1">
+                                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Season</span>
+                                      <input
+                                        type="number"
+                                        className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        value={editingMapping?.season ?? ''}
+                                        onChange={(e) =>
+                                          setEditingMapping(prev => ({
+                                            ...prev,
+                                            season: e.target.value
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                    <div className="flex flex-col space-y-1">
+                                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Sleeper User ID</span>
+                                      <input
+                                        type="text"
+                                        className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        value={editingMapping?.sleeper_user_id ?? ''}
+                                        onChange={(e) =>
+                                          setEditingMapping(prev => ({
+                                            ...prev,
+                                            sleeper_user_id: e.target.value
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={saveEditMapping}
+                                      className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      disabled={isModalBusy}
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingMappingId(null);
+                                        setEditingMapping({});
+                                      }}
+                                      className="text-sm font-medium text-gray-600 hover:underline"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm">
+                                  <div>
+                                    <div className="text-xs uppercase font-semibold text-gray-500">Season</div>
+                                    <div className="font-medium text-gray-900">{alias.season ?? '—'}</div>
+                                  </div>
+                                  <div className="sm:text-right">
+                                    <div className="text-xs uppercase font-semibold text-gray-500">Sleeper User ID</div>
+                                    <div className="font-mono text-gray-900 break-all">{alias.sleeper_user_id || '—'}</div>
+                                  </div>
+                                  <div className="flex gap-3 sm:self-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditMapping(alias)}
+                                      className="text-sm font-medium text-blue-600 hover:underline"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteMapping(alias.id)}
+                                      className="text-sm font-medium text-red-600 hover:underline"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
                       ) : (
                         <span className="text-xs text-gray-400">No aliases configured</span>
                       )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${manager.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {manager.active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => startManagerRowEdit(manager)}
-                          className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-200"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    {isModalOpen && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="flex items-start justify-between px-6 py-4 border-b border-gray-200">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900">
-                {getManagerName(modalManager) || 'Manager Details'}
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Name ID:{' '}
-                <span className="font-mono text-gray-700">{modalManager?.name_id ?? '—'}</span>
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={cancelManagerRowEdit}
-              className="text-gray-400 hover:text-gray-600"
-              aria-label="Close manager details"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="px-6 py-5 space-y-6">
-            <section>
-              <h4 className="text-sm font-semibold text-gray-900">Manager overview</h4>
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Full Name</p>
-                  <p className="mt-1 text-sm text-gray-900">{getManagerName(modalManager) || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sleeper Username</p>
-                  <p className="mt-1 text-sm text-gray-900">{modalManager?.sleeper_username || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sleeper User ID</p>
-                  <p className="mt-1 text-sm font-mono text-gray-900 break-all">{modalManager?.sleeper_user_id || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</p>
-                  <span
-                    className={`mt-1 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${modalManager?.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
-                  >
-                    {modalManager?.active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-            </section>
-            <section>
-              <h4 className="text-sm font-semibold text-gray-900">Email addresses</h4>
-              <p className="mt-1 text-xs text-gray-500">Update contact emails. The first address is treated as primary.</p>
-              <div className="mt-3 space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {displayedEmails.length ? (
-                    displayedEmails.map((email, index) => {
-                      const normalizedEmail = typeof email === 'string' ? email : '';
-                      if (!normalizedEmail) {
-                        return null;
-                      }
-                      const isPrimary = index === 0;
-                      return (
-                        <span
-                          key={`${modalManager?.id || 'manager'}-${normalizedEmail}-${index}`}
-                          className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium"
-                        >
-                          <span>{normalizedEmail}</span>
-                          {isPrimary && (
-                            <span className="ml-2 text-[10px] uppercase text-indigo-600 font-semibold">Primary</span>
+                      {isAliasAddActive ? (
+                        <div className="border border-dashed border-gray-300 rounded-lg p-3 space-y-3 bg-white">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <input
+                              type="number"
+                              placeholder="Season"
+                              className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              value={aliasAddState.season}
+                              onChange={(e) =>
+                                setAliasAddState(prev => ({
+                                  ...prev,
+                                  season: e.target.value,
+                                  error: null
+                                }))
+                              }
+                              disabled={isAliasSaving || isModalBusy}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Sleeper User ID"
+                              className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              value={aliasAddState.sleeper_user_id}
+                              onChange={(e) =>
+                                setAliasAddState(prev => ({
+                                  ...prev,
+                                  sleeper_user_id: e.target.value,
+                                  error: null
+                                }))
+                              }
+                              disabled={isAliasSaving || isModalBusy}
+                            />
+                          </div>
+                          {aliasAddState.error && (
+                            <div className="text-xs text-red-600">{aliasAddState.error}</div>
                           )}
-                          {isEmailEditActive && (
+                          <div className="flex flex-wrap items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => removeEmailFromEdit(normalizedEmail)}
-                              className="ml-1 inline-flex items-center justify-center text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                              disabled={!isEmailEditActive || emailEdit.loading || managerRowSaving}
-                              aria-label={`Remove ${normalizedEmail}`}
+                              onClick={saveAliasAdd}
+                              className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={isAliasSaving || isModalBusy}
                             >
-                              <X className="w-3 h-3" />
+                              {isAliasSaving ? 'Saving…' : 'Save Alias'}
                             </button>
-                          )}
-                        </span>
-                      );
-                    })
-                  ) : (
-                    <span className="text-xs text-gray-400">No email addresses configured</span>
-                  )}
-                </div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <input
-                    type="email"
-                    placeholder="Add email"
-                    className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 flex-1"
-                    value={pendingEmailValue}
-                    onChange={(e) => {
-                      if (!isEmailEditActive) {
-                        return;
-                      }
-                      setEmailEdit(prev => ({
-                        ...prev,
-                        newEmail: e.target.value,
-                        error: null
-                      }));
-                    }}
-                    onKeyDown={handleEmailInputKeyDown}
-                    disabled={!isEmailEditActive || emailEdit.loading || managerRowSaving}
-                  />
-                  <button
-                    type="button"
-                    onClick={addEmailToEdit}
-                    className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!isEmailEditActive || emailEdit.loading || managerRowSaving}
-                  >
-                    Add Email
-                  </button>
-                </div>
-                {isEmailEditActive && emailEdit.error && (
-                  <div className="text-xs text-red-600">{emailEdit.error}</div>
-                )}
-                <p className="text-[11px] text-gray-500">Emails are saved when you select Save Changes.</p>
-              </div>
-            </section>
-            <section>
-              <h4 className="text-sm font-semibold text-gray-900">Sleeper aliases</h4>
-              <p className="mt-1 text-xs text-gray-500">Track alternate Sleeper IDs by season.</p>
-              <div className="mt-3 space-y-3">
-                {modalManagerAliases.length ? (
-                  modalManagerAliases.map(alias => {
-                    const isEditingAlias = editingMappingId === alias.id;
-                    return (
-                      <div key={alias.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                        {isEditingAlias ? (
-                          <div className="space-y-3">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <div className="flex flex-col space-y-1">
-                                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Season</span>
-                                <input
-                                  type="number"
-                                  className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                  value={editingMapping?.season ?? ''}
-                                  onChange={(e) =>
-                                    setEditingMapping(prev => ({
-                                      ...prev,
-                                      season: e.target.value
-                                    }))
-                                  }
-                                />
-                              </div>
-                              <div className="flex flex-col space-y-1">
-                                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Sleeper User ID</span>
-                                <input
-                                  type="text"
-                                  className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                  value={editingMapping?.sleeper_user_id ?? ''}
-                                  onChange={(e) =>
-                                    setEditingMapping(prev => ({
-                                      ...prev,
-                                      sleeper_user_id: e.target.value
-                                    }))
-                                  }
-                                />
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={saveEditMapping}
-                                className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled={isModalBusy}
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingMappingId(null);
-                                  setEditingMapping({});
-                                }}
-                                className="text-sm font-medium text-gray-600 hover:underline"
-                              >
-                                Cancel
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={cancelAliasAdd}
+                              className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50"
+                              disabled={isAliasSaving || isModalBusy}
+                            >
+                              Cancel
+                            </button>
                           </div>
-                        ) : (
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm">
-                            <div>
-                              <div className="text-xs uppercase font-semibold text-gray-500">Season</div>
-                              <div className="font-medium text-gray-900">{alias.season ?? '—'}</div>
-                            </div>
-                            <div className="sm:text-right">
-                              <div className="text-xs uppercase font-semibold text-gray-500">Sleeper User ID</div>
-                              <div className="font-mono text-gray-900 break-all">{alias.sleeper_user_id || '—'}</div>
-                            </div>
-                            <div className="flex gap-3 sm:self-end">
-                              <button
-                                type="button"
-                                onClick={() => startEditMapping(alias)}
-                                className="text-sm font-medium text-blue-600 hover:underline"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteMapping(alias.id)}
-                                className="text-sm font-medium text-red-600 hover:underline"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <span className="text-xs text-gray-400">No aliases configured</span>
-                )}
-                {isAliasAddActive ? (
-                  <div className="border border-dashed border-gray-300 rounded-lg p-3 space-y-3 bg-white">
-                    <div className="grid gap-3 sm:grid-cols-2">
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => modalManager && startAliasAdd(modalManager)}
+                          className="text-sm font-medium text-blue-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={isModalBusy}
+                        >
+                          Add Alias
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                  <section>
+                    <h4 className="text-sm font-semibold text-gray-900">Passcode</h4>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Update the manager passcode. Leave both fields blank to keep the current passcode.
+                    </p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <input
-                        type="number"
-                        placeholder="Season"
+                        type="password"
+                        placeholder="New passcode"
                         className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        value={aliasAddState.season}
-                        onChange={(e) =>
-                          setAliasAddState(prev => ({
+                        value={isPasscodeEditActive ? passcodeEdit.passcode : ''}
+                        onChange={(e) => {
+                          if (!isPasscodeEditActive) {
+                            return;
+                          }
+                          setPasscodeEdit(prev => ({
                             ...prev,
-                            season: e.target.value,
+                            passcode: e.target.value,
                             error: null
-                          }))
-                        }
-                        disabled={isAliasSaving || isModalBusy}
+                          }));
+                        }}
+                        disabled={!isPasscodeEditActive || passcodeEdit.loading || managerRowSaving}
                       />
                       <input
-                        type="text"
-                        placeholder="Sleeper User ID"
+                        type="password"
+                        placeholder="Confirm passcode"
                         className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        value={aliasAddState.sleeper_user_id}
-                        onChange={(e) =>
-                          setAliasAddState(prev => ({
+                        value={isPasscodeEditActive ? passcodeEdit.confirm : ''}
+                        onChange={(e) => {
+                          if (!isPasscodeEditActive) {
+                            return;
+                          }
+                          setPasscodeEdit(prev => ({
                             ...prev,
-                            sleeper_user_id: e.target.value,
+                            confirm: e.target.value,
                             error: null
-                          }))
-                        }
-                        disabled={isAliasSaving || isModalBusy}
+                          }));
+                        }}
+                        disabled={!isPasscodeEditActive || passcodeEdit.loading || managerRowSaving}
                       />
                     </div>
-                    {aliasAddState.error && (
-                      <div className="text-xs text-red-600">{aliasAddState.error}</div>
+                    {isPasscodeEditActive && passcodeEdit.error && (
+                      <div className="mt-2 text-xs text-red-600">{passcodeEdit.error}</div>
                     )}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={saveAliasAdd}
-                        className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={isAliasSaving || isModalBusy}
-                      >
-                        {isAliasSaving ? 'Saving…' : 'Save Alias'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={cancelAliasAdd}
-                        className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50"
-                        disabled={isAliasSaving || isModalBusy}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
+                  </section>
+                </div>
+                <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-gray-50">
                   <button
                     type="button"
-                    onClick={() => modalManager && startAliasAdd(modalManager)}
-                    className="text-sm font-medium text-blue-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={cancelManagerRowEdit}
+                    className="px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isModalBusy}
                   >
-                    Add Alias
+                    Cancel
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={saveManagerRowEdit}
+                    className="px-4 py-1.5 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSaveDisabled}
+                  >
+                    {managerRowSaving ? 'Saving…' : 'Save Changes'}
+                  </button>
+                </div>
               </div>
-            </section>
-            <section>
-              <h4 className="text-sm font-semibold text-gray-900">Passcode</h4>
-              <p className="mt-1 text-xs text-gray-500">
-                Update the manager passcode. Leave both fields blank to keep the current passcode.
-              </p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <input
-                  type="password"
-                  placeholder="New passcode"
-                  className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  value={isPasscodeEditActive ? passcodeEdit.passcode : ''}
-                  onChange={(e) => {
-                    if (!isPasscodeEditActive) {
-                      return;
-                    }
-                    setPasscodeEdit(prev => ({
-                      ...prev,
-                      passcode: e.target.value,
-                      error: null
-                    }));
-                  }}
-                  disabled={!isPasscodeEditActive || passcodeEdit.loading || managerRowSaving}
-                />
-                <input
-                  type="password"
-                  placeholder="Confirm passcode"
-                  className="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  value={isPasscodeEditActive ? passcodeEdit.confirm : ''}
-                  onChange={(e) => {
-                    if (!isPasscodeEditActive) {
-                      return;
-                    }
-                    setPasscodeEdit(prev => ({
-                      ...prev,
-                      confirm: e.target.value,
-                      error: null
-                    }));
-                  }}
-                  disabled={!isPasscodeEditActive || passcodeEdit.loading || managerRowSaving}
-                />
-              </div>
-              {isPasscodeEditActive && passcodeEdit.error && (
-                <div className="mt-2 text-xs text-red-600">{passcodeEdit.error}</div>
-              )}
-            </section>
-          </div>
-          <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-gray-50">
-            <button
-              type="button"
-              onClick={cancelManagerRowEdit}
-              className="px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isModalBusy}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={saveManagerRowEdit}
-              className="px-4 py-1.5 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSaveDisabled}
-            >
-              {managerRowSaving ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
+            </div>
+          )}
         </div>
-      </div>
-    )}
-  </div>
+    </>
   );
 };
 
+const SleeperAdmin = (props) => (
+  <SleeperAdminProvider {...props} />
+);
+
 export default SleeperAdmin;
+

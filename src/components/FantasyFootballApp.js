@@ -10,7 +10,8 @@ import {
   FileText,
   BookOpen,
   Zap,
-  Settings,
+  Database,
+  Users,
   ArrowLeftRight,
   X,
   Trash2,
@@ -21,7 +22,12 @@ import {
   LogOut,
   Cloud
 } from 'lucide-react';
-import SleeperAdmin from './SleeperAdmin';
+import {
+  SleeperAdminProvider,
+  SleeperAdminMessageBanner,
+  SleeperAdminDataManagementSection,
+  SleeperAdminManagersSection
+} from './SleeperAdmin';
 import PlayoffBracket from './PlayoffBracket';
 import AISummary from './AISummary';
 import AIPreview from './AIPreview';
@@ -4370,35 +4376,52 @@ const FantasyFootballApp = () => {
                   <BarChart3 className="w-4 h-4 mr-1" /> Analytics
                 </button>
               </div>
+            <SleeperAdminProvider
+              API_BASE_URL={API_BASE_URL}
+              onDataUpdate={fetchData}
+              adminToken={adminSession.token}
+              onAdminSessionInvalid={handleAdminSessionInvalid}
+              onKeeperLockChange={handleKeeperLockChange}
+              onVotingLockChange={handleVotingLockChange}
+            >
+              <div className="space-y-6 sm:space-y-8">
+                <SleeperAdminMessageBanner />
+
+                <CollapsibleSection
+                  title={
+                    <div className="flex items-center space-x-2">
+                      <Database className="w-5 h-5 text-blue-500" />
+                      <span>Data Management</span>
+                    </div>
+                  }
+                >
+                  <SleeperAdminDataManagementSection />
+                </CollapsibleSection>
+
+                <CollapsibleSection
+                  title={
+                    <div className="flex items-center space-x-2">
+                      <Users className="w-5 h-5 text-emerald-500" />
+                      <span>Managers</span>
+                    </div>
+                  }
+                >
+                  <SleeperAdminManagersSection />
+                </CollapsibleSection>
+              </div>
+            </SleeperAdminProvider>
+
             <CollapsibleSection
               title={
                 <div className="flex items-center space-x-2">
                   <Zap className="w-5 h-5 text-purple-500" />
-                  <span>AI Summary Config</span>
+                  <span>AI Summary Settings</span>
                 </div>
               }
             >
               <AISummaryConfig
                 API_BASE_URL={API_BASE_URL}
                 onDataUpdate={fetchData}
-              />
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title={
-                <div className="flex items-center space-x-2">
-                  <Settings className="w-5 h-5 text-blue-500" />
-                  <span>League Management</span>
-                </div>
-              }
-            >
-              <SleeperAdmin
-                API_BASE_URL={API_BASE_URL}
-                onDataUpdate={fetchData}
-                adminToken={adminSession.token}
-                onAdminSessionInvalid={handleAdminSessionInvalid}
-                onKeeperLockChange={handleKeeperLockChange}
-                onVotingLockChange={handleVotingLockChange}
               />
             </CollapsibleSection>
 
