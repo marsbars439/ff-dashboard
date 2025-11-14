@@ -551,16 +551,18 @@ const SleeperAdmin = ({
       }
 
       const seasons = Array.isArray(data?.teamSeasons)
-        ? [...data.teamSeasons].sort((a, b) => {
-            const rankA = Number(a?.regular_season_rank) || 99;
-            const rankB = Number(b?.regular_season_rank) || 99;
-            if (rankA !== rankB) {
-              return rankA - rankB;
-            }
-            const nameA = (a?.manager_name || '').toLowerCase();
-            const nameB = (b?.manager_name || '').toLowerCase();
-            return nameA.localeCompare(nameB);
-          })
+        ? data.teamSeasons
+            .filter(season => season && typeof season === 'object')
+            .sort((a, b) => {
+              const rankA = Number(a?.regular_season_rank) || 99;
+              const rankB = Number(b?.regular_season_rank) || 99;
+              if (rankA !== rankB) {
+                return rankA - rankB;
+              }
+              const nameA = (a?.manager_name || '').toLowerCase();
+              const nameB = (b?.manager_name || '').toLowerCase();
+              return nameA.localeCompare(nameB);
+            })
         : [];
 
       setSeasonModalSeasons(seasons);
@@ -1843,13 +1845,16 @@ const SleeperAdmin = ({
                         <th className="px-3 py-2 text-right font-medium text-gray-600">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {seasonModalSeasons.map(season => {
-                        const isEditing = seasonModalEditingId === season.id;
-                        const managerLabel = managerNameMap[season.name_id] || season.manager_name || season.name_id;
-                        const edited = seasonModalEditedRow || {};
+                      <tbody className="divide-y divide-gray-100">
+                        {seasonModalSeasons.map(season => {
+                          if (!season || typeof season !== 'object') {
+                            return null;
+                          }
+                          const isEditing = seasonModalEditingId === season.id;
+                          const managerLabel = managerNameMap[season.name_id] || season.manager_name || season.name_id;
+                          const edited = seasonModalEditedRow || {};
 
-                        return (
+                          return (
                           <tr key={season.id} className="bg-white">
                             <td className="px-3 py-2 text-sm text-gray-600">{season.year}</td>
                             <td className="px-3 py-2">
