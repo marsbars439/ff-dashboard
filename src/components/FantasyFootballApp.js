@@ -3659,56 +3659,57 @@ const FantasyFootballApp = () => {
         {activeTab === 'preseason' && (
           managerAuth.status === 'authenticated' ? (
             <div className="space-y-4 sm:space-y-6">
+              <div className="flex justify-end">
+                <div className="flex flex-wrap items-center justify-end gap-2 text-xs sm:text-sm text-gray-600">
+                  <span className="inline-flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-blue-500" />
+                    <span>
+                      Verified as{' '}
+                      <span className="font-semibold text-gray-700">
+                        {managerAuth.managerName || managerAuth.managerId}
+                      </span>
+                    </span>
+                  </span>
+                  {managerAuth.verificationSource === 'cloudflare' && (
+                    <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium uppercase tracking-wide text-blue-600">
+                      <Cloud className="h-3 w-3" />
+                      Verified via Cloudflare
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleManagerLogout}
+                    className="inline-flex items-center gap-1 text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </div>
               <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-full bg-blue-50 p-2 text-blue-600">
-                        <ShieldCheck className="w-5 h-5" />
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 text-sm sm:text-base text-gray-700">
-                        <div className="flex flex-col">
-                          <span>
-                            Verified as{' '}
-                            <span className="font-semibold">
-                              {managerAuth.managerName || managerAuth.managerId}
-                            </span>
-                          </span>
-                          {managerAuth.verificationSource === 'cloudflare' && (
-                            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600">
-                              <Cloud className="h-4 w-4" />
-                              Verified via Cloudflare
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleManagerLogout}
-                          className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                          Sign out
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex flex-col gap-4">
                   {keeperEditingLocked && (
                     <div className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
                       Keeper and trade selections are currently locked by the commissioner.
                     </div>
                   )}
                   {availableYears.length > 0 && (
-                    <div className="flex sm:justify-end">
-                      <select
-                        value={selectedKeeperYear || ''}
-                        onChange={e => setSelectedKeeperYear(Number(e.target.value))}
-                        className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                      >
-                        {availableYears.map(year => (
-                          <option key={year} value={year}>
-                            {`${year} Rosters / ${year + 1} Draft`}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="flex justify-center">
+                      <div className="inline-flex flex-col items-center gap-2">
+                        <span className="text-xs sm:text-sm font-medium uppercase tracking-wide text-gray-600">
+                          Rosters / Draft Filter
+                        </span>
+                        <select
+                          value={selectedKeeperYear || ''}
+                          onChange={e => setSelectedKeeperYear(Number(e.target.value))}
+                          className="border-2 border-blue-200 bg-white rounded-full px-4 py-2 text-sm sm:text-base font-medium text-gray-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        >
+                          {availableYears.map(year => (
+                            <option key={year} value={year}>
+                              {`${year} Rosters / ${year + 1} Draft`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   )}
                 </div>
