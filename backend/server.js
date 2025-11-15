@@ -812,6 +812,26 @@ const allAsync = (sql, params = []) =>
     });
   });
 
+const normalizeSqliteTimestamp = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed) {
+    return null;
+  }
+
+  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed);
+  const normalized = hasTimezone ? trimmed : `${trimmed}Z`;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString();
+};
+
 const isValidEmailFormat = (email) => {
   if (typeof email !== 'string') {
     return false;
@@ -1470,11 +1490,14 @@ const refreshRosRankings = async () => {
     stmt.finalize();
     console.log(`Updated ROS rankings: ${players.length} players`);
 
+    const lastUpdatedRow = await getAsync('SELECT MAX(updated_at) AS last_updated FROM ros_rankings');
+    const lastUpdated = normalizeSqliteTimestamp(lastUpdatedRow?.last_updated) || new Date().toISOString();
+
     if (failed.length) {
       console.warn(`Failed to fetch rankings for: ${failed.join(', ')}`);
     }
 
-    return { updated: players.length, failed };
+    return { updated: players.length, failed, lastUpdated };
   } catch (err) {
     const failureDetails = Array.isArray(err?.failed) ? err.failed : [];
     console.error('Failed to refresh ROS rankings:', err.message);
@@ -1922,10 +1945,14 @@ app.get('/api/managers', async (req, res) => {
 // Get ROS rankings
 app.get('/api/ros-rankings', async (req, res) => {
   try {
-    const rows = await allAsync(
-      'SELECT player_name, team, position, proj_pts, sos_season, sos_playoffs FROM ros_rankings ORDER BY player_name'
-    );
-    res.json({ rankings: rows });
+    const [rows, lastUpdatedRow] = await Promise.all([
+      allAsync(
+        'SELECT player_name, team, position, proj_pts, sos_season, sos_playoffs FROM ros_rankings ORDER BY player_name'
+      ),
+      getAsync('SELECT MAX(updated_at) AS last_updated FROM ros_rankings')
+    ]);
+    const lastUpdated = normalizeSqliteTimestamp(lastUpdatedRow?.last_updated);
+    res.json({ rankings: rows, lastUpdated });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
