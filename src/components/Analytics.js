@@ -174,6 +174,29 @@ function getSortFieldKey(field) {
   return STRING_SORT_FIELDS.includes(field) ? `${field}Lower` : field;
 }
 
+function normalizeTimestamp(value) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed) {
+    return null;
+  }
+
+  const direct = new Date(trimmed);
+  if (!Number.isNaN(direct.getTime())) {
+    return direct.toISOString();
+  }
+
+  const appended = new Date(`${trimmed}Z`);
+  if (!Number.isNaN(appended.getTime())) {
+    return appended.toISOString();
+  }
+
+  return null;
+}
+
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -209,6 +232,7 @@ const Analytics = ({ onBack }) => {
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
   const [refreshMessage, setRefreshMessage] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [rosLastUpdated, setRosLastUpdated] = useState(null);
   const rosTableRef = useRef(null);
 
   useEffect(() => {
@@ -259,6 +283,11 @@ const Analytics = ({ onBack }) => {
       const rosData = Array.isArray(dataRes)
         ? dataRes
         : dataRes.rankings || [];
+      const rosLastUpdatedValue = !Array.isArray(dataRes)
+        ? dataRes?.lastUpdated || dataRes?.last_updated || null
+        : null;
+      const normalizedRosLastUpdated = normalizeTimestamp(rosLastUpdatedValue);
+      setRosLastUpdated(normalizedRosLastUpdated);
       const rosters = Array.isArray(rosterRes)
         ? rosterRes
         : rosterRes.rosters || [];
@@ -425,6 +454,14 @@ const Analytics = ({ onBack }) => {
       }
 
       const failed = Array.isArray(payload?.failed) ? payload.failed : [];
+      const refreshLastUpdated = !payload || Array.isArray(payload)
+        ? null
+        : payload.lastUpdated || payload.last_updated || null;
+      const normalizedRefreshLastUpdated = normalizeTimestamp(refreshLastUpdated);
+      if (normalizedRefreshLastUpdated) {
+        setRosLastUpdated(normalizedRefreshLastUpdated);
+      }
+
       if (failed.length) {
         setRefreshMessage(`ROS data refreshed with issues: ${failed.join('; ')}`);
       } else {
@@ -443,6 +480,22 @@ const Analytics = ({ onBack }) => {
       setRefreshing(false);
     }
   };
+
+  const formattedRosLastUpdated = useMemo(() => {
+    if (!rosLastUpdated) {
+      return '';
+    }
+
+    const date = new Date(rosLastUpdated);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(date);
+  }, [rosLastUpdated]);
 
   const handleDownloadRosImage = useCallback(async () => {
     const target = rosTableRef.current;
@@ -1027,8 +1080,16 @@ const Analytics = ({ onBack }) => {
         {managerPositionStats.length > 0 && (
           <div className="mb-6">
             <div ref={rosTableRef} className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
+                  {formattedRosLastUpdated && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      FantasyPros data last updated{' '}
+                      <time dateTime={rosLastUpdated}>{formattedRosLastUpdated}</time>
+                    </p>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={handleDownloadRosImage}
