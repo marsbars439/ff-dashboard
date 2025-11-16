@@ -86,6 +86,40 @@ const cloudflareAccessService = createCloudflareAccessService({
   jwksTimeoutMs: process.env.CF_ACCESS_JWKS_TIMEOUT_MS
 });
 
+const normalizeOrigin = origin => {
+  if (typeof origin !== 'string') {
+    return '';
+  }
+
+  const trimmedOrigin = origin.trim();
+
+  if (!trimmedOrigin) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(trimmedOrigin);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch (error) {
+    return trimmedOrigin.replace(/\/+$/, '');
+  }
+};
+
+const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+const isLoopbackOrigin = (origin) => {
+  if (!origin) {
+    return false;
+  }
+
+  try {
+    const { hostname } = new URL(origin);
+    return loopbackHosts.has(hostname);
+  } catch (error) {
+    return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(origin);
+  }
+};
+
 const resolveAllowedCorsOrigins = () => {
   const envValue =
     typeof process.env.CORS_ALLOWED_ORIGINS === 'string'
