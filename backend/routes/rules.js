@@ -398,6 +398,13 @@ function createRulesRouter({
     }
 
     try {
+      const existingRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [proposalId]);
+      if (!existingRow) {
+        return res.status(404).json({ error: 'Proposal not found' });
+      }
+
+      const previousOptions = parseRuleChangeOptions(existingRow.options);
+
       await runAsync(
         `UPDATE rule_change_proposals
          SET title = ?, description = ?, options = ?, display_order = ?, updated_at = CURRENT_TIMESTAMP
@@ -411,10 +418,18 @@ function createRulesRouter({
         ]
       );
 
-      const updatedRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [proposalId]);
-      if (!updatedRow) {
-        return res.status(404).json({ error: 'Proposal not found' });
+      const removedOptions = previousOptions.filter(
+        option => !normalizedOptions.includes(option)
+      );
+
+      for (const removedOption of removedOptions) {
+        await runAsync('DELETE FROM rule_change_votes WHERE proposal_id = ? AND option = ?', [
+          proposalId,
+          removedOption
+        ]);
       }
+
+      const updatedRow = await getAsync('SELECT * FROM rule_change_proposals WHERE id = ?', [proposalId]);
 
       const voteRows = await allAsync(
         `SELECT v.proposal_id, v.option, v.voter_id, m.full_name
