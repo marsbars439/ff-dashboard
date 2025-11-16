@@ -440,8 +440,8 @@ function createRulesRouter({
     const { title, description = '', options, displayOrder } = req.body || {};
     const normalizedOptions = sanitizeRuleChangeOptions(options);
 
-    if (!title || !normalizedOptions.length) {
-      return res.status(400).json({ error: 'Title and at least one option are required' });
+    if (!title || normalizedOptions.length < 2) {
+      return res.status(400).json({ error: 'Title and at least two options are required' });
     }
 
     try {
