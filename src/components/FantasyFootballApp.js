@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { BookOpen, ChevronDown, Trophy } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import PlayoffBracket from './PlayoffBracket';
 import AISummary from './AISummary';
 import AIPreview from './AIPreview';
@@ -7,6 +7,9 @@ import Analytics from './Analytics';
 import KeeperTools from './KeeperTools';
 import RecordsView from './RecordsView';
 import AdminTools from './AdminTools';
+import DashboardHeader from './DashboardHeader';
+import ActiveTabSection from './ActiveTabSection';
+import RulesSection from './RulesSection';
 import { useAdminSession } from '../state/AdminSessionContext';
 import { useManagerAuth } from '../state/ManagerAuthContext';
 import { useKeeperTools } from '../state/KeeperToolsContext';
@@ -15,6 +18,17 @@ import { parseFlexibleTimestamp, formatInUserTimeZone } from '../utils/date';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
 const VALID_TABS = new Set(['records', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
+const DASHBOARD_TABS = [
+  { id: 'records', label: 'Hall of Records' },
+  { id: 'seasons', label: 'Seasons' },
+  { id: 'preseason', label: 'Preseason' },
+  { id: 'rules', label: 'Rules' },
+  {
+    id: 'admin',
+    label: 'Admin',
+    isActive: (currentTab) => currentTab === 'admin' || currentTab === 'analytics'
+  }
+];
 
 const FantasyFootballApp = () => {
   const { adminSession, enforceAdminTabAccess } = useAdminSession();
@@ -504,95 +518,6 @@ const FantasyFootballApp = () => {
     } catch (error) {
       alert('Error: ' + error.message);
     }
-  };
-
-  // Simple but effective markdown rendering with proper indentation
-  const renderMarkdown = (text) => {
-    const lines = text.split('\n');
-    const elements = [];
-    let currentList = [];
-    let inList = false;
-
-    const processLine = (line, index) => {
-      // Handle lists (both regular and indented)
-      const listMatch = line.match(/^(\s*)- (.+)$/);
-      if (listMatch) {
-        const spaces = listMatch[1].length;
-        const content = listMatch[2];
-        const indentLevel = Math.floor(spaces / 2);
-        
-        if (!inList) {
-          inList = true;
-        }
-        
-        currentList.push({ content: processInlineFormatting(content), indent: indentLevel });
-        return;
-      }
-
-      // Flush any pending list when we hit non-list content
-      if (inList && currentList.length > 0) {
-        elements.push(createSimpleList(currentList, `list-${elements.length}`));
-        currentList = [];
-        inList = false;
-      }
-
-      // Handle headers
-      if (line.startsWith('# ')) {
-        elements.push(<h1 key={index} className="text-2xl sm:text-3xl font-bold text-gray-900 mt-6 sm:mt-8 mb-3 sm:mb-4">{processInlineFormatting(line.slice(2))}</h1>);
-      } else if (line.startsWith('## ')) {
-        elements.push(<h2 key={index} className="text-xl sm:text-2xl font-bold text-gray-800 mt-4 sm:mt-6 mb-2 sm:mb-3">{processInlineFormatting(line.slice(3))}</h2>);
-      } else if (line.startsWith('### ')) {
-        elements.push(<h3 key={index} className="text-lg sm:text-xl font-bold text-gray-700 mt-3 sm:mt-4 mb-2">{processInlineFormatting(line.slice(4))}</h3>);
-      } else if (line.trim() === '' || line.trim() === '---') {
-        elements.push(<br key={index} />);
-      } else if (line.trim() !== '') {
-        elements.push(<p key={index} className="text-gray-700 mb-2 text-sm sm:text-base">{processInlineFormatting(line)}</p>);
-      }
-    };
-
-    const processInlineFormatting = (text) => {
-      const parts = text.split(/(\*\*.*?\*\*)/);
-      return parts.map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={i}>{part.slice(2, -2)}</strong>;
-        }
-        return part;
-      });
-    };
-
-    const createSimpleList = (items, key) => {
-      return (
-        <ul key={key} className="mb-4 space-y-1">
-          {items.map((item, i) => {
-            // Use style for precise indentation control
-            const indentStyle = {
-              marginLeft: `${Math.max(1, 1 + item.indent * 1.5)}rem`,
-              listStyleType: 'disc',
-              display: 'list-item'
-            };
-            
-            return (
-              <li 
-                key={i} 
-                className="text-gray-700 text-sm sm:text-base"
-                style={indentStyle}
-              >
-                {item.content}
-              </li>
-            );
-          })}
-        </ul>
-      );
-    };
-
-    lines.forEach(processLine);
-
-    // Flush any remaining list
-    if (inList && currentList.length > 0) {
-      elements.push(createSimpleList(currentList, `list-${elements.length}`));
-    }
-
-    return elements;
   };
 
   const calculateAllRecords = () => {
@@ -1584,345 +1509,292 @@ const FantasyFootballApp = () => {
     ...inactiveRecords.sort((a, b) => b.pointsPerGame - a.pointsPerGame)
   ];
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="bg-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center py-4 sm:py-6 space-y-4 sm:space-y-0">
-            <div className="flex items-center space-x-3">
-              <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500" />
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">The League Dashboard</h1>
-            </div>
-            <nav className="flex flex-wrap justify-center sm:justify-end items-center space-x-3 sm:space-x-6">
-              <button
-                onClick={() => updateActiveTab('records')}
-                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'records'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Hall of Records
-              </button>
-              <button
-                onClick={() => updateActiveTab('seasons')}
-                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'seasons'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Seasons
-              </button>
-              <button
-                onClick={() => updateActiveTab('preseason')}
-                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'preseason'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Preseason
-              </button>
-              <button
-                onClick={() => updateActiveTab('rules')}
-                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'rules'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Rules
-              </button>
-              <button
-                onClick={() => updateActiveTab('admin')}
-                className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'admin' || activeTab === 'analytics'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Admin
-              </button>
-            </nav>
+  const renderSeasonsSection = () => (
+    <div className="space-y-4 sm:space-y-6">
+      {selectedSeasonYear === mostRecentYear && lastCompletedWeek > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
+              Week {lastCompletedWeek} In Review
+            </h2>
+            <AISummary />
+          </div>
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
+              Week {lastCompletedWeek + 1} Preview
+            </h2>
+            <AIPreview />
           </div>
         </div>
+      )}
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Season {selectedSeasonYear}</h2>
+          <select
+            value={selectedSeasonYear || ''}
+            onChange={e => setSelectedSeasonYear(Number(e.target.value))}
+            className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+          >
+            {availableYears.map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 text-center">
+          <div>
+            <p className="text-xs sm:text-sm text-gray-500">Champion</p>
+            <p className="font-semibold">{champion ? champion.manager_name : 'TBD'}</p>
+          </div>
+          <div>
+            <p className="text-xs sm:text-sm text-gray-500">Runner-Up</p>
+            <p className="font-semibold">{runnerUp ? runnerUp.manager_name : 'TBD'}</p>
+          </div>
+          <div>
+            <p className="text-xs sm:text-sm text-gray-500">Third Place</p>
+            <p className="font-semibold">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
+          </div>
+        </div>
+        {isRegularSeasonComplete(selectedSeasonYear) && playoffBracket.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Playoff Bracket</h3>
+            <PlayoffBracket rounds={playoffBracket} />
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-medium text-gray-500">Rank</th>
+                <th className="px-2 py-1 text-left font-medium text-gray-500">Manager</th>
+                <th className="px-2 py-1 text-left font-medium text-gray-500">Record</th>
+                <th className="px-2 py-1 text-left font-medium text-gray-500">PF</th>
+                <th className="px-2 py-1 text-left font-medium text-gray-500">PA</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {teamSeasons
+                .filter(s => s.year === selectedSeasonYear)
+                .sort((a, b) => a.regular_season_rank - b.regular_season_rank)
+                .map(season => (
+                  <tr key={season.name_id} className={season.playoff_finish === 1 ? 'bg-yellow-50' : ''}>
+                    <td className="px-2 py-1">{season.regular_season_rank}</td>
+                    <td className="px-2 py-1">{season.manager_name}</td>
+                    <td className="px-2 py-1">
+                      {season.wins}-{season.losses}
+                      {season.ties ? `-${season.ties}` : ''}
+                    </td>
+                    <td className="px-2 py-1">{season.points_for.toFixed(1)}</td>
+                    <td className="px-2 py-1">{season.points_against.toFixed(1)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+        {topWeeklyScores.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div className="bg-green-50 rounded-lg p-4 shadow">
+              <h4 className="font-semibold mb-2">Top 5 Weekly Scores</h4>
+              <ul className="space-y-1 text-sm">
+                {topWeeklyScores.map((w, idx) => (
+                  <li key={idx} className="flex justify-between">
+                    <span>{`Week ${w.week} - ${w.manager}`}</span>
+                    <span className="font-medium">{w.points}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="bg-red-50 rounded-lg p-4 shadow">
+              <h4 className="font-semibold mb-2">Bottom 5 Weekly Scores</h4>
+              <ul className="space-y-1 text-sm">
+                {bottomWeeklyScores.map((w, idx) => (
+                  <li key={idx} className="flex justify-between">
+                    <span>{`Week ${w.week} - ${w.manager}`}</span>
+                    <span className="font-medium">{w.points}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
+      {!seasonsWithoutMatchups.includes(selectedSeasonYear) && (
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
+          {seasonMatchups.map(week => {
+            const isActiveWeek =
+              selectedSeasonYear === mostRecentYear &&
+              activeWeekMatchups &&
+              week.week === activeWeekMatchups.week;
+            const hasActiveLineups =
+              isActiveWeek &&
+              !activeWeekLoading &&
+              Array.isArray(activeWeekMatchups?.matchups) &&
+              activeWeekMatchups.matchups.length > 0;
+            const headerMessage = activeWeekLoading
+              ? 'Loading starting lineups from Sleeper...'
+              : hasActiveLineups
+              ? 'Starting lineups provided by Sleeper'
+              : activeWeekError
+              ? 'Sleeper lineups unavailable'
+              : 'Starting lineups unavailable';
+            const headerMessageClass = activeWeekError
+              ? 'text-xs text-red-500'
+              : 'text-xs text-gray-500';
+            const hasWeekState = Object.prototype.hasOwnProperty.call(
+              expandedWeeks,
+              week.week
+            );
+            const isExpanded = hasWeekState
+              ? !!expandedWeeks[week.week]
+              : activeWeekNumber
+              ? week.week === activeWeekNumber
+              : true;
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {activeTab === 'seasons' && (
-          <div className="space-y-4 sm:space-y-6">
-              {selectedSeasonYear === mostRecentYear && lastCompletedWeek > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                  <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
-                      Week {lastCompletedWeek} In Review
-                    </h2>
-                    <AISummary />
-                  </div>
-                  <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
-                      Week {lastCompletedWeek + 1} Preview
-                    </h2>
-                    <AIPreview />
-                  </div>
-                </div>
-              )}
-            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Season {selectedSeasonYear}</h2>
-                <select
-                  value={selectedSeasonYear || ''}
-                  onChange={e => setSelectedSeasonYear(Number(e.target.value))}
-                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+            return (
+              <div key={week.week} className="mb-6 bg-gray-50 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => toggleWeekExpansion(week.week)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
+                  aria-expanded={isExpanded}
                 >
-                  {availableYears.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 text-center">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-500">Champion</p>
-                  <p className="font-semibold">{champion ? champion.manager_name : 'TBD'}</p>
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-500">Runner-Up</p>
-                  <p className="font-semibold">{runnerUp ? runnerUp.manager_name : 'TBD'}</p>
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-500">Third Place</p>
-                  <p className="font-semibold">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
-                </div>
-              </div>
-              {isRegularSeasonComplete(selectedSeasonYear) && playoffBracket.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Playoff Bracket</h3>
-                  <PlayoffBracket rounds={playoffBracket} />
-                </div>
-              )}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-2 py-1 text-left font-medium text-gray-500">Rank</th>
-                      <th className="px-2 py-1 text-left font-medium text-gray-500">Manager</th>
-                      <th className="px-2 py-1 text-left font-medium text-gray-500">Record</th>
-                      <th className="px-2 py-1 text-left font-medium text-gray-500">PF</th>
-                      <th className="px-2 py-1 text-left font-medium text-gray-500">PA</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {teamSeasons
-                      .filter(s => s.year === selectedSeasonYear)
-                      .sort((a, b) => a.regular_season_rank - b.regular_season_rank)
-                        .map(season => (
-                          <tr key={season.name_id} className={season.playoff_finish === 1 ? 'bg-yellow-50' : ''}>
-                            <td className="px-2 py-1">{season.regular_season_rank}</td>
-                            <td className="px-2 py-1">{season.manager_name}</td>
-                            <td className="px-2 py-1">{season.wins}-{season.losses}</td>
-                            <td className="px-2 py-1">{season.points_for}</td>
-                            <td className="px-2 py-1">{season.points_against}</td>
-                          </tr>
-                        ))}
-                  </tbody>
-                </table>
-              </div>
-              {topWeeklyScores.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                  <div className="bg-green-50 rounded-lg p-4 shadow">
-                    <h4 className="font-semibold mb-2">Top 5 Weekly Scores</h4>
-                    <ul className="space-y-1 text-sm">
-                      {topWeeklyScores.map((w, idx) => (
-                        <li key={idx} className="flex justify-between">
-                          <span>{`Week ${w.week} - ${w.manager}`}</span>
-                          <span className="font-medium">{w.points}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-1 gap-2">
+                    <h4 className="font-semibold">Week {week.week}</h4>
+                    {isActiveWeek && (
+                      <span className={headerMessageClass}>{headerMessage}</span>
+                    )}
                   </div>
-                  <div className="bg-red-50 rounded-lg p-4 shadow">
-                    <h4 className="font-semibold mb-2">Bottom 5 Weekly Scores</h4>
-                    <ul className="space-y-1 text-sm">
-                      {bottomWeeklyScores.map((w, idx) => (
-                        <li key={idx} className="flex justify-between">
-                          <span>{`Week ${w.week} - ${w.manager}`}</span>
-                          <span className="font-medium">{w.points}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <ChevronDown
+                    className={`w-5 h-5 text-gray-500 transition-transform ${
+                      isExpanded ? 'transform rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {isExpanded && (
+                  <div className="border-t border-gray-200 px-3 pb-3 sm:px-4 sm:pb-4 pt-3 sm:pt-4">
+                    {hasActiveLineups ? (
+                      <div className="space-y-3">
+                        {activeWeekMatchups.matchups.map((matchup, idx) =>
+                          renderActiveWeekMatchup(matchup, idx, week.week)
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        {isActiveWeek && activeWeekLoading && (
+                          <p className="text-xs text-gray-500 mb-2">
+                            Loading starting lineups from Sleeper...
+                          </p>
+                        )}
+                        {isActiveWeek && activeWeekError && (
+                          <p className="text-xs text-red-600 mb-2">{activeWeekError}</p>
+                        )}
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full text-xs sm:text-sm table-fixed">
+                            <tbody className="divide-y divide-gray-200">
+                              {week.matchups.map((m, idx) => {
+                                const homePoints = normalizePoints(m.home?.points);
+                                const awayPoints = normalizePoints(m.away?.points);
+                                const homeWin =
+                                  homePoints !== null &&
+                                  awayPoints !== null &&
+                                  homePoints > awayPoints;
+                                const awayWin =
+                                  homePoints !== null &&
+                                  awayPoints !== null &&
+                                  awayPoints > homePoints;
+                                return (
+                                  <tr key={idx} className="text-left">
+                                    <td className={`px-2 py-1 w-1/5 ${homeWin ? 'bg-green-50 text-green-700 font-semibold rounded-l' : ''}`}>
+                                      {m.home?.manager_name || 'TBD'}
+                                    </td>
+                                    <td className={`px-2 py-1 w-1/5 text-right ${homeWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
+                                      {formatPoints(m.home?.points)}
+                                    </td>
+                                    <td className="px-2 py-1 w-1/5 text-center">vs</td>
+                                    <td className={`px-2 py-1 w-1/5 ${awayWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
+                                      {m.away?.manager_name || 'TBD'}
+                                    </td>
+                                    <td className={`px-2 py-1 w-1/5 text-right ${awayWin ? 'bg-green-50 text-green-700 font-semibold rounded-r' : ''}`}>
+                                      {formatPoints(m.away?.points)}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
-            {!seasonsWithoutMatchups.includes(selectedSeasonYear) && (
-              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
-                {seasonMatchups.map(week => {
-                  const isActiveWeek =
-                    selectedSeasonYear === mostRecentYear &&
-                    activeWeekMatchups &&
-                    week.week === activeWeekMatchups.week;
-                  const hasActiveLineups =
-                    isActiveWeek &&
-                    !activeWeekLoading &&
-                    Array.isArray(activeWeekMatchups?.matchups) &&
-                    activeWeekMatchups.matchups.length > 0;
-                  const headerMessage = activeWeekLoading
-                    ? 'Loading starting lineups from Sleeper...'
-                    : hasActiveLineups
-                    ? 'Starting lineups provided by Sleeper'
-                    : activeWeekError
-                    ? 'Sleeper lineups unavailable'
-                    : 'Starting lineups unavailable';
-                  const headerMessageClass = activeWeekError
-                    ? 'text-xs text-red-500'
-                    : 'text-xs text-gray-500';
-                  const hasWeekState = Object.prototype.hasOwnProperty.call(
-                    expandedWeeks,
-                    week.week
-                  );
-                  const isExpanded = hasWeekState
-                    ? !!expandedWeeks[week.week]
-                    : activeWeekNumber
-                    ? week.week === activeWeekNumber
-                    : true;
-
-                  return (
-                    <div key={week.week} className="mb-6 bg-gray-50 rounded-lg">
-                      <button
-                        type="button"
-                        onClick={() => toggleWeekExpansion(week.week)}
-                        className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
-                        aria-expanded={isExpanded}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-1 gap-2">
-                          <h4 className="font-semibold">Week {week.week}</h4>
-                          {isActiveWeek && (
-                            <span className={headerMessageClass}>{headerMessage}</span>
-                          )}
-                        </div>
-                        <ChevronDown
-                          className={`w-5 h-5 text-gray-500 transition-transform ${
-                            isExpanded ? 'transform rotate-180' : ''
-                          }`}
-                        />
-                      </button>
-
-                      {isExpanded && (
-                        <div className="border-t border-gray-200 px-3 pb-3 sm:px-4 sm:pb-4 pt-3 sm:pt-4">
-                          {hasActiveLineups ? (
-                            <div className="space-y-3">
-                              {activeWeekMatchups.matchups.map((matchup, idx) =>
-                                renderActiveWeekMatchup(matchup, idx, week.week)
-                              )}
-                            </div>
-                          ) : (
-                            <>
-                              {isActiveWeek && activeWeekLoading && (
-                                <p className="text-xs text-gray-500 mb-2">
-                                  Loading starting lineups from Sleeper...
-                                </p>
-                              )}
-                              {isActiveWeek && activeWeekError && (
-                                <p className="text-xs text-red-600 mb-2">{activeWeekError}</p>
-                              )}
-                              <div className="overflow-x-auto">
-                                <table className="min-w-full text-xs sm:text-sm table-fixed">
-                                  <tbody className="divide-y divide-gray-200">
-                                    {week.matchups.map((m, idx) => {
-                                      const homePoints = normalizePoints(m.home?.points);
-                                      const awayPoints = normalizePoints(m.away?.points);
-                                      const homeWin =
-                                        homePoints !== null &&
-                                        awayPoints !== null &&
-                                        homePoints > awayPoints;
-                                      const awayWin =
-                                        homePoints !== null &&
-                                        awayPoints !== null &&
-                                        awayPoints > homePoints;
-                                      return (
-                                        <tr key={idx} className="text-left">
-                                          <td className={`px-2 py-1 w-1/5 ${homeWin ? 'bg-green-50 text-green-700 font-semibold rounded-l' : ''}`}>
-                                            {m.home?.manager_name || 'TBD'}
-                                          </td>
-                                          <td className={`px-2 py-1 w-1/5 text-right ${homeWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
-                                            {formatPoints(m.home?.points)}
-                                          </td>
-                                          <td className="px-2 py-1 w-1/5 text-center">vs</td>
-                                          <td className={`px-2 py-1 w-1/5 ${awayWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
-                                            {m.away?.manager_name || 'TBD'}
-                                          </td>
-                                          <td className={`px-2 py-1 w-1/5 text-right ${awayWin ? 'bg-green-50 text-green-700 font-semibold rounded-r' : ''}`}>
-                                            {formatPoints(m.away?.points)}
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                )}
               </div>
-            )}
-          </div>
-        )}
-        {activeTab === 'preseason' && (
-          <KeeperTools
-            availableYears={availableYears}
-            managerOptions={managerOptions}
-          />
-        )}
-        {activeTab === 'records' && (
-          <RecordsView
-            allRecords={allRecords}
-            mostRecentYear={mostRecentYear}
-            currentChampion={currentChampion}
-            currentChumpion={currentChumpion}
-            currentYearSeasons={currentYearSeasons}
-            selectedManager={selectedManager}
-            onSelectManager={setSelectedManager}
-            medalRankings={medalRankings}
-            chumpionRankings={chumpionRankings}
-            winPctRankings={winPctRankings}
-            ppgRankings={ppgRankings}
-            getCurrentYearChumpionDues={getCurrentYearChumpionDues}
-          />
-        )}
-        {activeTab === 'admin' && (
-          <AdminTools
-            apiBaseUrl={API_BASE_URL}
-            availableYears={availableYears}
-            managers={managers}
-            rulesContent={rulesContent}
-            setRulesContent={setRulesContent}
-            onSaveRules={saveRules}
-            onAnalyticsClick={() => updateActiveTab('analytics')}
-            onSignOut={() => setActiveTab('admin')}
-            onDataUpdate={fetchData}
-          />
-        )}
-        {activeTab === 'rules' && (
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8">
-            <div className="flex items-center space-x-3 mb-6 sm:mb-8">
-              <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">League Rules</h2>
-            </div>
-            <div className="prose prose-sm sm:prose-lg max-w-none">
-              {renderMarkdown(rulesContent)}
-            </div>
-          </div>
-        )}
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 
-        {activeTab === 'analytics' && (
-          <Analytics onBack={() => updateActiveTab('admin')} />
-        )}
+  const renderPreseasonSection = () => (
+    <KeeperTools availableYears={availableYears} managerOptions={managerOptions} />
+  );
+
+  const renderRecordsSection = () => (
+    <RecordsView
+      allRecords={allRecords}
+      mostRecentYear={mostRecentYear}
+      currentChampion={currentChampion}
+      currentChumpion={currentChumpion}
+      currentYearSeasons={currentYearSeasons}
+      selectedManager={selectedManager}
+      onSelectManager={setSelectedManager}
+      medalRankings={medalRankings}
+      chumpionRankings={chumpionRankings}
+      winPctRankings={winPctRankings}
+      ppgRankings={ppgRankings}
+      getCurrentYearChumpionDues={getCurrentYearChumpionDues}
+    />
+  );
+
+  const renderAdminSection = () => (
+    <AdminTools
+      apiBaseUrl={API_BASE_URL}
+      availableYears={availableYears}
+      managers={managers}
+      rulesContent={rulesContent}
+      setRulesContent={setRulesContent}
+      onSaveRules={saveRules}
+      onAnalyticsClick={() => updateActiveTab('analytics')}
+      onSignOut={() => setActiveTab('admin')}
+      onDataUpdate={fetchData}
+    />
+  );
+
+  const renderRulesSection = () => <RulesSection rulesContent={rulesContent} />;
+
+  const renderAnalyticsSection = () => (
+    <Analytics onBack={() => updateActiveTab('admin')} />
+  );
+
+  const tabSections = {
+    seasons: renderSeasonsSection,
+    preseason: renderPreseasonSection,
+    records: renderRecordsSection,
+    admin: renderAdminSection,
+    rules: renderRulesSection,
+    analytics: renderAnalyticsSection
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <DashboardHeader
+        tabs={DASHBOARD_TABS}
+        activeTab={activeTab}
+        onTabChange={updateActiveTab}
+      />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <ActiveTabSection activeTab={activeTab} sections={tabSections} />
       </div>
     </div>
   );
