@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Gavel, Loader2, Lock } from 'lucide-react';
+import { useManagerAuth } from '../state/ManagerAuthContext';
 
 const RuleChangeVoting = ({
   seasonYear,
@@ -9,9 +10,10 @@ const RuleChangeVoting = ({
   onVote,
   userVotes = {},
   voteSubmitting = {},
-  canVote = true,
   votingLocked = false
 }) => {
+  const { managerAuth } = useManagerAuth();
+  const canVote = managerAuth?.status === 'authenticated';
   const displaySeason = seasonYear != null ? seasonYear + 1 : null;
   const [activeIndex, setActiveIndex] = useState(0);
 

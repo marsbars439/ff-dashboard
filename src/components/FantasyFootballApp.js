@@ -31,11 +31,11 @@ import AISummaryConfig from './AISummaryConfig';
 import Analytics from './Analytics';
 import RuleChangeVoting from './RuleChangeVoting';
 import RuleChangeAdmin from './RuleChangeAdmin';
+import { useManagerAuth } from '../state/ManagerAuthContext';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../utils/date';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
-const MANAGER_AUTH_STORAGE_KEY = 'ff-dashboard-manager-auth';
 const ADMIN_AUTH_STORAGE_KEY = 'ff-dashboard-admin-authorized';
 
 const readStoredAdminSession = () => {
@@ -121,19 +121,17 @@ const FantasyFootballApp = () => {
   const [ruleChangeVotingLocked, setRuleChangeVotingLocked] = useState(false);
   const [ruleChangeVotingLockError, setRuleChangeVotingLockError] = useState(null);
   const [ruleChangeVotingLockUpdating, setRuleChangeVotingLockUpdating] = useState(false);
-  const [managerAuth, setManagerAuth] = useState({
-    managerId: '',
-    managerName: '',
-    token: '',
-    expiresAt: null,
-    status: 'unauthenticated',
-    verificationSource: null
-  });
-  const [managerAuthInitialized, setManagerAuthInitialized] = useState(false);
-  const [managerAuthSelection, setManagerAuthSelection] = useState('');
-  const [managerAuthPasscode, setManagerAuthPasscode] = useState('');
-  const [managerAuthError, setManagerAuthError] = useState(null);
-  const [managerAuthLoading, setManagerAuthLoading] = useState(false);
+  const {
+    managerAuth,
+    managerAuthSelection,
+    setManagerAuthSelection,
+    managerAuthPasscode,
+    setManagerAuthPasscode,
+    managerAuthError,
+    managerAuthLoading,
+    loginManager,
+    clearManagerAuth
+  } = useManagerAuth();
   const [adminSession, setAdminSession] = useState(() => {
     const storedSession = readStoredAdminSession();
 
@@ -163,21 +161,6 @@ const FantasyFootballApp = () => {
   const [expandedWeeks, setExpandedWeeks] = useState({});
   const activeWeekNumber = activeWeekMatchups?.week ?? null;
   const hasLoadedActiveWeekRef = useRef(false);
-  const cloudflareAuthAttemptedRef = useRef(false);
-  const isUnmountedRef = useRef(false);
-  const managerAuthRef = useRef(managerAuth);
-  const cloudflareAbortControllerRef = useRef(null);
-  const cloudflareAuthTimeoutRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      isUnmountedRef.current = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    managerAuthRef.current = managerAuth;
-  }, [managerAuth]);
 
   // Determine if a season's regular season is complete (all teams have 14 games)
   const isRegularSeasonComplete = year => {
@@ -258,22 +241,6 @@ const FantasyFootballApp = () => {
       .filter(option => option.id && option.name)
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [managers]);
-
-  const persistManagerAuth = useCallback((payload) => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    try {
-      if (payload) {
-        window.localStorage?.setItem(MANAGER_AUTH_STORAGE_KEY, JSON.stringify(payload));
-      } else {
-        window.localStorage?.removeItem(MANAGER_AUTH_STORAGE_KEY);
-      }
-    } catch (error) {
-      console.warn('Unable to update stored manager authentication:', error);
-    }
-  }, []);
 
   const persistAdminSession = useCallback((session) => {
     if (typeof window === 'undefined') {
@@ -452,272 +419,23 @@ const FantasyFootballApp = () => {
     setActiveTab('admin');
   };
 
-  const clearManagerAuth = useCallback(
-    (message = null) => {
-      setManagerAuth({
-        managerId: '',
-        managerName: '',
-        token: '',
-        expiresAt: null,
-        status: 'unauthenticated',
-        verificationSource: null
-      });
-      setManagerAuthSelection('');
-      setManagerAuthPasscode('');
+  const resetManagerAuthState = useCallback(
+    (message = null, { resetVotingLocks = false } = {}) => {
+      clearManagerAuth(message);
       setRuleChangeProposals([]);
       setRuleChangeUserVotes({});
-      setManagerAuthLoading(false);
 
       if (typeof message === 'string') {
-        setManagerAuthError(message);
         setRuleChangeError(message);
-      } else {
-        setManagerAuthError(null);
       }
 
-      persistManagerAuth(null);
-    },
-    [persistManagerAuth]
-  );
-
-
-  const validateManagerToken = useCallback(
-    async (managerId, token) => {
-      if (!managerId || !token) {
-        clearManagerAuth();
-        return;
-      }
-
-      setManagerAuthLoading(true);
-      try {
-        const response = await fetch(`${API_BASE_URL}/manager-auth/validate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ managerId, token })
-        });
-
-        const data = await parseJsonResponse(response);
-        if (!response.ok) {
-          throw new Error(data?.error || 'Manager token validation failed');
-        }
-
-        const normalizedAuth = {
-          managerId: data.managerId || managerId,
-          managerName: data.managerName || '',
-          token,
-          expiresAt: data.expiresAt || null,
-          status: 'authenticated',
-          verificationSource: 'storage'
-        };
-
-        setManagerAuth(normalizedAuth);
-        setManagerAuthSelection(normalizedAuth.managerId);
-        setManagerAuthError(null);
-        persistManagerAuth({
-          managerId: normalizedAuth.managerId,
-          managerName: normalizedAuth.managerName,
-          token: normalizedAuth.token,
-          expiresAt: normalizedAuth.expiresAt
-        });
-      } catch (error) {
-        console.warn('Manager token validation failed:', error);
-        clearManagerAuth('Your manager session has expired. Please sign in again.');
-      } finally {
-        setManagerAuthLoading(false);
+      if (resetVotingLocks) {
+        setRuleChangeVotingLocked(false);
+        setRuleChangeVotingLockError(null);
       }
     },
-    [API_BASE_URL, clearManagerAuth, parseJsonResponse, persistManagerAuth]
+    [clearManagerAuth]
   );
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    let storedAuth = null;
-
-    try {
-      const raw = window.localStorage?.getItem(MANAGER_AUTH_STORAGE_KEY);
-      storedAuth = raw ? JSON.parse(raw) : null;
-    } catch (error) {
-      console.warn('Unable to read stored manager authentication:', error);
-    }
-
-    if (storedAuth?.managerId && storedAuth?.token) {
-      setManagerAuth(prev => ({
-        ...prev,
-        managerId: storedAuth.managerId,
-        managerName: storedAuth.managerName || '',
-        token: storedAuth.token,
-        expiresAt: storedAuth.expiresAt || null,
-        status: 'pending',
-        verificationSource: 'storage'
-      }));
-      setManagerAuthSelection(storedAuth.managerId);
-      validateManagerToken(storedAuth.managerId, storedAuth.token);
-    }
-
-    setManagerAuthInitialized(true);
-  }, [validateManagerToken]);
-
-  const attemptCloudflareManagerVerification = useCallback(async () => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    if (!managerAuthInitialized) {
-      return;
-    }
-
-    if (cloudflareAuthAttemptedRef.current) {
-      return;
-    }
-
-    const currentAuth = managerAuthRef.current || {};
-
-    if (currentAuth.status !== 'unauthenticated') {
-      return;
-    }
-
-    cloudflareAuthAttemptedRef.current = true;
-
-    const controller = new AbortController();
-    cloudflareAbortControllerRef.current = controller;
-    let didTimeout = false;
-
-    if (cloudflareAuthTimeoutRef.current) {
-      window.clearTimeout(cloudflareAuthTimeoutRef.current);
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      didTimeout = true;
-      controller.abort();
-    }, 8000);
-    cloudflareAuthTimeoutRef.current = timeoutId;
-
-    setManagerAuth(prev => ({
-      ...prev,
-      status: 'pending',
-      verificationSource: 'cloudflare'
-    }));
-    setManagerAuthError(null);
-    setManagerAuthLoading(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/manager-auth/cloudflare`, {
-        signal: controller.signal,
-        credentials: 'include'
-      });
-
-      const data = await parseJsonResponse(response);
-
-      if (!response.ok || !data?.managerId || !data?.token) {
-        throw new Error(data?.error || 'Cloudflare manager verification failed');
-      }
-
-      if (isUnmountedRef.current) {
-        return;
-      }
-
-      const latestAuth = managerAuthRef.current;
-      const canApplyCloudflareResult =
-        !latestAuth ||
-        latestAuth.status === 'unauthenticated' ||
-        (latestAuth.status === 'pending' && latestAuth.verificationSource === 'cloudflare');
-
-      if (!canApplyCloudflareResult) {
-        return;
-      }
-
-      const normalizedAuth = {
-        managerId: data.managerId,
-        managerName: data.managerName || '',
-        token: data.token,
-        expiresAt: data.expiresAt || null,
-        status: 'authenticated',
-        verificationSource: 'cloudflare'
-      };
-
-      setManagerAuth(normalizedAuth);
-      setManagerAuthSelection(normalizedAuth.managerId);
-      setManagerAuthPasscode('');
-      setManagerAuthError(null);
-      persistManagerAuth({
-        managerId: normalizedAuth.managerId,
-        managerName: normalizedAuth.managerName,
-        token: normalizedAuth.token,
-        expiresAt: normalizedAuth.expiresAt
-      });
-    } catch (error) {
-      if (isUnmountedRef.current) {
-        return;
-      }
-
-      console.warn('Cloudflare manager verification failed:', error);
-      const latestAuth = managerAuthRef.current;
-      const shouldApplyCloudflareFailure =
-        !latestAuth ||
-        latestAuth.status === 'unauthenticated' ||
-        (latestAuth.status === 'pending' && latestAuth.verificationSource === 'cloudflare');
-
-      if (shouldApplyCloudflareFailure) {
-        setManagerAuth({
-          managerId: '',
-          managerName: '',
-          token: '',
-          expiresAt: null,
-          status: 'unauthenticated',
-          verificationSource: null
-        });
-        setManagerAuthSelection('');
-        setManagerAuthPasscode('');
-        setManagerAuthError(
-          didTimeout
-            ? 'Automatic manager verification timed out. Please enter your manager passcode.'
-            : 'Unable to verify automatically. Please enter your manager passcode.'
-        );
-        persistManagerAuth(null);
-      }
-    } finally {
-      window.clearTimeout(timeoutId);
-
-      if (cloudflareAuthTimeoutRef.current === timeoutId) {
-        cloudflareAuthTimeoutRef.current = null;
-      }
-
-      if (cloudflareAbortControllerRef.current === controller) {
-        cloudflareAbortControllerRef.current = null;
-      }
-
-      if (!isUnmountedRef.current) {
-        setManagerAuthLoading(false);
-      }
-    }
-  }, [API_BASE_URL, managerAuthInitialized, parseJsonResponse, persistManagerAuth]);
-
-  useEffect(() => {
-    if (!managerAuthInitialized) {
-      return;
-    }
-
-    if (managerAuth.status !== 'unauthenticated') {
-      return;
-    }
-
-    attemptCloudflareManagerVerification();
-  }, [managerAuthInitialized, managerAuth.status, attemptCloudflareManagerVerification]);
-
-  useEffect(() => {
-    return () => {
-      if (cloudflareAuthTimeoutRef.current) {
-        window.clearTimeout(cloudflareAuthTimeoutRef.current);
-      }
-
-      if (cloudflareAbortControllerRef.current) {
-        cloudflareAbortControllerRef.current.abort();
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (teamSeasons.length > 0 && !selectedSeasonYear) {
@@ -876,7 +594,7 @@ const FantasyFootballApp = () => {
 
         if (response.status === 401) {
           if (hasManagerAuth) {
-            clearManagerAuth('Your manager session has expired. Please sign in again.');
+            resetManagerAuthState('Your manager session has expired. Please sign in again.');
           } else if (hasAdminAuth) {
             setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
             persistAdminSession(null);
@@ -924,7 +642,7 @@ const FantasyFootballApp = () => {
       managerAuth.managerId,
       managerAuth.status,
       managerAuth.token,
-      clearManagerAuth,
+      resetManagerAuthState,
       parseJsonResponse,
       persistAdminSession
     ]
@@ -1137,7 +855,7 @@ const FantasyFootballApp = () => {
       const data = await parseJsonResponse(response);
 
       if (response.status === 401) {
-        clearManagerAuth('Your manager session has expired. Please sign in again.');
+        resetManagerAuthState('Your manager session has expired. Please sign in again.');
         throw new Error(data?.error || 'Authentication required to record vote.');
       }
 
@@ -1174,65 +892,16 @@ const FantasyFootballApp = () => {
   const handleManagerLogin = async (event) => {
     event.preventDefault();
 
-    if (!managerAuthSelection || !managerAuthPasscode) {
-      setManagerAuthError('Select your manager name and enter your passcode.');
-      return;
-    }
-
-    setManagerAuthLoading(true);
-    setManagerAuthError(null);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/manager-auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ managerId: managerAuthSelection, passcode: managerAuthPasscode })
-      });
-
-      const data = await parseJsonResponse(response);
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to verify manager credentials');
-      }
-
-      const normalizedAuth = {
-        managerId: data.managerId,
-        managerName: data.managerName || '',
-        token: data.token,
-        expiresAt: data.expiresAt || null,
-        status: 'authenticated',
-        verificationSource: 'manual'
-      };
-
-      setManagerAuth(normalizedAuth);
-      setManagerAuthSelection(normalizedAuth.managerId);
-      setManagerAuthPasscode('');
-      setManagerAuthError(null);
-      persistManagerAuth({
-        managerId: normalizedAuth.managerId,
-        managerName: normalizedAuth.managerName,
-        token: normalizedAuth.token,
-        expiresAt: normalizedAuth.expiresAt
-      });
-
-      if (selectedKeeperYear) {
-        await fetchRuleChangeProposals(selectedKeeperYear);
-      }
-    } catch (error) {
-      console.error('Manager authentication failed:', error);
-      const previousSelection = managerAuthSelection;
-      clearManagerAuth();
-      setManagerAuthSelection(previousSelection);
-      setManagerAuthError(error.message || 'Failed to verify manager credentials');
-    } finally {
-      setManagerAuthLoading(false);
+    const result = await loginManager();
+    if (result?.success && selectedKeeperYear) {
+      await fetchRuleChangeProposals(selectedKeeperYear);
     }
   };
 
   const handleManagerLogout = () => {
-    clearManagerAuth('Please verify your manager identity to view proposals.');
-    setRuleChangeVotingLocked(false);
-    setRuleChangeVotingLockError(null);
+    resetManagerAuthState('Please verify your manager identity to view proposals.', {
+      resetVotingLocks: true
+    });
   };
 
   const createRuleChangeProposal = async ({ seasonYear, title, description, options }) => {
@@ -3714,17 +3383,16 @@ const FantasyFootballApp = () => {
                   )}
                 </div>
               </div>
-              <RuleChangeVoting
-                seasonYear={selectedKeeperYear}
-                proposals={ruleChangeProposals}
-                loading={ruleChangeLoading}
-                error={ruleChangeError}
-                onVote={handleRuleChangeVote}
-                userVotes={ruleChangeUserVotes}
-                voteSubmitting={ruleChangeVoteStatus}
-                canVote={managerAuth.status === 'authenticated'}
-                votingLocked={ruleChangeVotingLocked}
-              />
+                <RuleChangeVoting
+                  seasonYear={selectedKeeperYear}
+                  proposals={ruleChangeProposals}
+                  loading={ruleChangeLoading}
+                  error={ruleChangeError}
+                  onVote={handleRuleChangeVote}
+                  userVotes={ruleChangeUserVotes}
+                  voteSubmitting={ruleChangeVoteStatus}
+                  votingLocked={ruleChangeVotingLocked}
+                />
               <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                   <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-0">
