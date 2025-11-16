@@ -52,6 +52,36 @@ const mapManagersToSummaries = (rows = []) =>
         : row.name_id
   }));
 
+const validateProposalReorderPayload = (existingIds = [], incomingIds = []) => {
+  if (!existingIds.length) {
+    return { valid: false, error: 'No proposals exist for the provided seasonYear' };
+  }
+
+  const uniqueIncomingIds = new Set(incomingIds);
+  if (uniqueIncomingIds.size !== incomingIds.length) {
+    return { valid: false, error: 'proposalIds/orderedIds must not contain duplicate ids' };
+  }
+
+  const existingIdSet = new Set(existingIds);
+  const invalidIds = incomingIds.filter(id => !existingIdSet.has(id));
+  if (invalidIds.length) {
+    return {
+      valid: false,
+      error: 'proposalIds/orderedIds must only reference proposals from the provided seasonYear'
+    };
+  }
+
+  const missingIds = existingIds.filter(id => !uniqueIncomingIds.has(id));
+  if (missingIds.length) {
+    return {
+      valid: false,
+      error: 'proposalIds/orderedIds must include every proposal exactly once'
+    };
+  }
+
+  return { valid: true };
+};
+
 const buildProposalVoteDetails = (rows = []) =>
   rows.reduce((acc, row) => {
     if (!acc[row.proposal_id]) {
@@ -364,8 +394,22 @@ function createRulesRouter({
       return res.status(400).json({ error: 'proposalIds/orderedIds must contain at least one id' });
     }
 
+    let transactionStarted = false;
+
     try {
+      const existingProposals = await allAsync(
+        'SELECT id FROM rule_change_proposals WHERE season_year = ?',
+        [numericYear]
+      );
+      const existingIds = existingProposals.map(row => row.id);
+      const { valid, error: validationError } = validateProposalReorderPayload(existingIds, ids);
+
+      if (!valid) {
+        return res.status(400).json({ error: validationError });
+      }
+
       await runAsync('BEGIN TRANSACTION');
+      transactionStarted = true;
       for (let index = 0; index < ids.length; index += 1) {
         await runAsync(
           'UPDATE rule_change_proposals SET display_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND season_year = ?',
@@ -373,11 +417,14 @@ function createRulesRouter({
         );
       }
       await runAsync('COMMIT');
+      transactionStarted = false;
 
       const updatedProposals = await getRuleChangeProposalsForYear(numericYear);
       res.json({ proposals: updatedProposals });
     } catch (error) {
-      await runAsync('ROLLBACK');
+      if (transactionStarted) {
+        await runAsync('ROLLBACK');
+      }
       console.error('Error reordering proposals:', error);
       res.status(500).json({ error: 'Failed to reorder proposals' });
     }
@@ -724,5 +771,6 @@ function createRulesRouter({
 }
 
 module.exports = {
-  createRulesRouter
+  createRulesRouter,
+  validateProposalReorderPayload
 };
