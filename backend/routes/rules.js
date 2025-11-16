@@ -657,8 +657,10 @@ function createRulesRouter({
 
   router.get('/rules', async (req, res) => {
     try {
-      const rows = await allAsync('SELECT * FROM league_rules ORDER BY display_order ASC');
-      res.json({ rules: rows || [] });
+      const row = await getAsync(
+        'SELECT rules_content FROM league_rules WHERE active = 1 ORDER BY created_at DESC LIMIT 1'
+      );
+      res.json({ rules: row && typeof row.rules_content === 'string' ? row.rules_content : '' });
     } catch (error) {
       console.error('Error retrieving rules:', error);
       res.status(500).json({ error: 'Failed to retrieve rules' });
@@ -667,21 +669,19 @@ function createRulesRouter({
 
   router.put('/rules', async (req, res) => {
     const { rules } = req.body || {};
-    const normalizedRules = Array.isArray(rules) ? rules : [];
+
+    if (typeof rules !== 'string' || rules.trim().length === 0) {
+      return res.status(400).json({ error: 'Rules content is required' });
+    }
 
     try {
       await runAsync('BEGIN TRANSACTION');
-      await runAsync('DELETE FROM league_rules');
-
-      for (let index = 0; index < normalizedRules.length; index += 1) {
-        const rule = normalizedRules[index];
-        await runAsync(
-          `INSERT INTO league_rules (title, content, display_order, created_at, updated_at)
-           VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          [rule.title || '', rule.content || '', index + 1]
-        );
-      }
-
+      await runAsync('UPDATE league_rules SET active = 0 WHERE active = 1');
+      await runAsync(
+        `INSERT INTO league_rules (rules_content, version, active, created_at, updated_at)
+         VALUES (?, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [rules]
+      );
       await runAsync('COMMIT');
       res.json({ success: true });
     } catch (error) {
