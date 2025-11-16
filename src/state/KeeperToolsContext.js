@@ -109,7 +109,7 @@ export const KeeperToolsProvider = ({ children, apiBaseUrl = DEFAULT_API_BASE_UR
 
       const currentData = currentRes.ok ? await currentRes.json() : { rosters: [] };
       const savedKeepers = savedKeepRes.ok ? await savedKeepRes.json() : { keepers: [] };
-      const prevKeepers = prevKeepRes.ok ? await prevKeepRes.json() : { keepers: [] };
+      const prevSeasonKeepers = prevKeepRes.ok ? await prevKeepRes.json() : { keepers: [] };
 
       setKeeperLockState({
         locked: Boolean(savedKeepers.locked),
@@ -117,7 +117,7 @@ export const KeeperToolsProvider = ({ children, apiBaseUrl = DEFAULT_API_BASE_UR
         updatedAt: savedKeepers.updatedAt || savedKeepers.updated_at || null
       });
 
-      const prevYearsMap = prevKeepers.keepers.reduce((acc, k) => {
+      const prevYearsMap = prevSeasonKeepers.keepers.reduce((acc, k) => {
         acc[k.player_id] = (k.years_kept || 0) + 1;
         return acc;
       }, {});
