@@ -32,51 +32,33 @@ import Analytics from './Analytics';
 import RuleChangeVoting from './RuleChangeVoting';
 import RuleChangeAdmin from './RuleChangeAdmin';
 import { useManagerAuth } from '../state/ManagerAuthContext';
+import { useAdminSession } from '../state/AdminSessionContext';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../utils/date';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
-const ADMIN_AUTH_STORAGE_KEY = 'ff-dashboard-admin-authorized';
-
-const readStoredAdminSession = () => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    const raw = window.localStorage?.getItem(ADMIN_AUTH_STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') {
-      return null;
-    }
-
-    const token = typeof parsed.token === 'string' ? parsed.token : null;
-    const expiresAt = parsed.expiresAt || null;
-
-    if (token) {
-      return { token, expiresAt };
-    }
-  } catch (error) {
-    console.warn('Unable to read stored admin session:', error);
-  }
-
-  return null;
-};
-
 const VALID_TABS = new Set(['records', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
 
 const FantasyFootballApp = () => {
+  const {
+    adminSession,
+    adminAuthorized,
+    adminAuthLoading,
+    adminPasswordInput,
+    setAdminPasswordInput,
+    adminPasswordError,
+    setAdminPasswordError,
+    handleAdminAuthSubmit,
+    handleAdminSignOut,
+    invalidateAdminSession,
+    enforceAdminTabAccess
+  } = useAdminSession();
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === 'undefined') {
       return 'records';
     }
 
-    const storedAdminSession = readStoredAdminSession();
-    const storedAdminAuthorized = Boolean(storedAdminSession?.token);
+    const storedAdminAuthorized = Boolean(adminSession?.token);
 
     try {
       const storedTab = window.localStorage?.getItem('ff-dashboard-active-tab');
@@ -132,27 +114,15 @@ const FantasyFootballApp = () => {
     loginManager,
     clearManagerAuth
   } = useManagerAuth();
-  const [adminSession, setAdminSession] = useState(() => {
-    const storedSession = readStoredAdminSession();
-
-    if (storedSession) {
-      return { ...storedSession, status: 'pending' };
-    }
-
-    return { token: null, expiresAt: null, status: 'unauthorized' };
-  });
-  const [adminAuthLoading, setAdminAuthLoading] = useState(false);
-  const adminAuthorized = adminSession.status === 'authorized';
-  const [adminPasswordInput, setAdminPasswordInput] = useState('');
-  const [adminPasswordError, setAdminPasswordError] = useState(null);
   const keeperEditingLocked = Boolean(keeperLockState.locked);
   const updateActiveTab = tab => {
-    if (tab === 'analytics' && !adminAuthorized) {
-      setActiveTab('admin');
-      return;
-    }
-    setActiveTab(VALID_TABS.has(tab) ? tab : 'records');
+    const nextTab = VALID_TABS.has(tab) ? tab : 'records';
+    setActiveTab(enforceAdminTabAccess(nextTab));
   };
+  const handleAdminSignOutAndResetTab = useCallback(() => {
+    handleAdminSignOut();
+    setActiveTab('admin');
+  }, [handleAdminSignOut, setActiveTab]);
   const seasonsWithoutMatchups = [2016, 2017, 2018, 2019];
   const [activeWeekMatchups, setActiveWeekMatchups] = useState(null);
   const [activeWeekLoading, setActiveWeekLoading] = useState(false);
@@ -242,33 +212,6 @@ const FantasyFootballApp = () => {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [managers]);
 
-  const persistAdminSession = useCallback((session) => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    try {
-      if (session && session.token) {
-        window.localStorage?.setItem(
-          ADMIN_AUTH_STORAGE_KEY,
-          JSON.stringify({
-            token: session.token,
-            expiresAt: session.expiresAt || null
-          })
-        );
-      } else {
-        window.localStorage?.removeItem(ADMIN_AUTH_STORAGE_KEY);
-      }
-    } catch (error) {
-      console.warn('Unable to update stored admin session:', error);
-    }
-  }, []);
-
-  const handleAdminSessionInvalid = useCallback(() => {
-    setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-    persistAdminSession(null);
-  }, [persistAdminSession]);
-
   const parseJsonResponse = useCallback(async (response) => {
     const text = await response.text();
     if (!text) {
@@ -283,49 +226,6 @@ const FantasyFootballApp = () => {
     }
   }, []);
 
-  const validateAdminToken = useCallback(
-    async (token) => {
-      if (!token) {
-        setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-        persistAdminSession(null);
-        return;
-      }
-
-      setAdminAuthLoading(true);
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/admin-auth`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token })
-        });
-
-        const data = await parseJsonResponse(response);
-
-        if (!response.ok || !data?.success) {
-          throw new Error(data?.error || 'Admin session validation failed');
-        }
-
-        const nextSession = {
-          token: data.token || token,
-          expiresAt: data.expiresAt || null,
-          status: 'authorized'
-        };
-
-        setAdminSession(nextSession);
-        persistAdminSession(nextSession);
-        setAdminPasswordError(null);
-      } catch (error) {
-        console.warn('Admin token validation failed:', error);
-        setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-        persistAdminSession(null);
-        setAdminPasswordError('Your admin session has expired. Please sign in again.');
-      } finally {
-        setAdminAuthLoading(false);
-      }
-    },
-    [API_BASE_URL, parseJsonResponse, persistAdminSession]
-  );
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -349,16 +249,8 @@ const FantasyFootballApp = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!adminAuthorized && activeTab === 'analytics') {
-      setActiveTab('admin');
-    }
-  }, [adminAuthorized, activeTab]);
-
-  useEffect(() => {
-    if (adminSession.status === 'pending' && adminSession.token) {
-      validateAdminToken(adminSession.token);
-    }
-  }, [adminSession.status, adminSession.token, validateAdminToken]);
+    setActiveTab(prevTab => enforceAdminTabAccess(prevTab));
+  }, [enforceAdminTabAccess]);
 
   useEffect(() => {
     fetchData();
@@ -366,58 +258,6 @@ const FantasyFootballApp = () => {
     // Set document title
     document.title = 'The League Dashboard';
   }, []);
-
-  const handleAdminAuthSubmit = async (event) => {
-    event.preventDefault();
-
-    if (!adminPasswordInput) {
-      setAdminPasswordError('Password is required');
-      return;
-    }
-
-    setAdminAuthLoading(true);
-    setAdminPasswordError(null);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin-auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: adminPasswordInput })
-      });
-
-      const data = await parseJsonResponse(response);
-
-      if (!response.ok || !data?.success) {
-        throw new Error(data?.error || 'Unable to authenticate');
-      }
-
-      const nextSession = {
-        token: data.token || null,
-        expiresAt: data.expiresAt || null,
-        status: 'authorized'
-      };
-
-      setAdminSession(nextSession);
-      persistAdminSession(nextSession);
-      setAdminPasswordInput('');
-    } catch (error) {
-      console.warn('Admin authentication failed:', error);
-      setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-      persistAdminSession(null);
-      setAdminPasswordError(error.message || 'Authentication failed');
-    } finally {
-      setAdminAuthLoading(false);
-    }
-  };
-
-  const handleAdminSignOut = () => {
-    setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-    persistAdminSession(null);
-    setAdminAuthLoading(false);
-    setAdminPasswordInput('');
-    setAdminPasswordError(null);
-    setActiveTab('admin');
-  };
 
   const resetManagerAuthState = useCallback(
     (message = null, { resetVotingLocks = false } = {}) => {
@@ -596,8 +436,7 @@ const FantasyFootballApp = () => {
           if (hasManagerAuth) {
             resetManagerAuthState('Your manager session has expired. Please sign in again.');
           } else if (hasAdminAuth) {
-            setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-            persistAdminSession(null);
+            invalidateAdminSession();
           }
           throw new Error(data?.error || 'Authentication required to access rule change proposals.');
         }
@@ -644,7 +483,7 @@ const FantasyFootballApp = () => {
       managerAuth.token,
       resetManagerAuthState,
       parseJsonResponse,
-      persistAdminSession
+      invalidateAdminSession
     ]
   );
 
@@ -1012,8 +851,7 @@ const FantasyFootballApp = () => {
     const data = await parseJsonResponse(response);
 
     if (response.status === 401) {
-      setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-      persistAdminSession(null);
+      invalidateAdminSession();
       throw new Error(data?.error || 'Admin session has expired. Please sign in again.');
     }
 
@@ -1065,8 +903,7 @@ const FantasyFootballApp = () => {
     const data = await parseJsonResponse(response);
 
     if (response.status === 401) {
-      setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-      persistAdminSession(null);
+      invalidateAdminSession();
       throw new Error(data?.error || 'Admin session has expired. Please sign in again.');
     }
 
@@ -1115,8 +952,7 @@ const FantasyFootballApp = () => {
     const data = await parseJsonResponse(response);
 
     if (response.status === 401) {
-      setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-      persistAdminSession(null);
+      invalidateAdminSession();
       throw new Error(data?.error || 'Admin session has expired. Please sign in again.');
     }
 
@@ -1170,8 +1006,7 @@ const FantasyFootballApp = () => {
         const data = await parseJsonResponse(response);
 
         if (response.status === 401) {
-          setAdminSession({ token: null, expiresAt: null, status: 'unauthorized' });
-          persistAdminSession(null);
+          invalidateAdminSession();
           throw new Error(data?.error || 'Admin session has expired. Please sign in again.');
         }
 
@@ -1196,8 +1031,7 @@ const FantasyFootballApp = () => {
       adminSession.token,
       fetchRuleChangeProposals,
       parseJsonResponse,
-      persistAdminSession,
-      setAdminSession,
+      invalidateAdminSession,
       ruleChangeVotingLockUpdating,
       selectedKeeperYear
     ]
@@ -4028,7 +3862,7 @@ const FantasyFootballApp = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <button
                   type="button"
-                  onClick={handleAdminSignOut}
+                  onClick={handleAdminSignOutAndResetTab}
                   className="flex items-center justify-center px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
                 >
                   <LogOut className="w-4 h-4 mr-1" /> Sign Out
@@ -4043,8 +3877,6 @@ const FantasyFootballApp = () => {
             <SleeperAdmin
               API_BASE_URL={API_BASE_URL}
               onDataUpdate={fetchData}
-              adminToken={adminSession.token}
-              onAdminSessionInvalid={handleAdminSessionInvalid}
               onKeeperLockChange={handleKeeperLockChange}
               onVotingLockChange={handleVotingLockChange}
             >
