@@ -455,8 +455,12 @@ function createRulesRouter({
     }
 
     try {
+      const deleteResult = await runAsync('DELETE FROM rule_change_proposals WHERE id = ?', [proposalId]);
+      if (!deleteResult || deleteResult.changes === 0) {
+        return res.status(404).json({ error: 'Proposal not found' });
+      }
+
       await runAsync('DELETE FROM rule_change_votes WHERE proposal_id = ?', [proposalId]);
-      await runAsync('DELETE FROM rule_change_proposals WHERE id = ?', [proposalId]);
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting proposal:', error);
