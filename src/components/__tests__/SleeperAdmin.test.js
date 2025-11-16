@@ -4,6 +4,18 @@ import userEvent from '@testing-library/user-event';
 import SleeperAdmin from '../SleeperAdmin';
 import { AdminSessionProvider } from '../../state/AdminSessionContext';
 
+jest.mock('../../state/KeeperToolsContext', () => ({
+  useKeeperTools: () => ({
+    handleKeeperLockChange: jest.fn()
+  })
+}));
+
+jest.mock('../../state/RuleVotingContext', () => ({
+  useRuleVoting: () => ({
+    handleVotingLockChange: jest.fn()
+  })
+}));
+
 describe('SleeperAdmin Manage Season modal', () => {
   const API_BASE_URL = 'https://example.com/api';
 
@@ -130,8 +142,6 @@ describe('SleeperAdmin Manage Season modal', () => {
         <SleeperAdmin
           API_BASE_URL={API_BASE_URL}
           onDataUpdate={jest.fn()}
-          onKeeperLockChange={jest.fn()}
-          onVotingLockChange={jest.fn()}
         />
       </AdminSessionProvider>
     );
@@ -237,8 +247,6 @@ describe('SleeperAdmin Manage Season modal', () => {
         <SleeperAdmin
           API_BASE_URL={API_BASE_URL}
           onDataUpdate={jest.fn()}
-          onKeeperLockChange={jest.fn()}
-          onVotingLockChange={jest.fn()}
         />
       </AdminSessionProvider>
     );
