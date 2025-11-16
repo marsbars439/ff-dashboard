@@ -3,7 +3,7 @@ import { Gavel, Loader2, Lock } from 'lucide-react';
 import { useManagerAuth } from '../state/ManagerAuthContext';
 import { useRuleVoting } from '../state/RuleVotingContext';
 
-const RuleChangeVoting = () => {
+const RuleVotingPanel = () => {
   const {
     seasonYear,
     proposals = [],
@@ -238,4 +238,4 @@ const RuleChangeVoting = () => {
   );
 };
 
-export default RuleChangeVoting;
+export default RuleVotingPanel;
