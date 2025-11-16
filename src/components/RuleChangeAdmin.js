@@ -13,6 +13,7 @@ import {
   ArrowUp,
   ArrowDown
 } from 'lucide-react';
+import { useRuleVoting } from '../state/RuleVotingContext';
 
 const toUniqueOptions = (text) => {
   if (typeof text !== 'string') {
@@ -27,23 +28,23 @@ const toUniqueOptions = (text) => {
   return Array.from(new Set(trimmed));
 };
 
-const RuleChangeAdmin = ({
-  seasonYear,
-  proposals = [],
-  onCreateProposal,
-  onUpdateProposal,
-  onDeleteProposal,
-  onReorderProposals,
-  isLoading = false,
-  error = null,
-  managers = [],
-  onCastVote,
-  onClearVote,
-  votingLocked = false,
-  onToggleVotingLock,
-  lockLoading = false,
-  lockError = null
-}) => {
+const RuleChangeAdmin = ({ managers = [] }) => {
+  const {
+    seasonYear,
+    proposals = [],
+    createRuleChangeProposal,
+    updateRuleChangeProposal,
+    deleteRuleChangeProposal,
+    reorderRuleChangeProposals,
+    loading: isLoading = false,
+    error = null,
+    adminCastRuleChangeVote,
+    adminClearRuleChangeVote,
+    votingLocked = false,
+    toggleRuleChangeVotingLock,
+    lockUpdating: lockLoading = false,
+    lockError = null
+  } = useRuleVoting();
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newOptions, setNewOptions] = useState('Yes\nNo');
@@ -91,12 +92,12 @@ const RuleChangeAdmin = ({
   }, [managers]);
 
   const hasVoteManagement =
-    typeof onCastVote === 'function' &&
-    typeof onClearVote === 'function' &&
+    typeof adminCastRuleChangeVote === 'function' &&
+    typeof adminClearRuleChangeVote === 'function' &&
     availableManagers.length > 0;
 
   const canReorderProposals =
-    typeof onReorderProposals === 'function' &&
+    typeof reorderRuleChangeProposals === 'function' &&
     Array.isArray(proposals) &&
     proposals.length > 1 &&
     seasonYear != null &&
@@ -207,7 +208,7 @@ const RuleChangeAdmin = ({
   };
 
   const handleCastVote = async (proposal) => {
-    if (!hasVoteManagement || typeof onCastVote !== 'function' || !proposal) {
+    if (!hasVoteManagement || typeof adminCastRuleChangeVote !== 'function' || !proposal) {
       return;
     }
 
@@ -240,7 +241,7 @@ const RuleChangeAdmin = ({
     setProposalPending(proposal.id, true);
 
     try {
-      const updatedProposal = await onCastVote(proposal.id, managerId, selectedOption);
+      const updatedProposal = await adminCastRuleChangeVote(proposal.id, managerId, selectedOption);
       setProposalFeedback(proposal.id, {
         type: 'success',
         message: 'Vote recorded successfully.'
@@ -269,7 +270,7 @@ const RuleChangeAdmin = ({
   };
 
   const handleClearVote = async (proposal) => {
-    if (!hasVoteManagement || typeof onClearVote !== 'function' || !proposal) {
+    if (!hasVoteManagement || typeof adminClearRuleChangeVote !== 'function' || !proposal) {
       return;
     }
 
@@ -287,7 +288,7 @@ const RuleChangeAdmin = ({
     setProposalPending(proposal.id, true);
 
     try {
-      const updatedProposal = await onClearVote(proposal.id, managerId);
+      const updatedProposal = await adminClearRuleChangeVote(proposal.id, managerId);
       const currentVote = updatedProposal
         ? getManagerVoteForProposal(updatedProposal, managerId)
         : null;
@@ -338,13 +339,13 @@ const RuleChangeAdmin = ({
       return;
     }
 
-    if (typeof onCreateProposal !== 'function') {
+    if (typeof createRuleChangeProposal !== 'function') {
       return;
     }
 
     try {
       setIsCreating(true);
-      await onCreateProposal({
+      await createRuleChangeProposal({
         seasonYear: numericYear,
         title: newTitle.trim(),
         description: newDescription.trim(),
@@ -381,7 +382,7 @@ const RuleChangeAdmin = ({
   };
 
   const saveEdit = async () => {
-    if (!editingId || typeof onUpdateProposal !== 'function') {
+    if (!editingId || typeof updateRuleChangeProposal !== 'function') {
       return;
     }
 
@@ -399,7 +400,7 @@ const RuleChangeAdmin = ({
 
     try {
       setIsSavingEdit(true);
-      await onUpdateProposal(editingId, {
+      await updateRuleChangeProposal(editingId, {
         seasonYear: numericYear,
         title: editForm.title.trim(),
         description: editForm.description.trim(),
@@ -415,7 +416,7 @@ const RuleChangeAdmin = ({
   };
 
   const deleteProposal = async (proposalId) => {
-    if (typeof onDeleteProposal !== 'function') {
+    if (typeof deleteRuleChangeProposal !== 'function') {
       return;
     }
 
@@ -425,7 +426,7 @@ const RuleChangeAdmin = ({
 
     try {
       setDeletingId(proposalId);
-      await onDeleteProposal(proposalId);
+      await deleteRuleChangeProposal(proposalId);
       setActionStatus('Proposal deleted.');
     } catch (err) {
       setActionStatus(err?.message || 'Unable to delete proposal.');
@@ -435,7 +436,7 @@ const RuleChangeAdmin = ({
   };
 
   const handleReorderProposal = async (proposalId, direction) => {
-    if (!canReorderProposals || isReordering || typeof onReorderProposals !== 'function') {
+    if (!canReorderProposals || isReordering || typeof reorderRuleChangeProposals !== 'function') {
       return;
     }
 
@@ -469,7 +470,7 @@ const RuleChangeAdmin = ({
     setActionStatus(null);
 
     try {
-      await onReorderProposals(normalizedSeasonYear, orderedIds.map(id => Number(id)));
+      await reorderRuleChangeProposals(normalizedSeasonYear, orderedIds.map(id => Number(id)));
       setActionStatus('Proposal order updated.');
     } catch (err) {
       setReorderError(err?.message || 'Failed to reorder proposals.');
@@ -493,10 +494,10 @@ const RuleChangeAdmin = ({
               <span className="font-semibold">{votingLocked ? 'locked' : 'open'}</span>.
             </span>
           </div>
-          {typeof onToggleVotingLock === 'function' && (
+          {typeof toggleRuleChangeVotingLock === 'function' && (
             <button
               type="button"
-              onClick={() => onToggleVotingLock(!votingLocked)}
+              onClick={() => toggleRuleChangeVotingLock(!votingLocked)}
               disabled={lockLoading}
               className={`mt-3 inline-flex items-center rounded-md px-3 py-1 text-sm font-medium text-white shadow-sm transition-colors sm:mt-0 ${
                 votingLocked ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'

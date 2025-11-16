@@ -2,6 +2,8 @@ import React from 'react';
 import FantasyFootballApp from './components/FantasyFootballApp';
 import { ManagerAuthProvider } from './state/ManagerAuthContext';
 import { AdminSessionProvider } from './state/AdminSessionContext';
+import { KeeperToolsProvider } from './state/KeeperToolsContext';
+import { RuleVotingProvider } from './state/RuleVotingContext';
 import './App.css';
 
 function App() {
@@ -9,7 +11,11 @@ function App() {
     <div className="App">
       <AdminSessionProvider>
         <ManagerAuthProvider>
-          <FantasyFootballApp />
+          <KeeperToolsProvider>
+            <RuleVotingProvider>
+              <FantasyFootballApp />
+            </RuleVotingProvider>
+          </KeeperToolsProvider>
         </ManagerAuthProvider>
       </AdminSessionProvider>
     </div>

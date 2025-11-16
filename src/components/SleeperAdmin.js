@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { formatDateTimeForDisplay } from '../utils/date';
 import { useAdminSession } from '../state/AdminSessionContext';
+import { useKeeperTools } from '../state/KeeperToolsContext';
+import { useRuleVoting } from '../state/RuleVotingContext';
 
 const INITIAL_ALIAS_ADD_STATE = {
   managerNameId: null,
@@ -25,10 +27,10 @@ const INITIAL_ALIAS_ADD_STATE = {
 const SleeperAdmin = ({
   API_BASE_URL,
   onDataUpdate,
-  onKeeperLockChange,
-  onVotingLockChange,
   children
 }) => {
+  const { handleKeeperLockChange } = useKeeperTools();
+  const { handleVotingLockChange } = useRuleVoting();
   const [leagueSettings, setLeagueSettings] = useState({});
   const [syncStatus, setSyncStatus] = useState([]);
   const [message, setMessage] = useState(null);
@@ -484,8 +486,8 @@ const SleeperAdmin = ({
       });
       setTimeout(() => setMessage(null), 3000);
 
-      if (typeof onKeeperLockChange === 'function') {
-        onKeeperLockChange(numericYear, updatedLock.locked);
+      if (typeof handleKeeperLockChange === 'function') {
+        handleKeeperLockChange(numericYear);
       }
     } catch (error) {
       console.error('Error updating keeper access:', error);
@@ -557,8 +559,8 @@ const SleeperAdmin = ({
       });
       setTimeout(() => setMessage(null), 3000);
 
-      if (typeof onVotingLockChange === 'function') {
-        onVotingLockChange(numericYear, updatedLock.locked);
+      if (typeof handleVotingLockChange === 'function') {
+        handleVotingLockChange(numericYear);
       }
     } catch (error) {
       console.error('Error updating voting access:', error);

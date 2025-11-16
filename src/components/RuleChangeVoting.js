@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Gavel, Loader2, Lock } from 'lucide-react';
 import { useManagerAuth } from '../state/ManagerAuthContext';
+import { useRuleVoting } from '../state/RuleVotingContext';
 
-const RuleChangeVoting = ({
-  seasonYear,
-  proposals = [],
-  loading = false,
-  error = null,
-  onVote,
-  userVotes = {},
-  voteSubmitting = {},
-  votingLocked = false
-}) => {
+const RuleChangeVoting = () => {
+  const {
+    seasonYear,
+    proposals = [],
+    loading = false,
+    error = null,
+    handleRuleChangeVote,
+    userVotes = {},
+    voteStatus = {},
+    votingLocked = false
+  } = useRuleVoting();
   const { managerAuth } = useManagerAuth();
   const canVote = managerAuth?.status === 'authenticated';
   const displaySeason = seasonYear != null ? seasonYear + 1 : null;
@@ -39,7 +41,7 @@ const RuleChangeVoting = ({
     : null;
   const hasVoted = !!selectedOption;
   const nonVoters = Array.isArray(activeProposal?.nonVoters) ? activeProposal.nonVoters : [];
-  const isSubmitting = activeProposal ? !!voteSubmitting[activeProposal.id] : false;
+  const isSubmitting = activeProposal ? !!voteStatus[activeProposal.id] : false;
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
@@ -134,9 +136,13 @@ const RuleChangeVoting = ({
                         <button
                           type="button"
                           onClick={() =>
-                            onVote && onVote(activeProposal.id, isSelected ? null : option.value)
+                            handleRuleChangeVote &&
+                            handleRuleChangeVote(
+                              activeProposal.id,
+                              isSelected ? null : option.value
+                            )
                           }
-                          disabled={isSubmitting || !onVote || !canVote || votingLocked}
+                          disabled={isSubmitting || !handleRuleChangeVote || !canVote || votingLocked}
                           className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                             isSelected
                               ? 'bg-blue-600 text-white'
