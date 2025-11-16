@@ -405,6 +405,16 @@ function createRulesRouter({
 
       const previousOptions = parseRuleChangeOptions(existingRow.options);
 
+      let resolvedDisplayOrder = existingRow.display_order;
+      if (Number.isFinite(displayOrder)) {
+        resolvedDisplayOrder = displayOrder;
+      } else if (typeof displayOrder === 'string' && displayOrder.trim() !== '') {
+        const parsedDisplayOrder = Number.parseInt(displayOrder, 10);
+        if (!Number.isNaN(parsedDisplayOrder)) {
+          resolvedDisplayOrder = parsedDisplayOrder;
+        }
+      }
+
       await runAsync(
         `UPDATE rule_change_proposals
          SET title = ?, description = ?, options = ?, display_order = ?, updated_at = CURRENT_TIMESTAMP
@@ -413,7 +423,7 @@ function createRulesRouter({
           title.trim(),
           typeof description === 'string' ? description.trim() : '',
           JSON.stringify(normalizedOptions),
-          Number.isFinite(displayOrder) ? displayOrder : null,
+          resolvedDisplayOrder,
           proposalId
         ]
       );
