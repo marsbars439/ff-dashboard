@@ -349,16 +349,19 @@ function createRulesRouter({
       return res.status(401).json({ error: 'Admin authentication is required' });
     }
 
-    const { seasonYear, proposalIds } = req.body || {};
+    const { seasonYear, proposalIds, orderedIds } = req.body || {};
     const numericYear = parseInt(seasonYear, 10);
-    const ids = Array.isArray(proposalIds) ? proposalIds.map(id => parseInt(id, 10)).filter(id => !Number.isNaN(id)) : [];
+    const sourceIds = Array.isArray(proposalIds) && proposalIds.length
+      ? proposalIds
+      : (Array.isArray(orderedIds) ? orderedIds : []);
+    const ids = sourceIds.map(id => parseInt(id, 10)).filter(id => !Number.isNaN(id));
 
     if (Number.isNaN(numericYear)) {
       return res.status(400).json({ error: 'A valid seasonYear is required' });
     }
 
     if (!ids.length) {
-      return res.status(400).json({ error: 'proposalIds must contain at least one id' });
+      return res.status(400).json({ error: 'proposalIds/orderedIds must contain at least one id' });
     }
 
     try {
