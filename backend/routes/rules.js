@@ -676,7 +676,15 @@ function createRulesRouter({
             .json({ error: 'managerId is required when removing a vote as an admin' });
         }
 
-        voterId = normalizedManagerId;
+        const managerRow = await getAsync('SELECT name_id FROM managers WHERE name_id = ?', [
+          normalizedManagerId
+        ]);
+
+        if (!managerRow) {
+          return res.status(404).json({ error: 'Manager not found' });
+        }
+
+        voterId = managerRow.name_id;
       } else {
         const manager = await requireManagerAuth(req, res);
         if (!manager) {
