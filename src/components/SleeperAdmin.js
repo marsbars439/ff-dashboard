@@ -12,6 +12,7 @@ import {
   Save
 } from 'lucide-react';
 import { formatDateTimeForDisplay } from '../utils/date';
+import { useAdminSession } from '../state/AdminSessionContext';
 
 const INITIAL_ALIAS_ADD_STATE = {
   managerNameId: null,
@@ -24,8 +25,6 @@ const INITIAL_ALIAS_ADD_STATE = {
 const SleeperAdmin = ({
   API_BASE_URL,
   onDataUpdate,
-  adminToken,
-  onAdminSessionInvalid,
   onKeeperLockChange,
   onVotingLockChange,
   children
@@ -74,7 +73,8 @@ const SleeperAdmin = ({
   const [seasonModalSaving, setSeasonModalSaving] = useState(false);
   const [seasonModalUploadLoading, setSeasonModalUploadLoading] = useState(false);
 
-  const adminAuthToken = typeof adminToken === 'string' ? adminToken.trim() : '';
+  const { adminSession, invalidateAdminSession } = useAdminSession();
+  const adminAuthToken = typeof adminSession?.token === 'string' ? adminSession.token.trim() : '';
 
   const autoSyncYearsRef = useRef(new Set());
 
@@ -399,9 +399,7 @@ const SleeperAdmin = ({
         const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
         setMessage({ type: 'error', text: errorMessage });
         setTimeout(() => setMessage(null), 3000);
-        if (onAdminSessionInvalid) {
-          onAdminSessionInvalid();
-        }
+        invalidateAdminSession();
         return;
       }
 
@@ -464,9 +462,7 @@ const SleeperAdmin = ({
       if (response.status === 401) {
         const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
         setKeeperLockErrors(prev => ({ ...prev, [numericYear]: errorMessage }));
-        if (onAdminSessionInvalid) {
-          onAdminSessionInvalid();
-        }
+        invalidateAdminSession();
         return;
       }
 
@@ -539,9 +535,7 @@ const SleeperAdmin = ({
       if (response.status === 401) {
         const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
         setVotingLockErrors(prev => ({ ...prev, [numericYear]: errorMessage }));
-        if (onAdminSessionInvalid) {
-          onAdminSessionInvalid();
-        }
+        invalidateAdminSession();
         return;
       }
 
@@ -605,9 +599,7 @@ const SleeperAdmin = ({
         const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
         setSeasonModalSeasons([]);
         setSeasonModalError(errorMessage);
-        if (onAdminSessionInvalid) {
-          onAdminSessionInvalid();
-        }
+        invalidateAdminSession();
         return;
       }
 
@@ -709,9 +701,7 @@ const SleeperAdmin = ({
         setSeasonModalDataSource(previousSource);
         setMessage({ type: 'error', text: errorMessage });
         setTimeout(() => setMessage(null), 3000);
-        if (onAdminSessionInvalid) {
-          onAdminSessionInvalid();
-        }
+        invalidateAdminSession();
         return;
       }
 
@@ -881,9 +871,7 @@ const SleeperAdmin = ({
         const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
         setMessage({ type: 'error', text: errorMessage });
         setTimeout(() => setMessage(null), 3000);
-        if (onAdminSessionInvalid) {
-          onAdminSessionInvalid();
-        }
+        invalidateAdminSession();
         return;
       }
 
@@ -959,9 +947,7 @@ const SleeperAdmin = ({
         const errorMessage = data?.error || 'Admin session has expired. Please sign in again.';
         setMessage({ type: 'error', text: errorMessage });
         setTimeout(() => setMessage(null), 3000);
-        if (onAdminSessionInvalid) {
-          onAdminSessionInvalid();
-        }
+        invalidateAdminSession();
         return;
       }
 

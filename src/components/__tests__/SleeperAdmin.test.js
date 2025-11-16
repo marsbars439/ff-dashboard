@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SleeperAdmin from '../SleeperAdmin';
+import { AdminSessionProvider } from '../../state/AdminSessionContext';
 
 describe('SleeperAdmin Manage Season modal', () => {
   const API_BASE_URL = 'https://example.com/api';
@@ -125,12 +126,14 @@ describe('SleeperAdmin Manage Season modal', () => {
 
   it('opens the season management modal when Manage Season is clicked', async () => {
     render(
-      <SleeperAdmin
-        API_BASE_URL={API_BASE_URL}
-        onDataUpdate={jest.fn()}
-        onKeeperLockChange={jest.fn()}
-        onVotingLockChange={jest.fn()}
-      />
+      <AdminSessionProvider>
+        <SleeperAdmin
+          API_BASE_URL={API_BASE_URL}
+          onDataUpdate={jest.fn()}
+          onKeeperLockChange={jest.fn()}
+          onVotingLockChange={jest.fn()}
+        />
+      </AdminSessionProvider>
     );
 
     const manageButton = await screen.findByRole('button', { name: /Manage Season/i });
@@ -230,13 +233,14 @@ describe('SleeperAdmin Manage Season modal', () => {
     });
 
     render(
-      <SleeperAdmin
-        API_BASE_URL={API_BASE_URL}
-        onDataUpdate={jest.fn()}
-        onKeeperLockChange={jest.fn()}
-        onVotingLockChange={jest.fn()}
-        adminToken="test-token"
-      />
+      <AdminSessionProvider>
+        <SleeperAdmin
+          API_BASE_URL={API_BASE_URL}
+          onDataUpdate={jest.fn()}
+          onKeeperLockChange={jest.fn()}
+          onVotingLockChange={jest.fn()}
+        />
+      </AdminSessionProvider>
     );
 
     const manageButton = await screen.findByRole('button', { name: /Manage Season/i });
