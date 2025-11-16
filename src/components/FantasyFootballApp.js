@@ -8,6 +8,7 @@ import KeeperTools from './KeeperTools';
 import RecordsView from './RecordsView';
 import AdminTools from './AdminTools';
 import { useAdminSession } from '../state/AdminSessionContext';
+import { useManagerAuth } from '../state/ManagerAuthContext';
 import { useKeeperTools } from '../state/KeeperToolsContext';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../utils/date';
 
