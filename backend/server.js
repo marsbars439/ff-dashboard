@@ -2056,7 +2056,7 @@ app.put('/api/team-seasons/:id', (req, res) => {
 // Delete a team season
 app.delete('/api/team-seasons/:id', (req, res) => {
   const id = req.params.id;
-  
+
   db.run('DELETE FROM team_seasons WHERE id = ?', [id], function(err) {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -2064,6 +2064,62 @@ app.delete('/api/team-seasons/:id', (req, res) => {
     }
     res.json({ message: 'Team season deleted successfully' });
   });
+});
+
+app.get('/api/stats', (_req, res) => {
+  const queries = {
+    championships: `
+      SELECT m.full_name, COUNT(*) as count
+      FROM team_seasons ts
+      JOIN managers m ON ts.name_id = m.name_id
+      WHERE ts.playoff_finish = 1
+      GROUP BY ts.name_id
+      ORDER BY count DESC
+    `,
+    totalSeasons: 'SELECT COUNT(DISTINCT year) as count FROM team_seasons',
+    totalManagers: 'SELECT COUNT(*) as count FROM managers WHERE active = 1'
+  };
+
+  Promise.all([
+    new Promise((resolve, reject) => {
+      db.all(queries.championships, [], (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows || []);
+        }
+      });
+    }),
+    new Promise((resolve, reject) => {
+      db.get(queries.totalSeasons, [], (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row || { count: 0 });
+        }
+      });
+    }),
+    new Promise((resolve, reject) => {
+      db.get(queries.totalManagers, [], (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row || { count: 0 });
+        }
+      });
+    })
+  ])
+    .then(([championships, totalSeasonsRow, totalManagersRow]) => {
+      res.json({
+        championships,
+        totalSeasons: totalSeasonsRow.count,
+        totalManagers: totalManagersRow.count
+      });
+    })
+    .catch((error) => {
+      console.error('Error fetching league stats:', error);
+      res.status(500).json({ error: 'Failed to fetch stats' });
+    });
 });
 
 app.get('/api/health', (_req, res) => {
