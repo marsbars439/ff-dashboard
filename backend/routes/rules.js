@@ -518,9 +518,19 @@ function createRulesRouter({
          WHERE v.proposal_id = ?`,
         [proposalId]
       );
+      const activeManagerRows = await allAsync(
+        'SELECT name_id, full_name FROM managers WHERE active = 1 ORDER BY full_name'
+      );
       const voteDetailIndex = buildProposalVoteDetails(voteRows);
 
-      res.json({ proposal: formatRuleChangeProposal(updatedRow, voteDetailIndex, {}) });
+      res.json({
+        proposal: formatRuleChangeProposal(
+          updatedRow,
+          voteDetailIndex,
+          {},
+          mapManagersToSummaries(activeManagerRows)
+        )
+      });
     } catch (error) {
       console.error('Error updating proposal:', error);
       res.status(500).json({ error: 'Failed to update proposal' });
