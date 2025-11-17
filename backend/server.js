@@ -789,6 +789,29 @@ const setKeeperTradeLock = async (seasonYear, locked) => {
   return getKeeperTradeLockRow(numericYear);
 };
 
+const getKeeperTradeLockRow = async (seasonYear) => {
+  const numericYear = parseInt(seasonYear, 10);
+
+  if (Number.isNaN(numericYear)) {
+    throw new Error('A valid season year is required to fetch the preseason lock.');
+  }
+
+  return getAsync(
+    `SELECT season_year, locked, locked_at, updated_at FROM keeper_trade_locks WHERE season_year = ?`,
+    [numericYear]
+  );
+};
+
+const isKeeperTradeLocked = async (seasonYear) => {
+  try {
+    const lockRow = await getKeeperTradeLockRow(seasonYear);
+    return Boolean(lockRow?.locked);
+  } catch (error) {
+    console.error('Error checking keeper trade lock:', error);
+    return false;
+  }
+};
+
 const getNextProposalDisplayOrder = async (seasonYear) => {
   const numericYear = parseInt(seasonYear, 10);
 
