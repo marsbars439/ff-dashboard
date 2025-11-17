@@ -453,7 +453,7 @@ function createRulesRouter({
       return res.status(400).json({ error: 'Invalid proposal id' });
     }
 
-    const { seasonYear, title, description = '', options, displayOrder } = req.body || {};
+    const { seasonYear, title, description = '', options } = req.body || {};
     const normalizedOptions = sanitizeRuleChangeOptions(options);
 
     if (typeof title !== 'string' || !title.trim() || normalizedOptions.length < 2) {
@@ -474,26 +474,15 @@ function createRulesRouter({
 
       const previousOptions = parseRuleChangeOptions(existingRow.options);
 
-      let resolvedDisplayOrder = existingRow.display_order;
-      if (Number.isFinite(displayOrder)) {
-        resolvedDisplayOrder = displayOrder;
-      } else if (typeof displayOrder === 'string' && displayOrder.trim() !== '') {
-        const parsedDisplayOrder = Number.parseInt(displayOrder, 10);
-        if (!Number.isNaN(parsedDisplayOrder)) {
-          resolvedDisplayOrder = parsedDisplayOrder;
-        }
-      }
-
       await runAsync(
         `UPDATE rule_change_proposals
-         SET season_year = ?, title = ?, description = ?, options = ?, display_order = ?, updated_at = CURRENT_TIMESTAMP
+         SET season_year = ?, title = ?, description = ?, options = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [
           numericYear,
           title.trim(),
           typeof description === 'string' ? description.trim() : '',
           JSON.stringify(normalizedOptions),
-          resolvedDisplayOrder,
           proposalId
         ]
       );
