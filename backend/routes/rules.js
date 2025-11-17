@@ -197,11 +197,11 @@ function createRulesRouter({
 
   const setRuleChangeVotingLock = async (seasonYear, locked) =>
     runAsync(
-      `INSERT INTO rule_change_voting_locks (season_year, locked, locked_at, updated_at)
+       `INSERT INTO rule_change_voting_locks (season_year, locked, locked_at, updated_at)
        VALUES (?, ?, CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END, CURRENT_TIMESTAMP)
        ON CONFLICT(season_year) DO UPDATE SET
          locked = excluded.locked,
-         locked_at = CASE WHEN excluded.locked = 1 THEN CURRENT_TIMESTAMP ELSE locked_at END,
+         locked_at = CASE WHEN excluded.locked = 1 THEN CURRENT_TIMESTAMP ELSE NULL END,
          updated_at = CURRENT_TIMESTAMP`,
       [seasonYear, locked ? 1 : 0, locked ? 1 : 0]
     ).then(() => getRuleChangeVotingLockRow(seasonYear));
