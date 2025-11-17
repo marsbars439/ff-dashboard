@@ -2143,6 +2143,12 @@ scheduleBackgroundJobs({
   refreshCachedPreview
 });
 
+const server = app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+module.exports = app;
+
 // Handle graceful shutdown
 process.on('SIGINT', () => {
   console.log('Shutting down gracefully...');
@@ -2151,6 +2157,12 @@ process.on('SIGINT', () => {
       console.error(err.message);
     }
     console.log('Database connection closed.');
-    process.exit(0);
+    if (server && server.listening) {
+      server.close(() => {
+        process.exit(0);
+      });
+    } else {
+      process.exit(0);
+    }
   });
 });
