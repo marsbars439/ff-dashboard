@@ -1,0 +1,56 @@
+name: Build & Deploy FF Dashboard to Unraid
+
+on:
+  push:
+    branches: [ main ]   # change if you deploy from another branch
+
+env:
+  BACKEND_IMAGE: ghcr.io/${{ secrets.GHCR_USERNAME }}/ff-dashboard-backend:latest
+  FRONTEND_IMAGE: ghcr.io/${{ secrets.GHCR_USERNAME }}/ff-dashboard:latest
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      # 🔧 Build + push backend image
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend        # <-- CHANGE if your backend path is different
+          push: true
+          tags: ${{ env.BACKEND_IMAGE }}
+
+      # 🔧 Build + push frontend image
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .                # <-- CHANGE if your frontend path is different
+          push: true
+          tags: ${{ env.FRONTEND_IMAGE }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy updated stack on Unraid
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.UNRAID_HOST }}
+          username: ${{ secrets.UNRAID_SSH_USER }}
+          key: ${{ secrets.UNRAID_SSH_KEY }}
+          port: ${{ secrets.UNRAID_SSH_PORT }}
+          script: /boot/config/custom/deploy_ff_dashboard.sh
+          # Note: actual command is forced by authorized_keys:
+          # command="/usr/bin/bash /boot/config/custom/deploy_ff_dashboard.sh"
