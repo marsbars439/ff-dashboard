@@ -444,11 +444,17 @@ function createRulesRouter({
       return res.status(400).json({ error: 'Invalid proposal id' });
     }
 
-    const { title, description = '', options, displayOrder } = req.body || {};
+    const { seasonYear, title, description = '', options, displayOrder } = req.body || {};
     const normalizedOptions = sanitizeRuleChangeOptions(options);
 
     if (!title || normalizedOptions.length < 2) {
       return res.status(400).json({ error: 'Title and at least two options are required' });
+    }
+
+    const numericYear = parseInt(seasonYear, 10);
+
+    if (Number.isNaN(numericYear)) {
+      return res.status(400).json({ error: 'A valid seasonYear is required' });
     }
 
     try {
@@ -471,9 +477,10 @@ function createRulesRouter({
 
       await runAsync(
         `UPDATE rule_change_proposals
-         SET title = ?, description = ?, options = ?, display_order = ?, updated_at = CURRENT_TIMESTAMP
+         SET season_year = ?, title = ?, description = ?, options = ?, display_order = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [
+          numericYear,
           title.trim(),
           typeof description === 'string' ? description.trim() : '',
           JSON.stringify(normalizedOptions),
