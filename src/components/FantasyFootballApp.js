@@ -702,6 +702,7 @@ const FantasyFootballApp = () => {
   };
 
   const parseTimestamp = value => parseFlexibleTimestamp(value);
+  const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
 
   const weeklyScores = useMemo(() => {
     return seasonMatchups
@@ -1000,8 +1001,6 @@ const FantasyFootballApp = () => {
     finished: 2,
     inactive: 3
   };
-
-  const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
 
   const getStarterActivityStatus = starter => {
     if (!starter) {
