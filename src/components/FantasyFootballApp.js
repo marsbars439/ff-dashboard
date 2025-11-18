@@ -30,6 +30,26 @@ const DASHBOARD_TABS = [
   }
 ];
 
+const normalizePoints = value => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const num = typeof value === 'number' ? value : parseFloat(value);
+  if (Number.isNaN(num)) {
+    return null;
+  }
+  return num;
+};
+
+const formatPoints = value => {
+  const num = normalizePoints(value);
+  if (num === null) {
+    return '--';
+  }
+  const rounded = Math.round(num * 100) / 100;
+  return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2);
+};
+
 const FantasyFootballApp = () => {
   const { adminSession, enforceAdminTabAccess } = useAdminSession();
   const [activeTab, setActiveTab] = useState(() => {
@@ -89,6 +109,8 @@ const FantasyFootballApp = () => {
   const [activeWeekError, setActiveWeekError] = useState(null);
   const [expandedMatchups, setExpandedMatchups] = useState({});
   const [expandedWeeks, setExpandedWeeks] = useState({});
+  const [showPreviousResults, setShowPreviousResults] = useState(true);
+  const [showUpcomingMatchups, setShowUpcomingMatchups] = useState(true);
   const activeWeekNumber = activeWeekMatchups?.week ?? null;
   const hasLoadedActiveWeekRef = useRef(false);
 
@@ -280,6 +302,11 @@ const FantasyFootballApp = () => {
 
   useEffect(() => {
     setExpandedWeeks({});
+  }, [selectedSeasonYear]);
+
+  useEffect(() => {
+    setShowPreviousResults(true);
+    setShowUpcomingMatchups(true);
   }, [selectedSeasonYear]);
 
   useEffect(() => {
@@ -693,6 +720,31 @@ const FantasyFootballApp = () => {
     );
   }, [teamSeasons, selectedSeasonYear]);
 
+  const { previousWeeks, upcomingWeeks } = useMemo(() => {
+    if (!Array.isArray(seasonMatchups) || seasonMatchups.length === 0) {
+      return { previousWeeks: [], upcomingWeeks: [] };
+    }
+
+    const previous = [];
+    const upcoming = [];
+
+    seasonMatchups.forEach(week => {
+      const hasRecordedScore = week.matchups?.some(matchup => {
+        const homePoints = normalizePoints(matchup.home?.points);
+        const awayPoints = normalizePoints(matchup.away?.points);
+        return homePoints !== null || awayPoints !== null;
+      });
+
+      if (week.week <= lastCompletedWeek || hasRecordedScore) {
+        previous.push(week);
+      } else {
+        upcoming.push(week);
+      }
+    });
+
+    return { previousWeeks: previous, upcomingWeeks: upcoming };
+  }, [seasonMatchups, lastCompletedWeek]);
+
   const completedWeeklyScores = useMemo(
     () => weeklyScores.filter(score => score.week <= lastCompletedWeek),
     [weeklyScores, lastCompletedWeek]
@@ -726,26 +778,6 @@ const FantasyFootballApp = () => {
         [weekNumber]: !currentValue
       };
     });
-  };
-
-  const normalizePoints = value => {
-    if (value === null || value === undefined) {
-      return null;
-    }
-    const num = typeof value === 'number' ? value : parseFloat(value);
-    if (Number.isNaN(num)) {
-      return null;
-    }
-    return num;
-  };
-
-  const formatPoints = value => {
-    const num = normalizePoints(value);
-    if (num === null) {
-      return '--';
-    }
-    const rounded = Math.round(num * 100) / 100;
-    return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2);
   };
 
   const parseTimestamp = value => parseFlexibleTimestamp(value);
@@ -1430,6 +1462,116 @@ const FantasyFootballApp = () => {
       );
   };
 
+  const renderWeekCard = week => {
+    const isActiveWeek =
+      selectedSeasonYear === mostRecentYear &&
+      activeWeekMatchups &&
+      week.week === activeWeekMatchups.week;
+    const hasActiveLineups =
+      isActiveWeek &&
+      !activeWeekLoading &&
+      Array.isArray(activeWeekMatchups?.matchups) &&
+      activeWeekMatchups.matchups.length > 0;
+    const headerMessage = activeWeekLoading
+      ? 'Loading starting lineups from Sleeper...'
+      : hasActiveLineups
+      ? 'Starting lineups provided by Sleeper'
+      : activeWeekError
+      ? 'Sleeper lineups unavailable'
+      : 'Starting lineups unavailable';
+    const headerMessageClass = activeWeekError
+      ? 'text-xs text-red-500'
+      : 'text-xs text-gray-500';
+    const hasWeekState = Object.prototype.hasOwnProperty.call(
+      expandedWeeks,
+      week.week
+    );
+    const isExpanded = hasWeekState
+      ? !!expandedWeeks[week.week]
+      : activeWeekNumber
+      ? week.week === activeWeekNumber
+      : true;
+
+    return (
+      <div key={week.week} className="bg-gray-50 rounded-lg">
+        <button
+          type="button"
+          onClick={() => toggleWeekExpansion(week.week)}
+          className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
+          aria-expanded={isExpanded}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-1 gap-2">
+            <h4 className="font-semibold">Week {week.week}</h4>
+            {isActiveWeek && <span className={headerMessageClass}>{headerMessage}</span>}
+          </div>
+          <ChevronDown
+            className={`w-5 h-5 text-gray-500 transition-transform ${
+              isExpanded ? 'transform rotate-180' : ''
+            }`}
+          />
+        </button>
+
+        {isExpanded && (
+          <div className="border-t border-gray-200 px-3 pb-3 sm:px-4 sm:pb-4 pt-3 sm:pt-4">
+            {hasActiveLineups ? (
+              <div className="space-y-3">
+                {activeWeekMatchups.matchups.map((matchup, idx) =>
+                  renderActiveWeekMatchup(matchup, idx, week.week)
+                )}
+              </div>
+            ) : (
+              <>
+                {isActiveWeek && activeWeekLoading && (
+                  <p className="text-xs text-gray-500 mb-2">
+                    Loading starting lineups from Sleeper...
+                  </p>
+                )}
+                {isActiveWeek && activeWeekError && (
+                  <p className="text-xs text-red-600 mb-2">{activeWeekError}</p>
+                )}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs sm:text-sm table-fixed">
+                    <tbody className="divide-y divide-gray-200">
+                      {week.matchups.map((m, idx) => {
+                        const homePoints = normalizePoints(m.home?.points);
+                        const awayPoints = normalizePoints(m.away?.points);
+                        const homeWin =
+                          homePoints !== null &&
+                          awayPoints !== null &&
+                          homePoints > awayPoints;
+                        const awayWin =
+                          homePoints !== null &&
+                          awayPoints !== null &&
+                          awayPoints > homePoints;
+                        return (
+                          <tr key={idx} className="text-left">
+                            <td className={`px-2 py-1 w-1/5 ${homeWin ? 'bg-green-50 text-green-700 font-semibold rounded-l' : ''}`}>
+                              {m.home?.manager_name || 'TBD'}
+                            </td>
+                            <td className={`px-2 py-1 w-1/5 text-right ${homeWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
+                              {formatPoints(m.home?.points)}
+                            </td>
+                            <td className="px-2 py-1 w-1/5 text-center">vs</td>
+                            <td className={`px-2 py-1 w-1/5 ${awayWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
+                              {m.away?.manager_name || 'TBD'}
+                            </td>
+                            <td className={`px-2 py-1 w-1/5 text-right ${awayWin ? 'bg-green-50 text-green-700 font-semibold rounded-r' : ''}`}>
+                              {formatPoints(m.away?.points)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const allRecords = calculateAllRecords();
   const activeRecords = Object.values(allRecords).filter(r => r.active);
   const inactiveRecords = Object.values(allRecords).filter(r => !r.active);
@@ -1620,117 +1762,70 @@ const FantasyFootballApp = () => {
       {!seasonsWithoutMatchups.includes(selectedSeasonYear) && (
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
-          {seasonMatchups.map(week => {
-            const isActiveWeek =
-              selectedSeasonYear === mostRecentYear &&
-              activeWeekMatchups &&
-              week.week === activeWeekMatchups.week;
-            const hasActiveLineups =
-              isActiveWeek &&
-              !activeWeekLoading &&
-              Array.isArray(activeWeekMatchups?.matchups) &&
-              activeWeekMatchups.matchups.length > 0;
-            const headerMessage = activeWeekLoading
-              ? 'Loading starting lineups from Sleeper...'
-              : hasActiveLineups
-              ? 'Starting lineups provided by Sleeper'
-              : activeWeekError
-              ? 'Sleeper lineups unavailable'
-              : 'Starting lineups unavailable';
-            const headerMessageClass = activeWeekError
-              ? 'text-xs text-red-500'
-              : 'text-xs text-gray-500';
-            const hasWeekState = Object.prototype.hasOwnProperty.call(
-              expandedWeeks,
-              week.week
-            );
-            const isExpanded = hasWeekState
-              ? !!expandedWeeks[week.week]
-              : activeWeekNumber
-              ? week.week === activeWeekNumber
-              : true;
-
-            return (
-              <div key={week.week} className="mb-6 bg-gray-50 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => toggleWeekExpansion(week.week)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
-                  aria-expanded={isExpanded}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-1 gap-2">
-                    <h4 className="font-semibold">Week {week.week}</h4>
-                    {isActiveWeek && (
-                      <span className={headerMessageClass}>{headerMessage}</span>
-                    )}
-                  </div>
-                  <ChevronDown
-                    className={`w-5 h-5 text-gray-500 transition-transform ${
-                      isExpanded ? 'transform rotate-180' : ''
-                    }`}
-                  />
-                </button>
-
-                {isExpanded && (
-                  <div className="border-t border-gray-200 px-3 pb-3 sm:px-4 sm:pb-4 pt-3 sm:pt-4">
-                    {hasActiveLineups ? (
-                      <div className="space-y-3">
-                        {activeWeekMatchups.matchups.map((matchup, idx) =>
-                          renderActiveWeekMatchup(matchup, idx, week.week)
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        {isActiveWeek && activeWeekLoading && (
-                          <p className="text-xs text-gray-500 mb-2">
-                            Loading starting lineups from Sleeper...
-                          </p>
-                        )}
-                        {isActiveWeek && activeWeekError && (
-                          <p className="text-xs text-red-600 mb-2">{activeWeekError}</p>
-                        )}
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full text-xs sm:text-sm table-fixed">
-                            <tbody className="divide-y divide-gray-200">
-                              {week.matchups.map((m, idx) => {
-                                const homePoints = normalizePoints(m.home?.points);
-                                const awayPoints = normalizePoints(m.away?.points);
-                                const homeWin =
-                                  homePoints !== null &&
-                                  awayPoints !== null &&
-                                  homePoints > awayPoints;
-                                const awayWin =
-                                  homePoints !== null &&
-                                  awayPoints !== null &&
-                                  awayPoints > homePoints;
-                                return (
-                                  <tr key={idx} className="text-left">
-                                    <td className={`px-2 py-1 w-1/5 ${homeWin ? 'bg-green-50 text-green-700 font-semibold rounded-l' : ''}`}>
-                                      {m.home?.manager_name || 'TBD'}
-                                    </td>
-                                    <td className={`px-2 py-1 w-1/5 text-right ${homeWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
-                                      {formatPoints(m.home?.points)}
-                                    </td>
-                                    <td className="px-2 py-1 w-1/5 text-center">vs</td>
-                                    <td className={`px-2 py-1 w-1/5 ${awayWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
-                                      {m.away?.manager_name || 'TBD'}
-                                    </td>
-                                    <td className={`px-2 py-1 w-1/5 text-right ${awayWin ? 'bg-green-50 text-green-700 font-semibold rounded-r' : ''}`}>
-                                      {formatPoints(m.away?.points)}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          <div className="space-y-4">
+            <div className="border border-gray-200 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setShowPreviousResults(prev => !prev)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
+                aria-expanded={showPreviousResults}
+              >
+                <div className="flex flex-col">
+                  <span className="font-semibold">Previous Results</span>
+                  <span className="text-xs text-gray-500">
+                    Weeks that have already been played
+                  </span>
+                </div>
+                <ChevronDown
+                  className={`w-5 h-5 text-gray-500 transition-transform ${
+                    showPreviousResults ? 'transform rotate-180' : ''
+                  }`}
+                />
+              </button>
+              {showPreviousResults && (
+                <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
+                  {previousWeeks.length > 0 ? (
+                    previousWeeks.map(renderWeekCard)
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      No completed matchups yet.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="border border-gray-200 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setShowUpcomingMatchups(prev => !prev)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
+                aria-expanded={showUpcomingMatchups}
+              >
+                <div className="flex flex-col">
+                  <span className="font-semibold">Upcoming Matchups</span>
+                  <span className="text-xs text-gray-500">
+                    Future weeks and in-progress games
+                  </span>
+                </div>
+                <ChevronDown
+                  className={`w-5 h-5 text-gray-500 transition-transform ${
+                    showUpcomingMatchups ? 'transform rotate-180' : ''
+                  }`}
+                />
+              </button>
+              {showUpcomingMatchups && (
+                <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
+                  {upcomingWeeks.length > 0 ? (
+                    upcomingWeeks.map(renderWeekCard)
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      No upcoming matchups remaining.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
