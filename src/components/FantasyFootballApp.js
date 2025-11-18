@@ -727,22 +727,26 @@ const FantasyFootballApp = () => {
 
     const sortedWeeks = [...seasonMatchups].sort((a, b) => a.week - b.week);
     const highestScheduledWeek = sortedWeeks[sortedWeeks.length - 1]?.week ?? null;
-    const weekHasRecordedScore = week => {
-      if (!Array.isArray(week.matchups)) {
-        return false;
-      }
-      return week.matchups.some(matchup => {
+      const matchupHasRecordedScore = matchup => {
+        if (!matchup) {
+          return false;
+        }
         const homePoints = normalizePoints(matchup.home?.points);
         const awayPoints = normalizePoints(matchup.away?.points);
         return homePoints !== null || awayPoints !== null;
-      });
-    };
-    const firstUnrecordedWeekNumber = (() => {
-      const week = sortedWeeks.find(w => !weekHasRecordedScore(w));
-      return week ? week.week : null;
-    })();
-    const allWeeksHaveScores =
-      sortedWeeks.length > 0 && sortedWeeks.every(weekHasRecordedScore);
+      };
+      const weekIsComplete = week => {
+        if (!Array.isArray(week.matchups) || week.matchups.length === 0) {
+          return false;
+        }
+        return week.matchups.every(matchupHasRecordedScore);
+      };
+      const firstIncompleteWeekNumber = (() => {
+        const week = sortedWeeks.find(w => !weekIsComplete(w));
+        return week ? week.week : null;
+      })();
+      const allWeeksComplete =
+        sortedWeeks.length > 0 && sortedWeeks.every(weekIsComplete);
 
     const inferredCurrentWeekNumber = (() => {
       if (activeWeekNumber) {
@@ -751,12 +755,12 @@ const FantasyFootballApp = () => {
       if (!highestScheduledWeek) {
         return null;
       }
-      if (typeof firstUnrecordedWeekNumber === "number") {
-        return firstUnrecordedWeekNumber;
-      }
-      if (allWeeksHaveScores) {
-        return null;
-      }
+        if (typeof firstIncompleteWeekNumber === "number") {
+          return firstIncompleteWeekNumber;
+        }
+        if (allWeeksComplete) {
+          return null;
+        }
       if (lastCompletedWeek >= highestScheduledWeek) {
         return null;
       }
