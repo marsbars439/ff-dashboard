@@ -2,8 +2,8 @@ name: Build & Deploy FF Dashboard to Unraid
 
 on:
   push:
-    branches: [ main ]    # change if you deploy from another branch
-  workflow_dispatch:       # lets you trigger manually from the Actions tab
+    branches: [ main ]
+  workflow_dispatch:
 
 concurrency:
   group: ff-dashboard
@@ -15,10 +15,9 @@ env:
 
 jobs:
   build-and-deploy:
-    # This runs entirely on your Unraid self-hosted runner
-    # If you added a custom label like "unraid", you can use:
-    # runs-on: [self-hosted, unraid]
     runs-on: self-hosted
+    env:
+      HOME: /home/github
 
     steps:
       - name: Checkout repository
@@ -31,23 +30,20 @@ jobs:
           username: ${{ secrets.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      # Backend image
       - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
-          context: ./backend          # adjust if your backend directory is different
+          context: ./backend
           push: true
           tags: ${{ env.BACKEND_IMAGE }}
 
-      # Frontend image
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
-          context: ./frontend         # adjust if your frontend directory is different
+          context: ./frontend
           push: true
           tags: ${{ env.FRONTEND_IMAGE }}
 
-      # Deploy using your existing compose project + script on Unraid
       - name: Deploy updated stack on Unraid
         run: |
           sudo /usr/bin/bash /boot/config/custom/deploy_ff_dashboard.sh
