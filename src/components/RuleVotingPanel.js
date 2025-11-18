@@ -20,6 +20,10 @@ const RuleVotingPanel = () => {
   const [activeIndex, setActiveIndex] = useState(0);
 
   const totalProposals = Array.isArray(proposals) ? proposals.length : 0;
+  const titlePrefix = votingLocked ? 'Completed Rule Change Proposals' : 'Potential Rule Changes';
+  const sectionTitle = displaySeason
+    ? `${titlePrefix} for the ${displaySeason} Season`
+    : titlePrefix;
   useEffect(() => {
     setActiveIndex(prevIndex => {
       if (totalProposals === 0) {
@@ -49,9 +53,7 @@ const RuleVotingPanel = () => {
         <div className="flex flex-col gap-1">
           <div className="flex items-center space-x-2">
             <Gavel className="w-5 h-5 text-purple-500" />
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-              {displaySeason ? `Potential Rule Changes for the ${displaySeason} Season` : 'Potential Rule Changes'}
-            </h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{sectionTitle}</h2>
           </div>
           {totalProposals > 0 && (
             <p className="text-sm text-gray-500 sm:ml-7">

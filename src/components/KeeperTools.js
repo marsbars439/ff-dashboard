@@ -38,7 +38,10 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
     getManagerName,
     canEditRoster
   } = useKeeperTools();
-  const { handleManagerLogout: handleRuleVotingManagerLogout } = useRuleVoting();
+  const {
+    handleManagerLogout: handleRuleVotingManagerLogout,
+    votingLocked
+  } = useRuleVoting();
 
   const handleManagerLogin = async (event) => {
     event.preventDefault();
@@ -105,6 +108,8 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
     );
   }
 
+  const ruleVotingSection = <RuleVotingPanel />;
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex justify-end">
@@ -159,7 +164,7 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
         </div>
       </div>
 
-      <RuleVotingPanel />
+      {!votingLocked && ruleVotingSection}
 
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -373,6 +378,8 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
           )
         )}
       </div>
+
+      {votingLocked && ruleVotingSection}
     </div>
   );
 };
