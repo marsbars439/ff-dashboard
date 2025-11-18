@@ -17,6 +17,7 @@ import { parseFlexibleTimestamp, formatInUserTimeZone } from '../utils/date';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
+const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
 const VALID_TABS = new Set(['records', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
 const DASHBOARD_TABS = [
   { id: 'records', label: 'Hall of Records' },
@@ -1000,9 +1001,6 @@ const FantasyFootballApp = () => {
     finished: 2,
     inactive: 3
   };
-
-  const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
-
   const getStarterActivityStatus = starter => {
     if (!starter) {
       return playerActivityStyles.inactive;
