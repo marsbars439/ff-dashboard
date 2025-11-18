@@ -142,7 +142,6 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
           {availableYears.length > 0 && (
             <div className="flex justify-center">
               <div className="inline-flex flex-col items-center gap-2">
-                <span className="text-xs sm:text-sm font-medium uppercase tracking-wide text-gray-600">Rosters / Draft Filter</span>
                 <select
                   value={selectedKeeperYear || ''}
                   onChange={e => setSelectedKeeperYear(Number(e.target.value))}
