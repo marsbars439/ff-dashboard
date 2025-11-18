@@ -139,11 +139,6 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
 
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
         <div className="flex flex-col gap-4">
-          {keeperEditingLocked && (
-            <div className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
-              Keeper and trade selections are currently locked by the commissioner.
-            </div>
-          )}
           {availableYears.length > 0 && (
             <div className="flex justify-center">
               <div className="inline-flex flex-col items-center gap-2">
@@ -268,6 +263,11 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
             </select>
           )}
         </div>
+        {keeperEditingLocked && (
+          <div className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 mb-4">
+            Keeper and trade selections are currently locked by the commissioner.
+          </div>
+        )}
         {keepers.length === 0 ? (
           <p className="text-gray-500">No roster data available for this season.</p>
         ) : (
