@@ -2,18 +2,26 @@ name: Build & Deploy FF Dashboard to Unraid
 
 on:
   push:
-    branches: [ main ]   # change if you deploy from another branch
+    branches: [ main ]    # change if you deploy from another branch
+  workflow_dispatch:       # lets you trigger manually from the Actions tab
+
+concurrency:
+  group: ff-dashboard
+  cancel-in-progress: true
 
 env:
   BACKEND_IMAGE: ghcr.io/${{ secrets.GHCR_USERNAME }}/ff-dashboard-backend:latest
   FRONTEND_IMAGE: ghcr.io/${{ secrets.GHCR_USERNAME }}/ff-dashboard:latest
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+  build-and-deploy:
+    # This runs entirely on your Unraid self-hosted runner
+    # If you added a custom label like "unraid", you can use:
+    # runs-on: [self-hosted, unraid]
+    runs-on: self-hosted
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Log in to GHCR
@@ -23,27 +31,23 @@ jobs:
           username: ${{ secrets.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      # 🔧 Build + push backend image
-      - name: Build and push backend
+      # Backend image
+      - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
-          context: ./backend        # <-- CHANGE if your backend path is different
+          context: ./backend          # adjust if your backend directory is different
           push: true
           tags: ${{ env.BACKEND_IMAGE }}
 
-      # 🔧 Build + push frontend image
-      - name: Build and push frontend
+      # Frontend image
+      - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
-          context: .                # <-- CHANGE if your frontend path is different
+          context: ./frontend         # adjust if your frontend directory is different
           push: true
           tags: ${{ env.FRONTEND_IMAGE }}
 
-  deploy:
-    needs: build-and-push
-    runs-on: self-hosted
-
-    steps:
+      # Deploy using your existing compose project + script on Unraid
       - name: Deploy updated stack on Unraid
         run: |
           sudo /usr/bin/bash /boot/config/custom/deploy_ff_dashboard.sh
