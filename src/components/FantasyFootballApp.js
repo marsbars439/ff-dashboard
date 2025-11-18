@@ -720,30 +720,54 @@ const FantasyFootballApp = () => {
     );
   }, [teamSeasons, selectedSeasonYear]);
 
-  const { previousWeeks, upcomingWeeks } = useMemo(() => {
+  const { previousWeeks, currentWeek, upcomingWeeks } = useMemo(() => {
     if (!Array.isArray(seasonMatchups) || seasonMatchups.length === 0) {
-      return { previousWeeks: [], upcomingWeeks: [] };
+      return { previousWeeks: [], currentWeek: null, upcomingWeeks: [] };
+    }
+
+    const sortedWeeks = [...seasonMatchups].sort((a, b) => a.week - b.week);
+    const highestScheduledWeek = sortedWeeks[sortedWeeks.length - 1]?.week ?? null;
+
+    const inferredCurrentWeekNumber = (() => {
+      if (activeWeekNumber) {
+        return activeWeekNumber;
+      }
+      if (!highestScheduledWeek) {
+        return null;
+      }
+      if (lastCompletedWeek >= highestScheduledWeek) {
+        return null;
+      }
+      if (lastCompletedWeek === 0) {
+        return sortedWeeks[0]?.week ?? null;
+      }
+      return Math.min(lastCompletedWeek + 1, highestScheduledWeek);
+    })();
+
+    if (!inferredCurrentWeekNumber) {
+      return { previousWeeks: sortedWeeks, currentWeek: null, upcomingWeeks: [] };
     }
 
     const previous = [];
     const upcoming = [];
+    let current = null;
 
-    seasonMatchups.forEach(week => {
-      const hasRecordedScore = week.matchups?.some(matchup => {
-        const homePoints = normalizePoints(matchup.home?.points);
-        const awayPoints = normalizePoints(matchup.away?.points);
-        return homePoints !== null || awayPoints !== null;
-      });
-
-      if (week.week <= lastCompletedWeek || hasRecordedScore) {
+    sortedWeeks.forEach(week => {
+      if (week.week === inferredCurrentWeekNumber) {
+        current = week;
+      } else if (week.week < inferredCurrentWeekNumber) {
         previous.push(week);
       } else {
         upcoming.push(week);
       }
     });
 
-    return { previousWeeks: previous, upcomingWeeks: upcoming };
-  }, [seasonMatchups, lastCompletedWeek]);
+    if (!current) {
+      return { previousWeeks: sortedWeeks, currentWeek: null, upcomingWeeks: [] };
+    }
+
+    return { previousWeeks: previous, currentWeek: current, upcomingWeeks: upcoming };
+  }, [seasonMatchups, lastCompletedWeek, activeWeekNumber]);
 
   const completedWeeklyScores = useMemo(
     () => weeklyScores.filter(score => score.week <= lastCompletedWeek),
@@ -1763,6 +1787,16 @@ const FantasyFootballApp = () => {
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
           <div className="space-y-4">
+            {currentWeek && (
+              <div className="border border-gray-200 rounded-lg">
+                <div className="px-3 py-3 sm:px-4 sm:py-4">
+                  <span className="font-semibold">Current Week</span>
+                </div>
+                <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
+                  {renderWeekCard(currentWeek)}
+                </div>
+              </div>
+            )}
             <div className="border border-gray-200 rounded-lg">
               <button
                 type="button"
@@ -1770,12 +1804,7 @@ const FantasyFootballApp = () => {
                 className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
                 aria-expanded={showPreviousResults}
               >
-                <div className="flex flex-col">
-                  <span className="font-semibold">Previous Results</span>
-                  <span className="text-xs text-gray-500">
-                    Weeks that have already been played
-                  </span>
-                </div>
+                <span className="font-semibold">Previous Results</span>
                 <ChevronDown
                   className={`w-5 h-5 text-gray-500 transition-transform ${
                     showPreviousResults ? 'transform rotate-180' : ''
@@ -1801,12 +1830,7 @@ const FantasyFootballApp = () => {
                 className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
                 aria-expanded={showUpcomingMatchups}
               >
-                <div className="flex flex-col">
-                  <span className="font-semibold">Upcoming Matchups</span>
-                  <span className="text-xs text-gray-500">
-                    Future weeks and in-progress games
-                  </span>
-                </div>
+                <span className="font-semibold">Upcoming Matchups</span>
                 <ChevronDown
                   className={`w-5 h-5 text-gray-500 transition-transform ${
                     showUpcomingMatchups ? 'transform rotate-180' : ''
