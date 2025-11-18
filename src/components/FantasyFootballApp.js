@@ -727,12 +727,34 @@ const FantasyFootballApp = () => {
 
     const sortedWeeks = [...seasonMatchups].sort((a, b) => a.week - b.week);
     const highestScheduledWeek = sortedWeeks[sortedWeeks.length - 1]?.week ?? null;
+    const weekHasRecordedScore = week => {
+      if (!Array.isArray(week.matchups)) {
+        return false;
+      }
+      return week.matchups.some(matchup => {
+        const homePoints = normalizePoints(matchup.home?.points);
+        const awayPoints = normalizePoints(matchup.away?.points);
+        return homePoints !== null || awayPoints !== null;
+      });
+    };
+    const firstUnrecordedWeekNumber = (() => {
+      const week = sortedWeeks.find(w => !weekHasRecordedScore(w));
+      return week ? week.week : null;
+    })();
+    const allWeeksHaveScores =
+      sortedWeeks.length > 0 && sortedWeeks.every(weekHasRecordedScore);
 
     const inferredCurrentWeekNumber = (() => {
       if (activeWeekNumber) {
         return activeWeekNumber;
       }
       if (!highestScheduledWeek) {
+        return null;
+      }
+      if (typeof firstUnrecordedWeekNumber === "number") {
+        return firstUnrecordedWeekNumber;
+      }
+      if (allWeeksHaveScores) {
         return null;
       }
       if (lastCompletedWeek >= highestScheduledWeek) {
