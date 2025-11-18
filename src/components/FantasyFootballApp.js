@@ -727,26 +727,131 @@ const FantasyFootballApp = () => {
 
     const sortedWeeks = [...seasonMatchups].sort((a, b) => a.week - b.week);
     const highestScheduledWeek = sortedWeeks[sortedWeeks.length - 1]?.week ?? null;
-      const matchupHasRecordedScore = matchup => {
-        if (!matchup) {
-          return false;
+    const now = Date.now();
+    const normalizeKey = value =>
+      typeof value === "string" ? value.toLowerCase().trim() : "";
+    const starterActivityHints = starter => {
+      if (!starter) {
+        return { hasMetadata: false, isActive: false };
+      }
+
+      if (starter.is_bye) {
+        return { hasMetadata: true, isActive: false };
+      }
+
+      const keyCandidates = [starter.activity_key, starter.scoreboard_activity_key]
+        .map(normalizeKey)
+        .filter(Boolean);
+
+      if (keyCandidates.length) {
+        if (keyCandidates.some(key => key === "live" || key === "upcoming")) {
+          return { hasMetadata: true, isActive: true };
         }
-        const homePoints = normalizePoints(matchup.home?.points);
-        const awayPoints = normalizePoints(matchup.away?.points);
-        return homePoints !== null || awayPoints !== null;
-      };
-      const weekIsComplete = week => {
-        if (!Array.isArray(week.matchups) || week.matchups.length === 0) {
-          return false;
+        if (keyCandidates.some(key => key === "finished" || key === "inactive")) {
+          return { hasMetadata: true, isActive: false };
         }
-        return week.matchups.every(matchupHasRecordedScore);
-      };
-      const firstIncompleteWeekNumber = (() => {
-        const week = sortedWeeks.find(w => !weekIsComplete(w));
-        return week ? week.week : null;
-      })();
-      const allWeeksComplete =
-        sortedWeeks.length > 0 && sortedWeeks.every(weekIsComplete);
+      }
+
+      const statusTexts = [
+        starter.game_status,
+        starter.raw_game_status,
+        starter.scoreboard_status,
+        starter.scoreboard_detail
+      ]
+        .map(normalizeKey)
+        .filter(Boolean);
+
+      if (statusTexts.length) {
+        const finalRegex = /(final|post|complete|finished|closed|bye)/;
+        if (statusTexts.some(text => finalRegex.test(text))) {
+          return { hasMetadata: true, isActive: false };
+        }
+
+        const liveRegex = /(in progress|progress|live|q[1-4]|1st|2nd|3rd|4th|ot|half)/;
+        if (statusTexts.some(text => liveRegex.test(text))) {
+          return { hasMetadata: true, isActive: true };
+        }
+
+        const upcomingRegex = /(pre|sched|upcoming|not started|delay|postponed)/;
+        if (statusTexts.some(text => upcomingRegex.test(text))) {
+          return { hasMetadata: true, isActive: true };
+        }
+      }
+
+      const kickoffTimestamp = parseTimestamp(
+        starter.scoreboard_start ??
+          starter.game_start ??
+          starter.start_time ??
+          starter.startTime ??
+          null
+      );
+
+      if (Number.isFinite(kickoffTimestamp)) {
+        if (kickoffTimestamp > now) {
+          return { hasMetadata: true, isActive: true };
+        }
+        if (now - kickoffTimestamp >= GAME_COMPLETION_BUFFER_MS) {
+          return { hasMetadata: true, isActive: false };
+        }
+        return { hasMetadata: true, isActive: true };
+      }
+
+      return { hasMetadata: false, isActive: false };
+    };
+    const getLineupActivityState = team => {
+      if (!Array.isArray(team?.starters) || team.starters.length === 0) {
+        return { hasMetadata: false, hasActiveStarters: false };
+      }
+
+      let hasMetadata = false;
+      let hasActiveStarters = false;
+
+      team.starters.forEach(starter => {
+        const { hasMetadata: starterHasMetadata, isActive } =
+          starterActivityHints(starter);
+        if (starterHasMetadata) {
+          hasMetadata = true;
+        }
+        if (isActive) {
+          hasActiveStarters = true;
+        }
+      });
+
+      return { hasMetadata, hasActiveStarters };
+    };
+    const matchupHasRecordedScore = matchup => {
+      if (!matchup) {
+        return false;
+      }
+      const homePoints = normalizePoints(matchup.home?.points);
+      const awayPoints = normalizePoints(matchup.away?.points);
+      return homePoints !== null || awayPoints !== null;
+    };
+    const matchupIsComplete = matchup => {
+      if (!matchup) {
+        return false;
+      }
+
+      const homeState = getLineupActivityState(matchup.home);
+      const awayState = getLineupActivityState(matchup.away);
+      if (homeState.hasMetadata || awayState.hasMetadata) {
+        return !homeState.hasActiveStarters && !awayState.hasActiveStarters;
+      }
+
+      return matchupHasRecordedScore(matchup);
+    };
+    const weekIsComplete = week => {
+      if (!Array.isArray(week.matchups) || week.matchups.length === 0) {
+        return false;
+      }
+      return week.matchups.every(matchupIsComplete);
+    };
+    const firstIncompleteWeekNumber = (() => {
+      const week = sortedWeeks.find(w => !weekIsComplete(w));
+      return week ? week.week : null;
+    })();
+    const allWeeksComplete =
+      sortedWeeks.length > 0 && sortedWeeks.every(weekIsComplete);
 
     const inferredCurrentWeekNumber = (() => {
       if (activeWeekNumber) {
