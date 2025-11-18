@@ -504,8 +504,9 @@ class SleeperService {
               const team = {
                 roster_id: m.roster_id,
                 team_name: rosterIdToTeam[m.roster_id] || '',
-                manager_name: rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
-                points: m.points || 0
+                manager_name:
+                  rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
+                points: typeof m.points === 'number' ? m.points : null
               };
 
               if (!matchupsMap[m.matchup_id].home) {
@@ -1049,8 +1050,9 @@ class SleeperService {
               const team = {
                 roster_id: m.roster_id,
                 team_name: rosterIdToTeam[m.roster_id] || '',
-                manager_name: rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
-                points: m.points || 0,
+                manager_name:
+                  rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
+                points: typeof m.points === 'number' ? m.points : null,
                 seed: rosterIdToSeed[m.roster_id] || null
               };
 
