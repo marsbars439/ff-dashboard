@@ -46,4 +46,4 @@ jobs:
     steps:
       - name: Deploy updated stack on Unraid
         run: |
-          bash /boot/config/custom/deploy_ff_dashboard.sh
+          sudo /usr/bin/bash /boot/config/custom/deploy_ff_dashboard.sh
