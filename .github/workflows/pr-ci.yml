@@ -27,6 +27,6 @@ jobs:
       - name: Build frontend image
         uses: docker/build-push-action@v6
         with:
-          context: ./frontend       # adjust if your frontend lives elsewhere
+          context: .
           push: false
           load: true
