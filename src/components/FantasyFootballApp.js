@@ -50,6 +50,8 @@ const formatPoints = value => {
   return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2);
 };
 
+const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
+
 const FantasyFootballApp = () => {
   const { adminSession, enforceAdminTabAccess } = useAdminSession();
   const [activeTab, setActiveTab] = useState(() => {
@@ -1000,8 +1002,6 @@ const FantasyFootballApp = () => {
     finished: 2,
     inactive: 3
   };
-
-  const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
 
   const getStarterActivityStatus = starter => {
     if (!starter) {
