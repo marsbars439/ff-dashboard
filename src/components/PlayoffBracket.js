@@ -1,4 +1,6 @@
 import React from 'react';
+import { GitBranch } from 'lucide-react';
+import DashboardSection from './DashboardSection';
 
 const PlayoffBracket = ({ rounds = [] }) => {
   const filteredRounds = (rounds || [])
@@ -71,7 +73,12 @@ const PlayoffBracket = ({ rounds = [] }) => {
   const roundLabels = ['Round 1', 'Round 2', 'Round 3'];
 
   return (
-    <div className="w-full overflow-x-auto">
+    <DashboardSection
+      title="Playoff Bracket"
+      description="Seeds 1-6 postseason results"
+      icon={GitBranch}
+      bodyClassName="w-full overflow-x-auto"
+    >
       <div className="flex items-start space-x-4 sm:space-x-8 w-max mx-auto">
         {filteredRounds.map((round, roundIdx) => (
           <div
@@ -142,7 +149,7 @@ const PlayoffBracket = ({ rounds = [] }) => {
           </div>
         ))}
       </div>
-    </div>
+    </DashboardSection>
   );
 };
 

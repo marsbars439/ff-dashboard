@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart3, ArrowLeft, RefreshCw, Filter, ArrowUpDown, ArrowUp, ArrowDown, Download } from 'lucide-react';
+import DashboardSection from './DashboardSection';
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
@@ -1054,26 +1055,30 @@ const Analytics = ({ onBack }) => {
     </tr>
   );
 
+  const sectionActions = onBack ? (
+    <button
+      onClick={onBack}
+      className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
+    >
+      <ArrowLeft className="w-4 h-4 mr-1" /> Back to Admin
+    </button>
+  ) : null;
+
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <DashboardSection
+      title="Analytics"
+      description="Dive into rest-of-season projections with flexible filters, exports, and manager-level insights."
+      icon={BarChart3}
+      actions={sectionActions}
+      bodyClassName="space-y-6 sm:space-y-8"
+    >
       <button
-        onClick={onBack}
-        className="flex items-center text-blue-600 hover:text-blue-800"
+        onClick={refreshRosData}
+        disabled={refreshing}
+        className="mb-2 flex items-center bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded"
       >
-        <ArrowLeft className="w-5 h-5 mr-1" /> Back to Admin
+        <RefreshCw className="w-4 h-4 mr-2" /> Pull ROS Player Data from FantasyPros
       </button>
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8">
-        <div className="flex items-center space-x-3 mb-6 sm:mb-8">
-          <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Analytics</h2>
-        </div>
-        <button
-          onClick={refreshRosData}
-          disabled={refreshing}
-          className="mb-2 flex items-center bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded"
-        >
-          <RefreshCw className="w-4 h-4 mr-2" /> Pull ROS Player Data from FantasyPros
-        </button>
         {refreshMessage && (
           <div className="mb-4 text-sm text-gray-700">{refreshMessage}</div>
         )}
@@ -1679,7 +1684,7 @@ const Analytics = ({ onBack }) => {
           </table>
         </div>
       </div>
-    </div>
+    </DashboardSection>
   );
 };
 
