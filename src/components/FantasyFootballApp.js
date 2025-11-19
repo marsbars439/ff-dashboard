@@ -50,6 +50,27 @@ const formatPoints = value => {
   return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2);
 };
 
+const formatWeekRangeLabel = (weeks, fallbackLabel) => {
+  if (!Array.isArray(weeks) || weeks.length === 0) {
+    return fallbackLabel;
+  }
+
+  const weekNumbers = weeks
+    .map(week => Number(week?.week))
+    .filter(weekNumber => Number.isFinite(weekNumber));
+
+  if (weekNumbers.length === 0) {
+    return fallbackLabel;
+  }
+
+  const minWeek = Math.min(...weekNumbers);
+  const maxWeek = Math.max(...weekNumbers);
+
+  return minWeek === maxWeek
+    ? `Week ${minWeek}`
+    : `Weeks ${minWeek}-${maxWeek}`;
+};
+
 const FantasyFootballApp = () => {
   const { adminSession, enforceAdminTabAccess } = useAdminSession();
   const [activeTab, setActiveTab] = useState(() => {
@@ -109,8 +130,8 @@ const FantasyFootballApp = () => {
   const [activeWeekError, setActiveWeekError] = useState(null);
   const [expandedMatchups, setExpandedMatchups] = useState({});
   const [expandedWeeks, setExpandedWeeks] = useState({});
-  const [showPreviousResults, setShowPreviousResults] = useState(true);
-  const [showUpcomingMatchups, setShowUpcomingMatchups] = useState(true);
+  const [showPreviousResults, setShowPreviousResults] = useState(false);
+  const [showUpcomingMatchups, setShowUpcomingMatchups] = useState(false);
   const activeWeekNumber = activeWeekMatchups?.week ?? null;
   const hasLoadedActiveWeekRef = useRef(false);
 
@@ -990,6 +1011,19 @@ const FantasyFootballApp = () => {
     selectedSeasonYear,
     mostRecentYear
   ]);
+
+  const previousWeeksLabel = useMemo(
+    () => formatWeekRangeLabel(previousWeeks, 'Previous Results'),
+    [previousWeeks]
+  );
+  const currentWeekLabel = useMemo(
+    () => formatWeekRangeLabel(currentWeek ? [currentWeek] : [], 'Current Week'),
+    [currentWeek]
+  );
+  const upcomingWeeksLabel = useMemo(
+    () => formatWeekRangeLabel(upcomingWeeks, 'Upcoming Matchups'),
+    [upcomingWeeks]
+  );
 
   const completedWeeklyScores = useMemo(
     () => weeklyScores.filter(score => score.week <= lastCompletedWeek),
@@ -1989,16 +2023,6 @@ const FantasyFootballApp = () => {
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
           <div className="space-y-4">
-            {currentWeek && (
-              <div className="border border-gray-200 rounded-lg">
-                <div className="px-3 py-3 sm:px-4 sm:py-4">
-                  <span className="font-semibold">Current Week</span>
-                </div>
-                <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
-                  {renderWeekCard(currentWeek)}
-                </div>
-              </div>
-            )}
             <div className="border border-gray-200 rounded-lg">
               <button
                 type="button"
@@ -2006,7 +2030,7 @@ const FantasyFootballApp = () => {
                 className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
                 aria-expanded={showPreviousResults}
               >
-                <span className="font-semibold">Previous Results</span>
+                <span className="font-semibold">{previousWeeksLabel}</span>
                 <ChevronDown
                   className={`w-5 h-5 text-gray-500 transition-transform ${
                     showPreviousResults ? 'transform rotate-180' : ''
@@ -2025,6 +2049,16 @@ const FantasyFootballApp = () => {
                 </div>
               )}
             </div>
+            {currentWeek && (
+              <div className="border border-gray-200 rounded-lg">
+                <div className="px-3 py-3 sm:px-4 sm:py-4">
+                  <span className="font-semibold">{currentWeekLabel}</span>
+                </div>
+                <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
+                  {renderWeekCard(currentWeek)}
+                </div>
+              </div>
+            )}
             <div className="border border-gray-200 rounded-lg">
               <button
                 type="button"
@@ -2032,7 +2066,7 @@ const FantasyFootballApp = () => {
                 className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
                 aria-expanded={showUpcomingMatchups}
               >
-                <span className="font-semibold">Upcoming Matchups</span>
+                <span className="font-semibold">{upcomingWeeksLabel}</span>
                 <ChevronDown
                   className={`w-5 h-5 text-gray-500 transition-transform ${
                     showUpcomingMatchups ? 'transform rotate-180' : ''
