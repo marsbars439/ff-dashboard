@@ -1935,7 +1935,7 @@ const FantasyFootballApp = () => {
           <select
             value={selectedSeasonYear || ''}
             onChange={e => setSelectedSeasonYear(Number(e.target.value))}
-            className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+            className="border-2 border-blue-200 bg-white rounded-full px-4 py-2 text-sm sm:text-base font-medium text-gray-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
           >
             {availableYears.map(year => (
               <option key={year} value={year}>{year}</option>
