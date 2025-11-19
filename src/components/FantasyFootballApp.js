@@ -2144,15 +2144,17 @@ const FantasyFootballApp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <DashboardHeader
-        tabs={DASHBOARD_TABS}
-        activeTab={activeTab}
-        onTabChange={updateActiveTab}
-      />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+    <div className="ff-dashboard section-stack">
+      <header className="layout-section section-padding">
+        <DashboardHeader
+          tabs={DASHBOARD_TABS}
+          activeTab={activeTab}
+          onTabChange={updateActiveTab}
+        />
+      </header>
+      <main className="layout-section section-surface section-padding">
         <ActiveTabSection activeTab={activeTab} sections={tabSections} />
-      </div>
+      </main>
     </div>
   );
 };
