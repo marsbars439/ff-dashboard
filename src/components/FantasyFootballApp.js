@@ -123,6 +123,41 @@ const FantasyFootballApp = () => {
     );
   };
 
+  const mostRecentYear = useMemo(() => (
+    teamSeasons.length > 0
+      ? Math.max(...teamSeasons.map(s => s.year))
+      : new Date().getFullYear()
+  ), [teamSeasons]);
+
+  const currentYearSeasons = useMemo(
+    () => teamSeasons.filter(s => s.year === mostRecentYear),
+    [teamSeasons, mostRecentYear]
+  );
+
+  const currentChampion = useMemo(
+    () => currentYearSeasons.find(s => s.playoff_finish === 1),
+    [currentYearSeasons]
+  );
+
+  const currentSeasonComplete = isRegularSeasonComplete(mostRecentYear);
+
+  const currentYearSeasonsWithRank = useMemo(
+    () =>
+      currentYearSeasons.filter(
+        s => s.regular_season_rank && s.regular_season_rank > 0
+      ),
+    [currentYearSeasons]
+  );
+
+  const currentChumpion =
+    currentSeasonComplete &&
+    currentYearSeasonsWithRank.length === currentYearSeasons.length &&
+    currentYearSeasonsWithRank.length > 0
+      ? currentYearSeasonsWithRank.reduce((worst, current) =>
+          current.regular_season_rank > worst.regular_season_rank ? current : worst
+        )
+      : null;
+
   const managerOptions = useMemo(() => {
     if (!Array.isArray(managers)) {
       return [];
@@ -1784,24 +1819,6 @@ const FantasyFootballApp = () => {
   const allRecords = calculateAllRecords();
   const activeRecords = Object.values(allRecords).filter(r => r.active);
   const inactiveRecords = Object.values(allRecords).filter(r => !r.active);
-
-  const mostRecentYear = teamSeasons.length > 0 ? Math.max(...teamSeasons.map(s => s.year)) : new Date().getFullYear();
-  const currentYearSeasons = teamSeasons.filter(s => s.year === mostRecentYear);
-  const currentChampion = currentYearSeasons.find(s => s.playoff_finish === 1);
-  const currentSeasonComplete = isRegularSeasonComplete(mostRecentYear);
-  
-  // Find current chumpion (highest regular_season_rank number)
-  const currentYearSeasonsWithRank = currentYearSeasons.filter(
-    s => s.regular_season_rank && s.regular_season_rank > 0
-  );
-  const currentChumpion =
-    currentSeasonComplete &&
-    currentYearSeasonsWithRank.length === currentYearSeasons.length &&
-    currentYearSeasonsWithRank.length > 0
-      ? currentYearSeasonsWithRank.reduce((worst, current) =>
-          current.regular_season_rank > worst.regular_season_rank ? current : worst
-        )
-      : null;
 
   // Medal Rankings: Sort by medals only, don't separate active/inactive
   const medalRankings = Object.values(allRecords)
