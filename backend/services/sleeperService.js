@@ -4,6 +4,19 @@ const gameStatusService = require('./gameStatusService');
 const SLEEPER_BASE_URL = 'https://api.sleeper.app/v1';
 const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
 
+const parseSleeperPoints = value => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === 'string' && value.trim() === '') {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 class SleeperService {
   constructor() {
     this.client = axios.create({
@@ -504,8 +517,9 @@ class SleeperService {
               const team = {
                 roster_id: m.roster_id,
                 team_name: rosterIdToTeam[m.roster_id] || '',
-                manager_name: rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
-                points: m.points || 0
+                manager_name:
+                  rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
+                points: parseSleeperPoints(m.points)
               };
 
               if (!matchupsMap[m.matchup_id].home) {
@@ -1049,8 +1063,9 @@ class SleeperService {
               const team = {
                 roster_id: m.roster_id,
                 team_name: rosterIdToTeam[m.roster_id] || '',
-                manager_name: rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
-                points: m.points || 0,
+                manager_name:
+                  rosterIdToManager[m.roster_id] || rosterIdToTeam[m.roster_id] || '',
+                points: parseSleeperPoints(m.points),
                 seed: rosterIdToSeed[m.roster_id] || null
               };
 

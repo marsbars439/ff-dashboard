@@ -701,6 +701,8 @@ const FantasyFootballApp = () => {
     return currentChumpionSeason?.dues_chumpion || 0;
   };
 
+  const parseTimestamp = value => parseFlexibleTimestamp(value);
+
   const weeklyScores = useMemo(() => {
     return seasonMatchups
       .flatMap(week =>
@@ -720,30 +722,239 @@ const FantasyFootballApp = () => {
     );
   }, [teamSeasons, selectedSeasonYear]);
 
-  const { previousWeeks, upcomingWeeks } = useMemo(() => {
+  const { previousWeeks, currentWeek, upcomingWeeks } = useMemo(() => {
     if (!Array.isArray(seasonMatchups) || seasonMatchups.length === 0) {
-      return { previousWeeks: [], upcomingWeeks: [] };
+      return { previousWeeks: [], currentWeek: null, upcomingWeeks: [] };
+    }
+
+    const sortedWeeks = [...seasonMatchups].sort((a, b) => a.week - b.week);
+    const highestScheduledWeek = sortedWeeks[sortedWeeks.length - 1]?.week ?? null;
+    const now = Date.now();
+    const normalizeKey = value =>
+      typeof value === "string" ? value.toLowerCase().trim() : "";
+    const starterActivityHints = starter => {
+      if (!starter) {
+        return { hasMetadata: false, isActive: false };
+      }
+
+      if (starter.is_bye) {
+        return { hasMetadata: true, isActive: false };
+      }
+
+      const keyCandidates = [starter.activity_key, starter.scoreboard_activity_key]
+        .map(normalizeKey)
+        .filter(Boolean);
+
+      if (keyCandidates.length) {
+        if (keyCandidates.some(key => key === "live" || key === "upcoming")) {
+          return { hasMetadata: true, isActive: true };
+        }
+        if (keyCandidates.some(key => key === "finished" || key === "inactive")) {
+          return { hasMetadata: true, isActive: false };
+        }
+      }
+
+      const statusTexts = [
+        starter.game_status,
+        starter.raw_game_status,
+        starter.scoreboard_status,
+        starter.scoreboard_detail
+      ]
+        .map(normalizeKey)
+        .filter(Boolean);
+
+      if (statusTexts.length) {
+        const finalRegex = /(final|post|complete|finished|closed|bye)/;
+        if (statusTexts.some(text => finalRegex.test(text))) {
+          return { hasMetadata: true, isActive: false };
+        }
+
+        const liveRegex = /(in progress|progress|live|q[1-4]|1st|2nd|3rd|4th|ot|half)/;
+        if (statusTexts.some(text => liveRegex.test(text))) {
+          return { hasMetadata: true, isActive: true };
+        }
+
+        const upcomingRegex = /(pre|sched|upcoming|not started|delay|postponed)/;
+        if (statusTexts.some(text => upcomingRegex.test(text))) {
+          return { hasMetadata: true, isActive: true };
+        }
+      }
+
+      const kickoffTimestamp = parseTimestamp(
+        starter.scoreboard_start ??
+          starter.game_start ??
+          starter.start_time ??
+          starter.startTime ??
+          null
+      );
+
+      if (Number.isFinite(kickoffTimestamp)) {
+        if (kickoffTimestamp > now) {
+          return { hasMetadata: true, isActive: true };
+        }
+        if (now - kickoffTimestamp >= GAME_COMPLETION_BUFFER_MS) {
+          return { hasMetadata: true, isActive: false };
+        }
+        return { hasMetadata: true, isActive: true };
+      }
+
+      return { hasMetadata: false, isActive: false };
+    };
+    const getLineupActivityState = team => {
+      if (!Array.isArray(team?.starters) || team.starters.length === 0) {
+        return { hasMetadata: false, hasActiveStarters: false };
+      }
+
+      let hasMetadata = false;
+      let hasActiveStarters = false;
+
+      team.starters.forEach(starter => {
+        const { hasMetadata: starterHasMetadata, isActive } =
+          starterActivityHints(starter);
+        if (starterHasMetadata) {
+          hasMetadata = true;
+        }
+        if (isActive) {
+          hasActiveStarters = true;
+        }
+      });
+
+      return { hasMetadata, hasActiveStarters };
+    };
+
+    const activeWeekLineupTeams = (() => {
+      if (
+        !activeWeekMatchups ||
+        selectedSeasonYear !== mostRecentYear ||
+        !Number.isFinite(activeWeekMatchups.week) ||
+        !Array.isArray(activeWeekMatchups.matchups)
+      ) {
+        return null;
+      }
+
+      const rosterMap = new Map();
+      activeWeekMatchups.matchups.forEach(matchup => {
+        if (matchup?.home?.roster_id != null) {
+          rosterMap.set(matchup.home.roster_id, matchup.home);
+        }
+        if (matchup?.away?.roster_id != null) {
+          rosterMap.set(matchup.away.roster_id, matchup.away);
+        }
+      });
+
+      if (rosterMap.size === 0) {
+        return null;
+      }
+
+      return { week: activeWeekMatchups.week, rosterMap };
+    })();
+    const matchupHasRecordedScore = matchup => {
+      if (!matchup) {
+        return false;
+      }
+      const homePoints = normalizePoints(matchup.home?.points);
+      const awayPoints = normalizePoints(matchup.away?.points);
+      return homePoints !== null || awayPoints !== null;
+    };
+    const resolveTeamForActivity = (team, weekNumber) => {
+      if (
+        !team ||
+        !activeWeekLineupTeams ||
+        activeWeekLineupTeams.week !== weekNumber
+      ) {
+        return team;
+      }
+
+      if (team.roster_id == null) {
+        return team;
+      }
+
+      return activeWeekLineupTeams.rosterMap.get(team.roster_id) || team;
+    };
+
+    const matchupIsComplete = (matchup, weekNumber) => {
+      if (!matchup) {
+        return false;
+      }
+
+      const homeState = getLineupActivityState(
+        resolveTeamForActivity(matchup.home, weekNumber)
+      );
+      const awayState = getLineupActivityState(
+        resolveTeamForActivity(matchup.away, weekNumber)
+      );
+      if (homeState.hasMetadata || awayState.hasMetadata) {
+        return !homeState.hasActiveStarters && !awayState.hasActiveStarters;
+      }
+
+      return matchupHasRecordedScore(matchup);
+    };
+    const weekIsComplete = week => {
+      if (!Array.isArray(week.matchups) || week.matchups.length === 0) {
+        return false;
+      }
+      return week.matchups.every(matchup => matchupIsComplete(matchup, week.week));
+    };
+    const firstIncompleteWeekNumber = (() => {
+      const week = sortedWeeks.find(w => !weekIsComplete(w));
+      return week ? week.week : null;
+    })();
+    const allWeeksComplete =
+      sortedWeeks.length > 0 && sortedWeeks.every(weekIsComplete);
+
+    const inferredCurrentWeekNumber = (() => {
+      if (activeWeekNumber) {
+        return activeWeekNumber;
+      }
+      if (!highestScheduledWeek) {
+        return null;
+      }
+        if (typeof firstIncompleteWeekNumber === "number") {
+          return firstIncompleteWeekNumber;
+        }
+        if (allWeeksComplete) {
+          return null;
+        }
+      if (lastCompletedWeek >= highestScheduledWeek) {
+        return null;
+      }
+      if (lastCompletedWeek === 0) {
+        return sortedWeeks[0]?.week ?? null;
+      }
+      return Math.min(lastCompletedWeek + 1, highestScheduledWeek);
+    })();
+
+    if (!inferredCurrentWeekNumber) {
+      return { previousWeeks: sortedWeeks, currentWeek: null, upcomingWeeks: [] };
     }
 
     const previous = [];
     const upcoming = [];
+    let current = null;
 
-    seasonMatchups.forEach(week => {
-      const hasRecordedScore = week.matchups?.some(matchup => {
-        const homePoints = normalizePoints(matchup.home?.points);
-        const awayPoints = normalizePoints(matchup.away?.points);
-        return homePoints !== null || awayPoints !== null;
-      });
-
-      if (week.week <= lastCompletedWeek || hasRecordedScore) {
+    sortedWeeks.forEach(week => {
+      if (week.week === inferredCurrentWeekNumber) {
+        current = week;
+      } else if (week.week < inferredCurrentWeekNumber) {
         previous.push(week);
       } else {
         upcoming.push(week);
       }
     });
 
-    return { previousWeeks: previous, upcomingWeeks: upcoming };
-  }, [seasonMatchups, lastCompletedWeek]);
+    if (!current) {
+      return { previousWeeks: sortedWeeks, currentWeek: null, upcomingWeeks: [] };
+    }
+
+    return { previousWeeks: previous, currentWeek: current, upcomingWeeks: upcoming };
+  }, [
+    seasonMatchups,
+    lastCompletedWeek,
+    activeWeekNumber,
+    activeWeekMatchups,
+    selectedSeasonYear,
+    mostRecentYear
+  ]);
 
   const completedWeeklyScores = useMemo(
     () => weeklyScores.filter(score => score.week <= lastCompletedWeek),
@@ -779,8 +990,6 @@ const FantasyFootballApp = () => {
       };
     });
   };
-
-  const parseTimestamp = value => parseFlexibleTimestamp(value);
 
   const formatKickoffTime = kickoff => {
     const timestamp = parseFlexibleTimestamp(kickoff);
@@ -1763,6 +1972,16 @@ const FantasyFootballApp = () => {
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
           <div className="space-y-4">
+            {currentWeek && (
+              <div className="border border-gray-200 rounded-lg">
+                <div className="px-3 py-3 sm:px-4 sm:py-4">
+                  <span className="font-semibold">Current Week</span>
+                </div>
+                <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
+                  {renderWeekCard(currentWeek)}
+                </div>
+              </div>
+            )}
             <div className="border border-gray-200 rounded-lg">
               <button
                 type="button"
@@ -1770,12 +1989,7 @@ const FantasyFootballApp = () => {
                 className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
                 aria-expanded={showPreviousResults}
               >
-                <div className="flex flex-col">
-                  <span className="font-semibold">Previous Results</span>
-                  <span className="text-xs text-gray-500">
-                    Weeks that have already been played
-                  </span>
-                </div>
+                <span className="font-semibold">Previous Results</span>
                 <ChevronDown
                   className={`w-5 h-5 text-gray-500 transition-transform ${
                     showPreviousResults ? 'transform rotate-180' : ''
@@ -1801,12 +2015,7 @@ const FantasyFootballApp = () => {
                 className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
                 aria-expanded={showUpcomingMatchups}
               >
-                <div className="flex flex-col">
-                  <span className="font-semibold">Upcoming Matchups</span>
-                  <span className="text-xs text-gray-500">
-                    Future weeks and in-progress games
-                  </span>
-                </div>
+                <span className="font-semibold">Upcoming Matchups</span>
                 <ChevronDown
                   className={`w-5 h-5 text-gray-500 transition-transform ${
                     showUpcomingMatchups ? 'transform rotate-180' : ''
