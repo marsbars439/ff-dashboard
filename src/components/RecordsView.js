@@ -7,7 +7,8 @@ import {
   Target,
   TrendingUp,
   Trophy,
-  Zap
+  Zap,
+  Poop
 } from 'lucide-react';
 import DashboardSection from './DashboardSection';
 
@@ -43,7 +44,11 @@ const RecordsView = ({
               <h2 className="text-lg sm:text-2xl font-bold mb-1 truncate">
                 {currentChampion ? allRecords[currentChampion.name_id]?.name : 'TBD'}
               </h2>
-              <p className="text-yellow-100 text-sm sm:text-base mb-2">
+              <p
+                className={`text-sm sm:text-base mb-2 ${
+                  currentChampion ? 'text-yellow-100' : 'text-white'
+                }`}
+              >
                 {currentChampion
                   ? `${currentChampion.team_name} • ${currentChampion.wins}-${currentChampion.losses} Record`
                   : 'Season in progress'}
@@ -52,7 +57,7 @@ const RecordsView = ({
                 {currentChampion ? `$${currentChampion.payout} Prize Money` : ''}
               </p>
               {currentYearSeasons.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-yellow-300 text-xs sm:text-sm opacity-90">
+                <div className="mt-3 pt-3 text-xs sm:text-sm opacity-90">
                   {currentYearSeasons.find(s => s.playoff_finish === 2) && (
                     <div className="truncate">
                       2nd: {allRecords[currentYearSeasons.find(s => s.playoff_finish === 2).name_id]?.name}
@@ -95,9 +100,7 @@ const RecordsView = ({
                   : ''}
               </p>
             </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-500 rounded-full flex items-center justify-center text-xl sm:text-2xl flex-shrink-0 ml-2">
-              💩
-            </div>
+            <Poop className="w-10 h-10 sm:w-12 sm:h-12 text-red-100 flex-shrink-0 ml-2" />
           </div>
         </div>
       </div>
