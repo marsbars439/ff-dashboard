@@ -1914,22 +1914,16 @@ const FantasyFootballApp = () => {
   const renderSeasonsSection = () => (
     <div className="space-y-4 sm:space-y-6">
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-center sm:text-left">
-            <p className="text-xs sm:text-sm uppercase tracking-wide text-gray-500">Season Filter</p>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Season {selectedSeasonYear}</h2>
-          </div>
-          <div className="flex justify-center">
-            <select
-              value={selectedSeasonYear || ''}
-              onChange={e => setSelectedSeasonYear(Number(e.target.value))}
-              className="border-2 border-blue-200 bg-white rounded-full px-4 py-2 text-sm sm:text-base font-medium text-gray-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
-            >
-              {availableYears.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </div>
+        <div className="flex justify-center sm:justify-start">
+          <select
+            value={selectedSeasonYear || ''}
+            onChange={e => setSelectedSeasonYear(Number(e.target.value))}
+            className="border-2 border-blue-200 bg-white rounded-full px-4 py-2 text-sm sm:text-base font-medium text-gray-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          >
+            {availableYears.map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
         </div>
       </div>
       {selectedSeasonYear === mostRecentYear && lastCompletedWeek > 0 && (
