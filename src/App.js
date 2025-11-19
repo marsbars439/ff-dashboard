@@ -3,13 +3,23 @@ import FantasyFootballApp from './components/FantasyFootballApp';
 import AppProviders from './components/AppProviders';
 import './App.css';
 
+const MainLayout = ({ children }) => (
+  <div className="App">
+    <div className="app-shell">
+      <div className="layout-container">
+        {children}
+      </div>
+    </div>
+  </div>
+);
+
 function App() {
   return (
-    <div className="App">
+    <MainLayout>
       <AppProviders>
         <FantasyFootballApp />
       </AppProviders>
-    </div>
+    </MainLayout>
   );
 }
 
