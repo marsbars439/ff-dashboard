@@ -1683,10 +1683,9 @@ const Analytics = ({ onBack }) => {
             </tbody>
           </table>
         </div>
-      </div>
-    </DashboardSection>
-  );
-};
+      </DashboardSection>
+    );
+  };
 
 export default Analytics;
 
