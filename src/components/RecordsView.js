@@ -111,9 +111,6 @@ const RecordsView = ({
                 <span>Medal Count Rankings</span>
               </h3>
             </div>
-            <div className="inline-flex items-center space-x-2 bg-white/5 text-xs sm:text-sm text-amber-200 px-3 py-1 rounded-full border border-white/10">
-              <span className="font-semibold">Higher PPG breaks ties</span>
-            </div>
           </div>
 
           <div className="space-y-2 sm:space-y-3">
