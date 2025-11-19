@@ -11,6 +11,29 @@ import {
 } from 'lucide-react';
 import DashboardSection from './DashboardSection';
 
+const PoopIcon = React.forwardRef(({ className, ...props }, ref) => (
+  <svg
+    ref={ref}
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <path d="M10 5c0-1.4 1.3-2.5 3-2.5s3 1.1 3 2.5c0 .7-.3 1.4-.8 1.9" />
+    <path d="M7.5 9c-.9-.7-1.5-1.7-1.5-2.8C6 4.5 7.8 3 10.5 3" />
+    <path d="M8 12c-2.2 0-4 1.8-4 4" />
+    <path d="M20 16c0-2.2-1.8-4-4-4H8" />
+    <path d="M4 17c0 2.2 1.8 4 4 4h8c2.2 0 4-1.8 4-4" />
+  </svg>
+));
+
+PoopIcon.displayName = 'PoopIcon';
+
 const RecordsView = ({
   allRecords,
   mostRecentYear,
@@ -43,7 +66,11 @@ const RecordsView = ({
               <h2 className="text-lg sm:text-2xl font-bold mb-1 truncate">
                 {currentChampion ? allRecords[currentChampion.name_id]?.name : 'TBD'}
               </h2>
-              <p className="text-yellow-100 text-sm sm:text-base mb-2">
+              <p
+                className={`text-sm sm:text-base mb-2 ${
+                  currentChampion ? 'text-yellow-100' : 'text-white'
+                }`}
+              >
                 {currentChampion
                   ? `${currentChampion.team_name} • ${currentChampion.wins}-${currentChampion.losses} Record`
                   : 'Season in progress'}
@@ -52,7 +79,7 @@ const RecordsView = ({
                 {currentChampion ? `$${currentChampion.payout} Prize Money` : ''}
               </p>
               {currentYearSeasons.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-yellow-300 text-xs sm:text-sm opacity-90">
+                <div className="mt-3 pt-3 text-xs sm:text-sm opacity-90">
                   {currentYearSeasons.find(s => s.playoff_finish === 2) && (
                     <div className="truncate">
                       2nd: {allRecords[currentYearSeasons.find(s => s.playoff_finish === 2).name_id]?.name}
@@ -95,9 +122,7 @@ const RecordsView = ({
                   : ''}
               </p>
             </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-500 rounded-full flex items-center justify-center text-xl sm:text-2xl flex-shrink-0 ml-2">
-              💩
-            </div>
+            <PoopIcon className="w-10 h-10 sm:w-12 sm:h-12 text-red-100 flex-shrink-0 ml-2" />
           </div>
         </div>
       </div>
