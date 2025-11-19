@@ -103,58 +103,65 @@ const RecordsView = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
-            <Award className="w-5 h-5 text-yellow-500" />
-            <span>Medal Count Rankings</span>
-          </h3>
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 rounded-xl border border-white/10 shadow-2xl p-4 sm:p-6 text-white">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div>
+              <h3 className="text-lg sm:text-xl font-bold flex items-center space-x-2">
+                <Award className="w-5 h-5 text-amber-300" />
+                <span>Medal Count Rankings</span>
+              </h3>
+            </div>
+            <div className="inline-flex items-center space-x-2 bg-white/5 text-xs sm:text-sm text-amber-200 px-3 py-1 rounded-full border border-white/10">
+              <span className="font-semibold">Higher PPG breaks ties</span>
+            </div>
+          </div>
 
           <div className="space-y-2 sm:space-y-3">
             {medalRankings.map((manager, index) => (
               <div
                 key={manager.name}
-                className="p-3 sm:p-4 rounded-lg border-2 bg-gradient-to-r from-white to-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200"
+                className="p-3 sm:p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all duration-200"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1 mb-3 sm:mb-0">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
                     <div
-                      className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold ${
+                      className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-base sm:text-lg font-bold ${
                         index === 0
-                          ? 'bg-yellow-500 text-white shadow-lg'
+                          ? 'bg-amber-400 text-slate-900 shadow-lg'
                           : index === 1
-                          ? 'bg-gray-400 text-white shadow-md'
+                          ? 'bg-slate-200 text-slate-900 shadow'
                           : index === 2
-                          ? 'bg-amber-600 text-white shadow-md'
-                          : 'bg-blue-100 text-blue-800'
+                          ? 'bg-amber-700/80 text-white shadow'
+                          : 'bg-slate-800 text-slate-100 border border-white/10'
                       }`}
                     >
                       #{index + 1}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="font-bold text-base sm:text-lg truncate text-gray-900">{manager.name}</h4>
-                      <p className="text-xs sm:text-sm text-gray-600">
+                      <h4 className="font-semibold text-base sm:text-lg truncate text-white">{manager.name}</h4>
+                      <p className="text-xs sm:text-sm text-slate-300">
                         {manager.totalWins}-{manager.totalLosses} ({(manager.winPct * 100).toFixed(1)}%) • {manager.gamesPlayed} games
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between sm:justify-end space-x-4 sm:space-x-6 flex-shrink-0 w-full sm:w-auto">
-                    <div className="flex items-center space-x-4">
+                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-4 sm:gap-6 flex-shrink-0 w-full sm:w-auto">
+                    <div className="flex items-center gap-4">
                       <div className="text-center">
-                        <div className="text-yellow-500 font-bold text-lg sm:text-xl">{manager.championships}</div>
-                        <div className="text-xs text-gray-500">🥇</div>
+                        <div className="text-amber-300 font-bold text-lg sm:text-xl">{manager.championships}</div>
+                        <div className="text-[0.65rem] uppercase tracking-wide text-amber-100">🥇 titles</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-gray-500 font-bold text-lg sm:text-xl">{manager.secondPlace}</div>
-                        <div className="text-xs text-gray-500">🥈</div>
+                        <div className="text-slate-200 font-bold text-lg sm:text-xl">{manager.secondPlace}</div>
+                        <div className="text-[0.65rem] uppercase tracking-wide text-slate-300">🥈</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-amber-600 font-bold text-lg sm:text-xl">{manager.thirdPlace}</div>
-                        <div className="text-xs text-gray-500">🥉</div>
+                        <div className="text-orange-300 font-bold text-lg sm:text-xl">{manager.thirdPlace}</div>
+                        <div className="text-[0.65rem] uppercase tracking-wide text-orange-200">🥉</div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-sm sm:text-base text-blue-600">{manager.pointsPerGame.toFixed(1)} PPG</p>
-                      <p className="text-xs sm:text-sm text-gray-600">{manager.totalMedals} total medals</p>
+                      <p className="font-semibold text-sm sm:text-base text-indigo-200">{manager.pointsPerGame.toFixed(1)} PPG</p>
+                      <p className="text-xs sm:text-sm text-slate-300">{manager.totalMedals} total medals</p>
                     </div>
                   </div>
                 </div>
