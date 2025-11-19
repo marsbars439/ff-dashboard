@@ -1958,12 +1958,6 @@ const FantasyFootballApp = () => {
             <p className="font-semibold">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
           </div>
         </div>
-        {isRegularSeasonComplete(selectedSeasonYear) && playoffBracket.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Playoff Bracket</h3>
-            <PlayoffBracket rounds={playoffBracket} />
-          </div>
-        )}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
             <thead className="bg-gray-50">
@@ -2020,10 +2014,13 @@ const FantasyFootballApp = () => {
             </div>
           </div>
         )}
-      </div>
-      {!seasonsWithoutMatchups.includes(selectedSeasonYear) && (
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
+        </div>
+        {isRegularSeasonComplete(selectedSeasonYear) && playoffBracket.length > 0 && (
+          <PlayoffBracket rounds={playoffBracket} />
+        )}
+        {!seasonsWithoutMatchups.includes(selectedSeasonYear) && (
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
           <div className="space-y-4">
             <div className="border border-gray-200 rounded-lg">
               <button
