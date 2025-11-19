@@ -361,8 +361,8 @@ const FantasyFootballApp = () => {
   }, [selectedSeasonYear]);
 
   useEffect(() => {
-    setShowPreviousResults(true);
-    setShowUpcomingMatchups(true);
+    setShowPreviousResults(false);
+    setShowUpcomingMatchups(false);
   }, [selectedSeasonYear]);
 
   useEffect(() => {
