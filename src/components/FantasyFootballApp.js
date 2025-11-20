@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { CalendarRange, ChevronDown } from 'lucide-react';
-import DashboardSection from './DashboardSection';
 import PlayoffBracket from './PlayoffBracket';
 import AISummary from './AISummary';
 import AIPreview from './AIPreview';
@@ -1916,12 +1915,7 @@ const FantasyFootballApp = () => {
     const subCard = 'rounded-xl bg-slate-900/60 border border-white/10 shadow-lg';
 
   return (
-    <DashboardSection
-      title="Season Hub"
-      description="Browse season recaps, matchup history, and weekly storylines."
-      icon={CalendarRange}
-      bodyClassName="space-y-6 sm:space-y-8"
-    >
+    <div className="space-y-6 sm:space-y-8">
       <div className={`${surfaceCard} p-4 sm:p-6 flex flex-wrap items-center justify-between gap-3`}>
         <div className="flex items-center gap-2 text-sm text-slate-200">
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/20 text-blue-200">
@@ -2116,7 +2110,7 @@ const FantasyFootballApp = () => {
           </div>
         </div>
       )}
-    </DashboardSection>
+    </div>
     );
   };
 
