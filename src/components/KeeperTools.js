@@ -147,26 +147,22 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
       actions={verificationActions}
       bodyClassName="space-y-4 sm:space-y-6"
     >
-      <div className="rounded-xl border border-blue-100 bg-white/60 p-4 sm:p-6">
-        <div className="flex flex-col gap-4">
-          {availableYears.length > 0 && (
-            <div className="flex justify-center">
-              <div className="inline-flex flex-col items-center gap-2">
-                <select
-                  value={selectedKeeperYear || ''}
-                  onChange={e => setSelectedKeeperYear(Number(e.target.value))}
-                  className="border-2 border-blue-200 bg-white rounded-full px-4 py-2 text-sm sm:text-base font-medium text-gray-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                >
-                  {availableYears.map(year => (
-                    <option key={year} value={year}>
-                      {`${year} Rosters / ${year + 1} Draft`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-        </div>
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        {availableYears.length > 0 && (
+          <div className="flex justify-center sm:justify-start">
+            <select
+              value={selectedKeeperYear || ''}
+              onChange={e => setSelectedKeeperYear(Number(e.target.value))}
+              className="border-2 border-blue-200 bg-white rounded-full px-4 py-2 text-sm sm:text-base font-medium text-gray-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            >
+              {availableYears.map(year => (
+                <option key={year} value={year}>
+                  {`${year} Rosters / ${year + 1} Draft`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {!votingLocked && ruleVotingSection}
