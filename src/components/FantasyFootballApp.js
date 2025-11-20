@@ -2170,6 +2170,30 @@ const FantasyFootballApp = () => {
     analytics: renderAnalyticsSection
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-24 w-24 sm:h-32 sm:w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-sm sm:text-base">Loading The League Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+        <div className="text-center max-w-md w-full">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <p className="font-bold">Error</p>
+            <p className="text-sm">Dashboard is initializing, please wait a minute and refresh the page.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="ff-dashboard section-stack">
       <header className="layout-section section-padding">
