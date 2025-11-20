@@ -29,7 +29,7 @@ const renderMarkdown = (text = '') => {
         return (
           <li
             key={i}
-            className="text-gray-700 text-sm sm:text-base"
+            className="text-slate-100 text-sm sm:text-base"
             style={indentStyle}
           >
             {item.content}
@@ -62,19 +62,19 @@ const renderMarkdown = (text = '') => {
 
     if (line.startsWith('# ')) {
       elements.push(
-        <h1 key={index} className="text-2xl sm:text-3xl font-bold text-gray-900 mt-6 sm:mt-8 mb-3 sm:mb-4">
+        <h1 key={index} className="text-2xl sm:text-3xl font-bold text-slate-50 mt-6 sm:mt-8 mb-3 sm:mb-4">
           {processInlineFormatting(line.slice(2))}
         </h1>
       );
     } else if (line.startsWith('## ')) {
       elements.push(
-        <h2 key={index} className="text-xl sm:text-2xl font-bold text-gray-800 mt-4 sm:mt-6 mb-2 sm:mb-3">
+        <h2 key={index} className="text-xl sm:text-2xl font-bold text-slate-100 mt-4 sm:mt-6 mb-2 sm:mb-3">
           {processInlineFormatting(line.slice(3))}
         </h2>
       );
     } else if (line.startsWith('### ')) {
       elements.push(
-        <h3 key={index} className="text-lg sm:text-xl font-bold text-gray-700 mt-3 sm:mt-4 mb-2">
+        <h3 key={index} className="text-lg sm:text-xl font-bold text-slate-200 mt-3 sm:mt-4 mb-2">
           {processInlineFormatting(line.slice(4))}
         </h3>
       );
@@ -82,7 +82,7 @@ const renderMarkdown = (text = '') => {
       elements.push(<br key={index} />);
     } else if (line.trim() !== '') {
       elements.push(
-        <p key={index} className="text-gray-700 mb-2 text-sm sm:text-base">
+        <p key={index} className="text-slate-100/90 mb-2 text-sm sm:text-base">
           {processInlineFormatting(line)}
         </p>
       );
@@ -99,13 +99,24 @@ const renderMarkdown = (text = '') => {
 };
 
 const RulesSection = ({ rulesContent }) => (
-  <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8">
-    <div className="flex items-center space-x-3 mb-6 sm:mb-8">
-      <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
-      <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">League Rules</h2>
+  <div className="space-y-4 sm:space-y-6">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <span className="p-3 rounded-lg bg-indigo-50 text-indigo-700">
+          <BookOpen className="w-6 h-6" aria-hidden="true" />
+        </span>
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">League Rules</h2>
+          <p className="text-gray-600 text-sm sm:text-base">
+            Governance, settings, and best practices for every season.
+          </p>
+        </div>
+      </div>
     </div>
-    <div className="prose prose-sm sm:prose-lg max-w-none">
-      {renderMarkdown(rulesContent || '')}
+    <div className="bg-slate-900/70 rounded-2xl shadow-xl border border-white/10 p-4 sm:p-8">
+      <div className="prose prose-sm sm:prose-lg max-w-none text-slate-100">
+        {renderMarkdown(rulesContent || '')}
+      </div>
     </div>
   </div>
 );

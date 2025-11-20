@@ -63,15 +63,20 @@ const AdminTools = ({
 
   if (!adminAuthorized) {
     return (
-      <div className="max-w-md mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8">
-          <div className="flex items-center space-x-3 mb-6 sm:mb-8">
-            <ShieldCheck className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
+      <div className="max-w-xl mx-auto space-y-4 sm:space-y-6">
+        <div className="flex items-start gap-3">
+          <span className="p-3 rounded-lg bg-blue-50 text-blue-700">
+            <ShieldCheck className="w-6 h-6" aria-hidden="true" />
+          </span>
+          <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Admin Access</h2>
+            <p className="text-gray-600 text-sm sm:text-base">Secure tools for commissioners and data upkeep.</p>
           </div>
+        </div>
+        <div className="bg-slate-900/70 border border-white/10 rounded-2xl shadow-xl p-4 sm:p-8 text-slate-100 space-y-4">
           <form onSubmit={handleAdminAuthSubmit} className="space-y-4">
             {adminSession.status === 'pending' && (
-              <p className="text-sm text-gray-600 flex items-center">
+              <p className="text-sm text-slate-200 flex items-center">
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Validating existing session...
               </p>
             )}
@@ -86,13 +91,13 @@ const AdminTools = ({
                 }
               }}
               disabled={adminAuthLoading}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+              className="w-full px-3 py-2 border border-white/20 bg-white/5 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
             />
-            {adminPasswordError && <p className="text-sm text-red-600">{adminPasswordError}</p>}
+            {adminPasswordError && <p className="text-sm text-red-300">{adminPasswordError}</p>}
             <button
               type="submit"
               disabled={adminAuthLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:hover:bg-blue-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded"
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:hover:bg-blue-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded shadow"
             >
               {adminAuthLoading ? (
                 <span className="flex items-center justify-center">
@@ -111,20 +116,31 @@ const AdminTools = ({
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <button
-          type="button"
-          onClick={handleSignOutClick}
-          className="flex items-center justify-center px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
-        >
-          <LogOut className="w-4 h-4 mr-1" /> Sign Out
-        </button>
-        <button
-          onClick={onAnalyticsClick}
-          className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
-        >
-          <BarChart3 className="w-4 h-4 mr-1" /> Analytics
-        </button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="p-3 rounded-lg bg-purple-50 text-purple-700">
+            <Gavel className="w-6 h-6" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-50">Admin Console</h2>
+            <p className="text-slate-200 text-sm sm:text-base">Commissioner tools, data imports, and AI helpers in one place.</p>
+          </div>
+        </div>
+        <div className="bg-slate-900/70 border border-white/10 rounded-xl shadow p-2 sm:p-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleSignOutClick}
+            className="flex items-center justify-center px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm shadow"
+          >
+            <LogOut className="w-4 h-4 mr-1" /> Sign Out
+          </button>
+          <button
+            onClick={onAnalyticsClick}
+            className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm shadow"
+          >
+            <BarChart3 className="w-4 h-4 mr-1" /> Analytics
+          </button>
+        </div>
       </div>
 
       <SleeperAdmin API_BASE_URL={apiBaseUrl} onDataUpdate={onDataUpdate}>
