@@ -10,7 +10,6 @@ import {
   Zap,
   Frown
 } from 'lucide-react';
-import DashboardSection from './DashboardSection';
 
 const RecordsView = ({
   allRecords,
@@ -27,12 +26,20 @@ const RecordsView = ({
   getCurrentYearChumpionDues
 }) => {
   return (
-    <DashboardSection
-      title="Hall of Records"
-      description="League champions, medal counts, and manager-by-manager performance snapshots."
-      icon={Trophy}
-      bodyClassName="space-y-6 sm:space-y-8"
-    >
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="p-3 rounded-lg bg-amber-50 text-amber-700">
+            <Trophy className="w-6 h-6" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Hall of Records</h2>
+            <p className="text-gray-600 text-sm sm:text-base">
+              League champions, medal counts, and manager-by-manager performance snapshots.
+            </p>
+          </div>
+        </div>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-xl shadow-lg p-4 sm:p-6 text-white">
           <div className="flex items-start justify-between">
@@ -365,7 +372,7 @@ const RecordsView = ({
           </div>
         )}
       </div>
-    </DashboardSection>
+    </div>
   );
 };
 

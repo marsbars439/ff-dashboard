@@ -1,7 +1,6 @@
 import React from 'react';
 import { Cloud, Loader2, ShieldCheck } from 'lucide-react';
 import RuleVotingPanel from './RuleVotingPanel';
-import DashboardSection from './DashboardSection';
 import { useManagerAuth } from '../state/ManagerAuthContext';
 import { useKeeperTools } from '../state/KeeperToolsContext';
 import { useRuleVoting } from '../state/RuleVotingContext';
@@ -51,59 +50,70 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
 
   if (managerAuth.status !== 'authenticated') {
     return (
-      <DashboardSection
-        title="Manager Verification"
-        description="Authenticate as a league manager to view preseason content."
-        icon={ShieldCheck}
-        bodyClassName="max-w-md mx-auto space-y-6"
-      >
-        {managerAuth.status === 'pending' ? (
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>
-              {managerAuth.verificationSource === 'cloudflare'
-                ? 'Verifying manager via Cloudflare...'
-                : 'Verifying stored manager session...'}
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="p-3 rounded-lg bg-blue-50 text-blue-700">
+              <ShieldCheck className="h-6 w-6" aria-hidden="true" />
             </span>
-          </div>
-        ) : (
-          <form onSubmit={handleManagerLogin} className="space-y-4">
-            <div className="space-y-3">
-              <select
-                value={managerAuthSelection}
-                onChange={e => setManagerAuthSelection(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                required
-              >
-                <option value="">Select manager</option>
-                {managerOptions.map(option => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="password"
-                value={managerAuthPasscode}
-                onChange={e => setManagerAuthPasscode(e.target.value)}
-                placeholder="Manager passcode"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                required
-              />
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Manager Verification</h2>
+              <p className="text-gray-600 text-sm sm:text-base">
+                Authenticate as a league manager to view preseason content.
+              </p>
             </div>
-            {managerAuthError && <p className="text-sm text-red-600">{managerAuthError}</p>}
-            <button
-              type="submit"
-              disabled={managerAuthLoading}
-              className={`w-full rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors ${
-                managerAuthLoading ? 'bg-blue-300 cursor-wait' : 'bg-blue-600 hover:bg-blue-700'
-              }`}
-            >
-              {managerAuthLoading ? 'Verifying…' : 'Verify Manager'}
-            </button>
-          </form>
-        )}
-      </DashboardSection>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 max-w-md mx-auto space-y-4">
+          {managerAuth.status === 'pending' ? (
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>
+                {managerAuth.verificationSource === 'cloudflare'
+                  ? 'Verifying manager via Cloudflare...'
+                  : 'Verifying stored manager session...'}
+              </span>
+            </div>
+          ) : (
+            <form onSubmit={handleManagerLogin} className="space-y-4">
+              <div className="space-y-3">
+                <select
+                  value={managerAuthSelection}
+                  onChange={e => setManagerAuthSelection(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  required
+                >
+                  <option value="">Select manager</option>
+                  {managerOptions.map(option => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="password"
+                  value={managerAuthPasscode}
+                  onChange={e => setManagerAuthPasscode(e.target.value)}
+                  placeholder="Manager passcode"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              {managerAuthError && <p className="text-sm text-red-600">{managerAuthError}</p>}
+              <button
+                type="submit"
+                disabled={managerAuthLoading}
+                className={`w-full rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors ${
+                  managerAuthLoading ? 'bg-blue-300 cursor-wait' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {managerAuthLoading ? 'Verifying…' : 'Verify Manager'}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -140,13 +150,20 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
   );
 
   return (
-    <DashboardSection
-      title="Preseason Manager Tools"
-      description={descriptionText}
-      icon={ShieldCheck}
-      actions={verificationActions}
-      bodyClassName="space-y-4 sm:space-y-6"
-    >
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="p-3 rounded-lg bg-blue-50 text-blue-700">
+            <ShieldCheck className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Preseason Manager Tools</h2>
+            <p className="text-gray-600 text-sm sm:text-base">{descriptionText}</p>
+          </div>
+        </div>
+        {verificationActions}
+      </div>
+
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
         {availableYears.length > 0 && (
           <div className="flex justify-center sm:justify-start">
@@ -386,7 +403,7 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
       </div>
 
       {votingLocked && ruleVotingSection}
-    </DashboardSection>
+    </div>
   );
 };
 
