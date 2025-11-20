@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { CalendarRange, ChevronDown } from 'lucide-react';
 import PlayoffBracket from './PlayoffBracket';
 import AISummary from './AISummary';
 import AIPreview from './AIPreview';
@@ -1912,8 +1912,21 @@ const FantasyFootballApp = () => {
   ];
 
   const renderSeasonsSection = () => (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="p-3 rounded-lg bg-blue-50 text-blue-700">
+            <CalendarRange className="w-6 h-6" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Season Hub</h2>
+            <p className="text-gray-600 text-sm sm:text-base">
+              Browse season recaps, matchup history, and weekly storylines.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="bg-white/70 sm:bg-white rounded-2xl shadow-xl border border-white/50 p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex justify-center sm:justify-start">
           <select
             value={selectedSeasonYear || ''}
@@ -1925,168 +1938,168 @@ const FantasyFootballApp = () => {
             ))}
           </select>
         </div>
-      </div>
-      {selectedSeasonYear === mostRecentYear && lastCompletedWeek > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
-              Week {lastCompletedWeek} In Review
-            </h2>
-            <AISummary />
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
-              Week {lastCompletedWeek + 1} Preview
-            </h2>
-            <AIPreview />
-          </div>
-        </div>
-      )}
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Season {selectedSeasonYear}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 text-center">
-          <div>
-            <p className="text-xs sm:text-sm text-gray-500">Champion</p>
-            <p className="font-semibold">{champion ? champion.manager_name : 'TBD'}</p>
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm text-gray-500">Runner-Up</p>
-            <p className="font-semibold">{runnerUp ? runnerUp.manager_name : 'TBD'}</p>
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm text-gray-500">Third Place</p>
-            <p className="font-semibold">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-2 py-1 text-left font-medium text-gray-500">Rank</th>
-                <th className="px-2 py-1 text-left font-medium text-gray-500">Manager</th>
-                <th className="px-2 py-1 text-left font-medium text-gray-500">Record</th>
-                <th className="px-2 py-1 text-left font-medium text-gray-500">PF</th>
-                <th className="px-2 py-1 text-left font-medium text-gray-500">PA</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {teamSeasons
-                .filter(s => s.year === selectedSeasonYear)
-                .sort((a, b) => a.regular_season_rank - b.regular_season_rank)
-                .map(season => (
-                  <tr key={season.name_id} className={season.playoff_finish === 1 ? 'bg-yellow-50' : ''}>
-                    <td className="px-2 py-1">{season.regular_season_rank}</td>
-                    <td className="px-2 py-1">{season.manager_name}</td>
-                    <td className="px-2 py-1">
-                      {season.wins}-{season.losses}
-                      {season.ties ? `-${season.ties}` : ''}
-                    </td>
-                    <td className="px-2 py-1">{season.points_for.toFixed(1)}</td>
-                    <td className="px-2 py-1">{season.points_against.toFixed(1)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-        {topWeeklyScores.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-            <div className="bg-green-50 rounded-lg p-4 shadow">
-              <h4 className="font-semibold mb-2">Top 5 Weekly Scores</h4>
-              <ul className="space-y-1 text-sm">
-                {topWeeklyScores.map((w, idx) => (
-                  <li key={idx} className="flex justify-between">
-                    <span>{`Week ${w.week} - ${w.manager}`}</span>
-                    <span className="font-medium">{w.points}</span>
-                  </li>
-                ))}
-              </ul>
+        {selectedSeasonYear === mostRecentYear && lastCompletedWeek > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
+                Week {lastCompletedWeek} In Review
+              </h2>
+              <AISummary />
             </div>
-            <div className="bg-red-50 rounded-lg p-4 shadow">
-              <h4 className="font-semibold mb-2">Bottom 5 Weekly Scores</h4>
-              <ul className="space-y-1 text-sm">
-                {bottomWeeklyScores.map((w, idx) => (
-                  <li key={idx} className="flex justify-between">
-                    <span>{`Week ${w.week} - ${w.manager}`}</span>
-                    <span className="font-medium">{w.points}</span>
-                  </li>
-                ))}
-              </ul>
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
+                Week {lastCompletedWeek + 1} Preview
+              </h2>
+              <AIPreview />
             </div>
           </div>
         )}
-        </div>
-        {isRegularSeasonComplete(selectedSeasonYear) && playoffBracket.length > 0 && (
-          <PlayoffBracket rounds={playoffBracket} />
-        )}
-        {!seasonsWithoutMatchups.includes(selectedSeasonYear) && (
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
-          <div className="space-y-4">
-            <div className="border border-gray-200 rounded-lg">
-              <button
-                type="button"
-                onClick={() => setShowPreviousResults(prev => !prev)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
-                aria-expanded={showPreviousResults}
-              >
-                <span className="font-semibold">{previousWeeksLabel}</span>
-                <ChevronDown
-                  className={`w-5 h-5 text-gray-500 transition-transform ${
-                    showPreviousResults ? 'transform rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {showPreviousResults && (
-                <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
-                  {previousWeeks.length > 0 ? (
-                    previousWeeks.map(renderWeekCard)
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      No completed matchups yet.
-                    </p>
-                  )}
-                </div>
-              )}
+        <div className="bg-white/80 sm:bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Season {selectedSeasonYear}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 text-center">
+            <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+              <p className="text-xs sm:text-sm text-blue-700 font-semibold">Champion</p>
+              <p className="font-semibold text-gray-900">{champion ? champion.manager_name : 'TBD'}</p>
             </div>
-            {currentWeek && (
-              <div className="border border-gray-200 rounded-lg">
-                <div className="px-3 py-3 sm:px-4 sm:py-4">
-                  <span className="font-semibold">{currentWeekLabel}</span>
-                </div>
-                <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
-                  {renderWeekCard(currentWeek)}
-                </div>
+            <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
+              <p className="text-xs sm:text-sm text-emerald-700 font-semibold">Runner-Up</p>
+              <p className="font-semibold text-gray-900">{runnerUp ? runnerUp.manager_name : 'TBD'}</p>
+            </div>
+            <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
+              <p className="text-xs sm:text-sm text-amber-700 font-semibold">Third Place</p>
+              <p className="font-semibold text-gray-900">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-2 py-1 text-left font-medium text-gray-600">Rank</th>
+                  <th className="px-2 py-1 text-left font-medium text-gray-600">Manager</th>
+                  <th className="px-2 py-1 text-left font-medium text-gray-600">Record</th>
+                  <th className="px-2 py-1 text-left font-medium text-gray-600">PF</th>
+                  <th className="px-2 py-1 text-left font-medium text-gray-600">PA</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {teamSeasons
+                  .filter(s => s.year === selectedSeasonYear)
+                  .sort((a, b) => a.regular_season_rank - b.regular_season_rank)
+                  .map(season => (
+                    <tr key={season.name_id} className={season.playoff_finish === 1 ? 'bg-yellow-50' : ''}>
+                      <td className="px-2 py-1">{season.regular_season_rank}</td>
+                      <td className="px-2 py-1">{season.manager_name}</td>
+                      <td className="px-2 py-1">
+                        {season.wins}-{season.losses}
+                        {season.ties ? `-${season.ties}` : ''}
+                      </td>
+                      <td className="px-2 py-1">{season.points_for.toFixed(1)}</td>
+                      <td className="px-2 py-1">{season.points_against.toFixed(1)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+          {topWeeklyScores.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <div className="bg-green-50 rounded-lg p-4 shadow border border-green-100">
+                <h4 className="font-semibold text-gray-900 mb-2">Top 5 Weekly Scores</h4>
+                <ul className="space-y-1 text-sm text-gray-800">
+                  {topWeeklyScores.map((w, idx) => (
+                    <li key={idx} className="flex justify-between">
+                      <span>{`Week ${w.week} - ${w.manager}`}</span>
+                      <span className="font-medium">{w.points}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            )}
-            <div className="border border-gray-200 rounded-lg">
-              <button
-                type="button"
-                onClick={() => setShowUpcomingMatchups(prev => !prev)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
-                aria-expanded={showUpcomingMatchups}
-              >
-                <span className="font-semibold">{upcomingWeeksLabel}</span>
-                <ChevronDown
-                  className={`w-5 h-5 text-gray-500 transition-transform ${
-                    showUpcomingMatchups ? 'transform rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {showUpcomingMatchups && (
-                <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
-                  {upcomingWeeks.length > 0 ? (
-                    upcomingWeeks.map(renderWeekCard)
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      No upcoming matchups remaining.
-                    </p>
-                  )}
+              <div className="bg-red-50 rounded-lg p-4 shadow border border-red-100">
+                <h4 className="font-semibold text-gray-900 mb-2">Bottom 5 Weekly Scores</h4>
+                <ul className="space-y-1 text-sm text-gray-800">
+                  {bottomWeeklyScores.map((w, idx) => (
+                    <li key={idx} className="flex justify-between">
+                      <span>{`Week ${w.week} - ${w.manager}`}</span>
+                      <span className="font-medium">{w.points}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+          </div>
+          {isRegularSeasonComplete(selectedSeasonYear) && playoffBracket.length > 0 && (
+            <PlayoffBracket rounds={playoffBracket} />
+          )}
+          {!seasonsWithoutMatchups.includes(selectedSeasonYear) && (
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Matchups</h3>
+            <div className="space-y-4">
+              <div className="border border-gray-200 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setShowPreviousResults(prev => !prev)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
+                  aria-expanded={showPreviousResults}
+                >
+                  <span className="font-semibold">{previousWeeksLabel}</span>
+                  <ChevronDown
+                    className={`w-5 h-5 text-gray-500 transition-transform ${
+                      showPreviousResults ? 'transform rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {showPreviousResults && (
+                  <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
+                    {previousWeeks.length > 0 ? (
+                      previousWeeks.map(renderWeekCard)
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No completed matchups yet.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+              {currentWeek && (
+                <div className="border border-gray-200 rounded-lg">
+                  <div className="px-3 py-3 sm:px-4 sm:py-4">
+                    <span className="font-semibold">{currentWeekLabel}</span>
+                  </div>
+                  <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
+                    {renderWeekCard(currentWeek)}
+                  </div>
                 </div>
               )}
+              <div className="border border-gray-200 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setShowUpcomingMatchups(prev => !prev)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
+                  aria-expanded={showUpcomingMatchups}
+                >
+                  <span className="font-semibold">{upcomingWeeksLabel}</span>
+                  <ChevronDown
+                    className={`w-5 h-5 text-gray-500 transition-transform ${
+                      showUpcomingMatchups ? 'transform rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {showUpcomingMatchups && (
+                  <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
+                    {upcomingWeeks.length > 0 ? (
+                      upcomingWeeks.map(renderWeekCard)
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No upcoming matchups remaining.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 
