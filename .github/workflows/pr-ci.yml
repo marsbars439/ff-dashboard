@@ -2,7 +2,7 @@ name: PR Checks
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
 
 jobs:
   build-images:
@@ -15,18 +15,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Backend image build (no push)
+      # -----------------------------
+      # Backend image build (validate)
+      # -----------------------------
       - name: Build backend image
         uses: docker/build-push-action@v6
         with:
-          context: ./backend        # adjust if your backend lives elsewhere
+          context: ./backend        # update if needed
           push: false               # don't push on PR
-          load: true                # load image into local Docker to validate
+          load: true                # build into local Docker to ensure it compiles
 
-      # Frontend image build (no push)
+      # -----------------------------
+      # Frontend image build (validate)
+      # -----------------------------
       - name: Build frontend image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: .                # update if your web app is in a subfolder
           push: false
           load: true
