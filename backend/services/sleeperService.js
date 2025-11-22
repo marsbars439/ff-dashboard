@@ -31,6 +31,11 @@ class SleeperService {
     this.scheduleCache = new Map();
     this.statsCache = new Map();
     this.gameMetaCacheTtl = 1000 * 60 * 2; // 2 minute cache for live game metadata
+    this.nflStateCache = {
+      data: null,
+      timestamp: 0
+    };
+    this.nflStateCacheTtl = 1000 * 60 * 5; // 5 minute cache for NFL state
   }
 
   normalizeTimestamp(value) {
@@ -545,7 +550,15 @@ class SleeperService {
         const parsedWeek = Number.parseInt(week, 10);
         const weekNumber = Number.isFinite(parsedWeek) ? parsedWeek : week;
         const parsedSeason = Number.parseInt(seasonYear, 10);
-        const season = Number.isFinite(parsedSeason) ? parsedSeason : new Date().getFullYear();
+
+        // Use current NFL season from Sleeper API instead of calendar year
+        let season;
+        if (Number.isFinite(parsedSeason)) {
+          season = parsedSeason;
+        } else {
+          const currentSeason = await this.getCurrentNFLSeason();
+          season = currentSeason || new Date().getFullYear();
+        }
 
         const [rosters, users, weekMatchups] = await Promise.all([
           this.getRosters(leagueId),
@@ -1410,12 +1423,44 @@ class SleeperService {
   /**
    * Get the current NFL week
    */
+  async getNFLState() {
+    try {
+      const now = Date.now();
+      if (this.nflStateCache.data && now - this.nflStateCache.timestamp < this.nflStateCacheTtl) {
+        return this.nflStateCache.data;
+      }
+
+      const response = await this.client.get('/state/nfl');
+      const state = response.data;
+
+      this.nflStateCache = {
+        data: state,
+        timestamp: now
+      };
+
+      return state;
+    } catch (error) {
+      console.error('❌ Error fetching NFL state:', error.message);
+      return null;
+    }
+  }
+
   async getCurrentNFLWeek() {
     try {
-      const response = await this.client.get('/state/nfl');
-      return response.data.week;
+      const state = await this.getNFLState();
+      return state?.week || null;
     } catch (error) {
       console.error('❌ Error fetching current NFL week:', error.message);
+      return null;
+    }
+  }
+
+  async getCurrentNFLSeason() {
+    try {
+      const state = await this.getNFLState();
+      return state?.season || null;
+    } catch (error) {
+      console.error('❌ Error fetching current NFL season:', error.message);
       return null;
     }
   }
