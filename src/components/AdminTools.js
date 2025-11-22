@@ -17,6 +17,7 @@ import CollapsibleSection from './CollapsibleSection';
 import SleeperAdmin from './SleeperAdmin';
 import AISummaryConfig from './AISummaryConfig';
 import RuleChangeAdmin from './RuleChangeAdmin';
+import DashboardSection from './DashboardSection';
 import { useAdminSession } from '../state/AdminSessionContext';
 import { useKeeperTools } from '../state/KeeperToolsContext';
 
@@ -63,17 +64,13 @@ const AdminTools = ({
 
   if (!adminAuthorized) {
     return (
-      <div className="max-w-xl mx-auto space-y-4 sm:space-y-6">
-        <div className="flex items-start gap-3">
-          <span className="p-3 rounded-lg bg-blue-50 text-blue-700">
-            <ShieldCheck className="w-6 h-6" aria-hidden="true" />
-          </span>
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Admin Access</h2>
-            <p className="text-gray-600 text-sm sm:text-base">Secure tools for commissioners and data upkeep.</p>
-          </div>
-        </div>
-        <div className="bg-slate-900/70 border border-white/10 rounded-2xl shadow-xl p-4 sm:p-8 text-slate-100 space-y-4">
+      <DashboardSection
+        title="Admin Access"
+        description="Secure tools for commissioners and data upkeep."
+        icon={ShieldCheck}
+        className="max-w-xl mx-auto"
+      >
+        <div className="card-primary text-slate-100 space-y-4">
           <form onSubmit={handleAdminAuthSubmit} className="space-y-4">
             {adminSession.status === 'pending' && (
               <p className="text-sm text-slate-200 flex items-center">
@@ -110,38 +107,36 @@ const AdminTools = ({
             </button>
           </form>
         </div>
-      </div>
+      </DashboardSection>
     );
   }
 
+  const adminActions = (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={handleSignOutClick}
+        className="flex items-center justify-center px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm shadow"
+      >
+        <LogOut className="w-4 h-4 mr-1" /> Sign Out
+      </button>
+      <button
+        onClick={onAnalyticsClick}
+        className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm shadow"
+      >
+        <BarChart3 className="w-4 h-4 mr-1" /> Analytics
+      </button>
+    </div>
+  );
+
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="p-3 rounded-lg bg-purple-50 text-purple-700">
-            <Gavel className="w-6 h-6" aria-hidden="true" />
-          </span>
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-50">Admin Console</h2>
-            <p className="text-slate-200 text-sm sm:text-base">Commissioner tools, data imports, and AI helpers in one place.</p>
-          </div>
-        </div>
-        <div className="bg-slate-900/70 border border-white/10 rounded-xl shadow p-2 sm:p-3 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSignOutClick}
-            className="flex items-center justify-center px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm shadow"
-          >
-            <LogOut className="w-4 h-4 mr-1" /> Sign Out
-          </button>
-          <button
-            onClick={onAnalyticsClick}
-            className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm shadow"
-          >
-            <BarChart3 className="w-4 h-4 mr-1" /> Analytics
-          </button>
-        </div>
-      </div>
+    <DashboardSection
+      title="Admin Console"
+      description="Commissioner tools, data imports, and AI helpers in one place."
+      icon={Gavel}
+      actions={adminActions}
+      bodyClassName="space-y-6 sm:space-y-8"
+    >
 
       <SleeperAdmin API_BASE_URL={apiBaseUrl} onDataUpdate={onDataUpdate}>
         {({ renderMessageBanner, renderDataManagementSection, renderManagerSection }) => {
@@ -337,7 +332,7 @@ const AdminTools = ({
           </div>
         </div>
       </CollapsibleSection>
-    </div>
+    </DashboardSection>
   );
 };
 

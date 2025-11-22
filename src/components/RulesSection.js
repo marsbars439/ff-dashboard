@@ -1,5 +1,6 @@
 import React from 'react';
 import { BookOpen } from 'lucide-react';
+import DashboardSection from './DashboardSection';
 
 const renderMarkdown = (text = '') => {
   const lines = text.split('\n');
@@ -99,26 +100,17 @@ const renderMarkdown = (text = '') => {
 };
 
 const RulesSection = ({ rulesContent }) => (
-  <div className="space-y-4 sm:space-y-6">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-start gap-3">
-        <span className="p-3 rounded-lg bg-indigo-50 text-indigo-700">
-          <BookOpen className="w-6 h-6" aria-hidden="true" />
-        </span>
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">League Rules</h2>
-          <p className="text-gray-600 text-sm sm:text-base">
-            Governance, settings, and best practices for every season.
-          </p>
-        </div>
-      </div>
-    </div>
-    <div className="bg-slate-900/70 rounded-2xl shadow-xl border border-white/10 p-4 sm:p-8">
+  <DashboardSection
+    title="League Rules"
+    description="Governance, settings, and best practices for every season."
+    icon={BookOpen}
+  >
+    <div className="card-primary">
       <div className="prose prose-sm sm:prose-lg max-w-none text-slate-100">
         {renderMarkdown(rulesContent || '')}
       </div>
     </div>
-  </div>
+  </DashboardSection>
 );
 
 export default RulesSection;

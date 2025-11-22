@@ -10,6 +10,7 @@ import AdminTools from './AdminTools';
 import DashboardHeader from './DashboardHeader';
 import ActiveTabSection from './ActiveTabSection';
 import RulesSection from './RulesSection';
+import DashboardSection from './DashboardSection';
 import { useAdminSession } from '../state/AdminSessionContext';
 import { useManagerAuth } from '../state/ManagerAuthContext';
 import { useKeeperTools } from '../state/KeeperToolsContext';
@@ -1911,33 +1912,31 @@ const FantasyFootballApp = () => {
       );
     }
 
-    const surfaceCard = 'rounded-2xl bg-slate-900/70 border border-white/10 shadow-2xl backdrop-blur';
-    const subCard = 'rounded-xl bg-slate-900/60 border border-white/10 shadow-lg';
+    const surfaceCard = 'card-primary';
+    const subCard = 'card-secondary';
+
+    const seasonSelector = (
+      <div className="flex items-center gap-3">
+        <select
+          value={selectedSeasonYear || ''}
+          onChange={e => setSelectedSeasonYear(Number(e.target.value))}
+          className="border-2 border-blue-200 bg-white rounded-full px-4 py-2 text-base font-bold text-gray-900 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        >
+          {availableYears.map(year => (
+            <option key={year} value={year}>{year}</option>
+          ))}
+        </select>
+      </div>
+    );
 
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <div className={`${surfaceCard} p-4 sm:p-6 flex flex-wrap items-center justify-between gap-3`}>
-        <div className="flex items-center gap-2 text-sm text-slate-200">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/20 text-blue-200">
-            <CalendarRange className="w-4 h-4" />
-          </span>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">Season</p>
-            <p className="font-semibold text-slate-100">{selectedSeasonYear}</p>
-          </div>
-        </div>
-        <div className="flex justify-center sm:justify-end">
-          <select
-            value={selectedSeasonYear || ''}
-            onChange={e => setSelectedSeasonYear(Number(e.target.value))}
-            className="border border-white/10 bg-slate-950/60 text-slate-100 rounded-full px-4 py-2 text-sm sm:text-base font-medium shadow-inner focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-          >
-            {availableYears.map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+    <DashboardSection
+      title="Season Overview"
+      description={`View standings, matchups, and playoff results for the ${selectedSeasonYear || 'selected'} season.`}
+      icon={CalendarRange}
+      actions={seasonSelector}
+      bodyClassName="space-y-6 sm:space-y-8"
+    >
 
       {selectedSeasonYear === mostRecentYear && lastCompletedWeek > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -2110,7 +2109,7 @@ const FantasyFootballApp = () => {
           </div>
         </div>
       )}
-    </div>
+    </DashboardSection>
     );
   };
 
@@ -2190,7 +2189,7 @@ const FantasyFootballApp = () => {
 
   return (
     <div className="ff-dashboard section-stack">
-      <header className="layout-section section-padding">
+      <header className="layout-section">
         <DashboardHeader
           tabs={DASHBOARD_TABS}
           activeTab={activeTab}

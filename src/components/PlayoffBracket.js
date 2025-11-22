@@ -120,7 +120,7 @@ const PlayoffBracket = ({ rounds = [] }) => {
                       {gameLabel}
                     </div>
                   )}
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 w-40 sm:w-48 text-xs sm:text-sm">
+                  <div className="card-tertiary w-40 sm:w-48 text-xs sm:text-sm">
                     <div
                       className={`flex justify-between ${
                         homeWin || isBye ? 'font-semibold text-green-600' : ''

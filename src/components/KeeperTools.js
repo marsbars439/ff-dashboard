@@ -1,6 +1,7 @@
 import React from 'react';
 import { Cloud, Loader2, ShieldCheck } from 'lucide-react';
 import RuleVotingPanel from './RuleVotingPanel';
+import DashboardSection from './DashboardSection';
 import { useManagerAuth } from '../state/ManagerAuthContext';
 import { useKeeperTools } from '../state/KeeperToolsContext';
 import { useRuleVoting } from '../state/RuleVotingContext';
@@ -50,22 +51,14 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
 
   if (managerAuth.status !== 'authenticated') {
     return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="p-3 rounded-lg bg-blue-50 text-blue-700">
-              <ShieldCheck className="h-6 w-6" aria-hidden="true" />
-            </span>
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Manager Verification</h2>
-              <p className="text-gray-600 text-sm sm:text-base">
-                Authenticate as a league manager to view preseason content.
-              </p>
-            </div>
-          </div>
-        </div>
+      <DashboardSection
+        title="Manager Verification"
+        description="Authenticate as a league manager to view preseason content."
+        icon={ShieldCheck}
+        bodyClassName="space-y-4"
+      >
 
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 max-w-md mx-auto space-y-4">
+        <div className="card-primary max-w-md mx-auto space-y-4">
           {managerAuth.status === 'pending' ? (
             <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -113,7 +106,7 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
             </form>
           )}
         </div>
-      </div>
+      </DashboardSection>
     );
   }
 
@@ -124,67 +117,58 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
       ? `Manage keepers, trades, and draft capital for the ${selectedKeeperYear + 1} season.`
       : 'Manage keepers, trades, and draft capital for the upcoming season.';
 
-  const verificationActions = (
-    <div className="flex flex-wrap items-center justify-end gap-2 text-xs sm:text-sm text-gray-600">
-      <span className="inline-flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4 text-blue-500" />
-        <span>
-          Verified as{' '}
-          <span className="font-semibold text-gray-700">{managerAuth.managerName || managerAuth.managerId}</span>
+  const headerActions = (
+    <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2 text-xs sm:text-sm text-gray-600">
+        <span className="inline-flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-blue-500" />
+          <span>
+            Verified as{' '}
+            <span className="font-semibold text-gray-700">{managerAuth.managerName || managerAuth.managerId}</span>
+          </span>
         </span>
-      </span>
-      {managerAuth.verificationSource === 'cloudflare' && (
-        <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium uppercase tracking-wide text-blue-600">
-          <Cloud className="h-3 w-3" />
-          Verified via Cloudflare
-        </span>
+        {managerAuth.verificationSource === 'cloudflare' && (
+          <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium uppercase tracking-wide text-blue-600">
+            <Cloud className="h-3 w-3" />
+            Verified via Cloudflare
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={handleRuleVotingManagerLogout}
+          className="inline-flex items-center gap-1 text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-800"
+        >
+          Sign out
+        </button>
+      </div>
+      {availableYears.length > 0 && (
+        <select
+          value={selectedKeeperYear || ''}
+          onChange={e => setSelectedKeeperYear(Number(e.target.value))}
+          className="border-2 border-blue-200 bg-white rounded-full px-4 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        >
+          {availableYears.map(year => (
+            <option key={year} value={year}>
+              {`${year} Rosters / ${year + 1} Draft`}
+            </option>
+          ))}
+        </select>
       )}
-      <button
-        type="button"
-        onClick={handleRuleVotingManagerLogout}
-        className="inline-flex items-center gap-1 text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-800"
-      >
-        Sign out
-      </button>
     </div>
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="p-3 rounded-lg bg-blue-50 text-blue-700">
-            <ShieldCheck className="h-6 w-6" aria-hidden="true" />
-          </span>
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Preseason Manager Tools</h2>
-            <p className="text-gray-600 text-sm sm:text-base">{descriptionText}</p>
-          </div>
-        </div>
-        {verificationActions}
-      </div>
-
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-        {availableYears.length > 0 && (
-          <div className="flex justify-center sm:justify-start">
-            <select
-              value={selectedKeeperYear || ''}
-              onChange={e => setSelectedKeeperYear(Number(e.target.value))}
-              className="border-2 border-blue-200 bg-white rounded-full px-4 py-2 text-sm sm:text-base font-medium text-gray-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
-            >
-              {availableYears.map(year => (
-                <option key={year} value={year}>
-                  {`${year} Rosters / ${year + 1} Draft`}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
+    <DashboardSection
+      title="Preseason Manager Tools"
+      description={descriptionText}
+      icon={ShieldCheck}
+      actions={headerActions}
+      bodyClassName="space-y-4 sm:space-y-6"
+    >
 
       {!votingLocked && ruleVotingSection}
 
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+      <div className="card-primary">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
           <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-0">
             {keeperSummaryView === 'keepers'
@@ -267,7 +251,7 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+      <div className="card-primary">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">{selectedKeeperYear} Rosters</h2>
           {keepers.length > 0 && (
@@ -403,7 +387,7 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
       </div>
 
       {votingLocked && ruleVotingSection}
-    </div>
+    </DashboardSection>
   );
 };
 

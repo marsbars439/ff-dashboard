@@ -5,7 +5,7 @@ const CollapsibleSection = ({ title, headerRight = null, children }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="bg-slate-900/70 border border-white/10 rounded-2xl shadow-lg backdrop-blur">
+    <div className="bg-[var(--ff-color-surface-alt)] border border-[var(--ff-color-border)] rounded-[var(--ff-radius-lg)] shadow-[var(--ff-shadow-md)]">
       <div
         className="flex items-center justify-between p-4 sm:p-6 cursor-pointer"
         onClick={() => setIsOpen(!isOpen)}
