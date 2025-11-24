@@ -1535,16 +1535,48 @@ const FantasyFootballApp = () => {
     }
 
     if (statusMeta?.key === 'finished') {
-      const detail =
-        (typeof starter?.scoreboard_detail === 'string' && starter.scoreboard_detail) ||
-        (typeof starter?.raw_game_status === 'string' && starter.raw_game_status) ||
-        (typeof starter?.game_status === 'string' && starter.game_status);
-      if (detail) {
-        addInfo(detail.toUpperCase());
-      } else if (starter?.scoreboard_status) {
-        addInfo(starter.scoreboard_status.toString().toUpperCase());
-      } else {
-        addInfo('FINAL');
+      // Show stats instead of "FINAL"
+      const stats = starter?.stats;
+
+      if (stats && typeof stats === 'object') {
+        const statParts = [];
+
+        // Common stat abbreviations by position
+        if (stats.pass_yd || stats.pass_td) {
+          const yds = stats.pass_yd || 0;
+          const tds = stats.pass_td || 0;
+          const ints = stats.pass_int || 0;
+          statParts.push(`${yds} YDS, ${tds} TD${tds !== 1 ? 'S' : ''}${ints > 0 ? `, ${ints} INT${ints !== 1 ? 'S' : ''}` : ''}`);
+        }
+
+        if (stats.rush_yd || stats.rush_td) {
+          const yds = stats.rush_yd || 0;
+          const tds = stats.rush_td || 0;
+          const att = stats.rush_att || 0;
+          statParts.push(`${att} CAR, ${yds} YDS${tds > 0 ? `, ${tds} TD${tds !== 1 ? 'S' : ''}` : ''}`);
+        }
+
+        if (stats.rec || stats.rec_yd || stats.rec_td) {
+          const rec = stats.rec || 0;
+          const yds = stats.rec_yd || 0;
+          const tds = stats.rec_td || 0;
+          statParts.push(`${rec} REC, ${yds} YDS${tds > 0 ? `, ${tds} TD${tds !== 1 ? 'S' : ''}` : ''}`);
+        }
+
+        if (statParts.length > 0) {
+          statParts.forEach(stat => addInfo(stat));
+        }
+      }
+
+      // If no stats available, show game status detail
+      if (info.length === (opponentLabel ? 1 : 0)) {
+        const detail =
+          (typeof starter?.scoreboard_detail === 'string' && starter.scoreboard_detail) ||
+          (typeof starter?.raw_game_status === 'string' && starter.raw_game_status) ||
+          (typeof starter?.game_status === 'string' && starter.game_status);
+        if (detail && detail.toLowerCase() !== 'final') {
+          addInfo(detail.toUpperCase());
+        }
       }
     }
 
@@ -1581,8 +1613,7 @@ const FantasyFootballApp = () => {
     }
 
     const lineupData = lineupDataOverride || buildTeamLineupData(team);
-    const { startersWithStatus, statusCounts } = lineupData;
-    const statusPills = renderStatusPills(statusCounts);
+    const { startersWithStatus } = lineupData;
 
     return (
       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
@@ -1594,7 +1625,6 @@ const FantasyFootballApp = () => {
           {team.team_name && (
             <p className="text-xs text-gray-500">{team.team_name}</p>
           )}
-          {statusPills && <div className="mt-2">{statusPills}</div>}
         </div>
         <ul className="divide-y divide-gray-200">
           {startersWithStatus.length > 0 ? (

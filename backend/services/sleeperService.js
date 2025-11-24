@@ -928,6 +928,7 @@ class SleeperService {
                     null,
                   activity_key: determineActivityKey(),
                   stats_available: !!statsEntry,
+                  stats: statsEntry || null,
                   scoreboard_status: scoreboardEntry?.status || null,
                   scoreboard_activity_key: scoreboardActivityKey || null,
                   scoreboard_detail:
