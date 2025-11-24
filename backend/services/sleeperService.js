@@ -1,5 +1,6 @@
 const axios = require('axios');
 const gameStatusService = require('./gameStatusService');
+const espnService = require('./espnService');
 
 const SLEEPER_BASE_URL = 'https://api.sleeper.app/v1';
 const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
@@ -576,6 +577,11 @@ class SleeperService {
         const playersMap = await this.getPlayersMap();
         const statsByPlayer = await this.getWeeklyPlayerStats(season, week);
         const scheduleByTeam = await this.getWeeklySchedule(season, week);
+
+        // Fetch ESPN game data for reliable kickoff times and status
+        const espnScoreboard = await espnService.getWeekGames(season, week);
+        const espnGamesByTeam = espnService.parseGames(espnScoreboard);
+
         const scoreboardByTeam = await gameStatusService.getWeekGameStatuses(
           season,
           Number.isFinite(parsedWeek) ? parsedWeek : null
@@ -659,6 +665,7 @@ class SleeperService {
                   '';
                 const team = typeof rawTeam === 'string' ? rawTeam.toUpperCase() : '';
                 const scoreboardEntry = team ? scoreboardByTeam[team] || null : null;
+                const espnGame = team ? espnGamesByTeam.get(team) || null : null;
 
                 const rawPoints = starterPoints[idx];
                 const parsedPoints =
@@ -712,12 +719,14 @@ class SleeperService {
                   return null;
                 };
 
+                // Prioritize ESPN data for kickoff time (most reliable)
                 const parsedStart = pickFirstTimestamp(
+                  espnGame?.date,
+                  scoreboardEntry?.startTime,
                   statsEntry?.game_start,
                   statsEntry?.game_start_time,
                   statsEntry?.game_start_ms,
-                  scheduleEntry?.start_time,
-                  scoreboardEntry?.startTime
+                  scheduleEntry?.start_time
                 );
 
                 const scoreboardOpponent =
@@ -764,16 +773,24 @@ class SleeperService {
                 const normalizedByeWeek =
                   byeWeek != null ? Number.parseInt(byeWeek, 10) : null;
 
+                // ESPN game status signals (most reliable)
+                const espnIsFinished = espnGame?.status === 'STATUS_FINAL';
+                const espnIsLive = espnGame?.status === 'STATUS_IN_PROGRESS';
+                const espnIsScheduled = espnGame?.status === 'STATUS_SCHEDULED';
+
                 const scoreboardActivityKey = scoreboardEntry?.activityKey || null;
                 const scoreboardHasFinishedSignal =
+                  espnIsFinished ||
                   scoreboardEntry?.isFinal ||
                   scoreboardActivityKey === 'finished' ||
                   normalizedScoreboardStatus === 'final';
                 const scoreboardHasLiveSignal =
+                  espnIsLive ||
                   scoreboardEntry?.isInProgress ||
                   scoreboardActivityKey === 'live' ||
                   normalizedScoreboardStatus === 'in_progress';
                 const scoreboardHasUpcomingSignal =
+                  espnIsScheduled ||
                   scoreboardEntry?.isPre ||
                   scoreboardActivityKey === 'upcoming' ||
                   normalizedScoreboardStatus === 'pre';
@@ -871,7 +888,7 @@ class SleeperService {
                       hasLiveDetail ||
                       statsAvailable ||
                       kickoffHasPassed ||
-                      hasPoints
+                      hasNonZeroPoints
                   );
 
                   if (hasGameStartedSignal) {
@@ -907,10 +924,11 @@ class SleeperService {
 
                 let activityKey = determineActivityKey();
 
-                // Post-process: if marked as 'live' but no live indicators, mark as finished
+                // Post-process: Handle edge cases where status should be 'finished'
+                const hasKickoff = Number.isFinite(parsedStart);
+                const kickoffLikelyFinished = hasKickoff && now - parsedStart >= GAME_COMPLETION_BUFFER_MS;
+
                 if (activityKey === 'live') {
-                  const hasKickoff = Number.isFinite(parsedStart);
-                  const kickoffLikelyFinished = hasKickoff && now - parsedStart >= GAME_COMPLETION_BUFFER_MS;
                   const liveDetailRegex = /\b(q[1-4]|1st|2nd|3rd|4th|ot)\b/;
                   const rawStatusTextCombined = [
                     rawStatus,
@@ -944,6 +962,10 @@ class SleeperService {
                   }
                 }
 
+                // Don't try to guess finished status for players with 0 points and no kickoff data
+                // Without reliable kickoff/status information from Sleeper, this is too error-prone
+                // Better to show "Not Started" for an upcoming game than "Finished" for a game that hasn't happened
+
                 return {
                   slot: idx,
                   player_id: playerId,
@@ -971,9 +993,10 @@ class SleeperService {
                   scoreboard_status: scoreboardEntry?.status || null,
                   scoreboard_activity_key: scoreboardActivityKey || null,
                   scoreboard_detail:
+                    espnGame?.statusDetail ||
                     scoreboardEntry?.detail ||
                     (scoreboardHasFinishedSignal ? 'FINAL' : null),
-                  scoreboard_start: scoreboardEntry?.startTime || null,
+                  scoreboard_start: espnGame?.date || scoreboardEntry?.startTime || null,
                   scoreboard_last_updated: scoreboardEntry?.lastUpdated || null,
                   scoreboard_home_team: scoreboardEntry?.homeTeam || null,
                   scoreboard_home_score:

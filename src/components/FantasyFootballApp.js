@@ -1134,23 +1134,6 @@ const FantasyFootballApp = () => {
 
     const now = Date.now();
 
-    // Debug: log specific player details to understand the issue
-    const shouldDebug = starter?.points === 0 || (starter?.name && starter.name.includes('Knight'));
-    if (shouldDebug) {
-      console.log('🐛 Debug player:', {
-        name: starter.name,
-        points: starter.points,
-        activity_key: starter.activity_key,
-        scoreboard_activity_key: starter.scoreboard_activity_key,
-        game_status: starter.game_status,
-        raw_game_status: starter.raw_game_status,
-        scoreboard_status: starter.scoreboard_status,
-        scoreboard_detail: starter.scoreboard_detail,
-        game_start: starter.game_start,
-        kickoffParsed: parseTimestamp(starter.game_start),
-        timeSinceKickoff: starter.game_start ? now - parseTimestamp(starter.game_start) : null
-      });
-    }
     const kickoff = parseTimestamp(
       starter?.scoreboard_start ??
         starter?.game_start ??
