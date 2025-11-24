@@ -954,6 +954,15 @@ class SleeperService {
 
           const starters = formatStarters(m.starters || [], m.starters_points || []);
 
+          // Debug: log first starter to verify stats are included
+          if (starters.length > 0 && starters[0]) {
+            console.log('📊 First starter being sent:', {
+              name: starters[0].name,
+              hasStats: !!starters[0].stats,
+              statsKeys: starters[0].stats ? Object.keys(starters[0].stats).slice(0, 5) : []
+            });
+          }
+
           const numericPoints =
             typeof m.points === 'number' ? m.points : Number(m.points) || 0;
 

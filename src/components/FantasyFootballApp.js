@@ -1487,6 +1487,17 @@ const FantasyFootballApp = () => {
   const getStarterSecondaryInfo = (starter, statusMeta) => {
     const info = [];
 
+    // Debug: log what we're getting for the first finished player
+    if (statusMeta?.key === 'finished' && starter?.player_id) {
+      console.log('🔍 Finished player:', {
+        name: starter.name,
+        statusKey: statusMeta.key,
+        hasStats: !!starter.stats,
+        stats: starter.stats,
+        statsType: typeof starter.stats
+      });
+    }
+
     const addInfo = value => {
       if (value === null || value === undefined) {
         return;
