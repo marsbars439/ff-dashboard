@@ -778,9 +778,20 @@ class SleeperService {
                 const espnIsLive = espnGame?.status === 'STATUS_IN_PROGRESS';
                 const espnIsScheduled = espnGame?.status === 'STATUS_SCHEDULED';
 
+                // Additional check: game might be finished but ESPN hasn't updated status yet
+                // Look for "Final" in the status detail or clock showing 0:00 in OT
+                const espnStatusDetail = (espnGame?.statusDetail || '').toLowerCase();
+                const espnClock = (espnGame?.clock || '').toLowerCase();
+                const espnPeriod = espnGame?.period || 0;
+                const espnLooksFinished =
+                  espnStatusDetail.includes('final') ||
+                  (espnClock === '0:00' && espnPeriod > 4) || // OT ended
+                  (espnClock === 'final');
+
                 const scoreboardActivityKey = scoreboardEntry?.activityKey || null;
                 const scoreboardHasFinishedSignal =
                   espnIsFinished ||
+                  espnLooksFinished ||
                   scoreboardEntry?.isFinal ||
                   scoreboardActivityKey === 'finished' ||
                   normalizedScoreboardStatus === 'final';
