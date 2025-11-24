@@ -871,7 +871,7 @@ class SleeperService {
                       hasLiveDetail ||
                       statsAvailable ||
                       kickoffHasPassed ||
-                      hasNonZeroPoints
+                      hasPoints
                   );
 
                   if (hasGameStartedSignal) {
@@ -905,6 +905,45 @@ class SleeperService {
                   scoreboardEntry?.rawStatusText ||
                   (typeof rawStatus === 'string' ? rawStatus : null);
 
+                let activityKey = determineActivityKey();
+
+                // Post-process: if marked as 'live' but no live indicators, mark as finished
+                if (activityKey === 'live') {
+                  const hasKickoff = Number.isFinite(parsedStart);
+                  const kickoffLikelyFinished = hasKickoff && now - parsedStart >= GAME_COMPLETION_BUFFER_MS;
+                  const liveDetailRegex = /\b(q[1-4]|1st|2nd|3rd|4th|ot)\b/;
+                  const rawStatusTextCombined = [
+                    rawStatus,
+                    scoreboardEntry?.rawStatusText,
+                    scoreboardEntry?.detail
+                  ]
+                    .filter(Boolean)
+                    .map(value => value.toString().toLowerCase())
+                    .join(' ');
+                  const hasLiveDetail =
+                    liveDetailRegex.test(rawStatusTextCombined) ||
+                    rawStatusTextCombined.includes('half') ||
+                    rawStatusTextCombined.includes('quarter');
+                  const hasAnyLiveIndicators =
+                    hasLiveDetail ||
+                    scoreboardHasLiveSignal ||
+                    scoreboardActivityKey === 'live';
+
+                  if (!hasAnyLiveIndicators) {
+                    if (kickoffLikelyFinished) {
+                      activityKey = 'finished';
+                    } else if (!hasKickoff && pointsValue !== null) {
+                      activityKey = 'finished';
+                    } else if (hasKickoff && parsedStart <= now && !scoreboardHasUpcomingSignal) {
+                      const timeSinceKickoff = now - parsedStart;
+                      const minGameDuration = 3 * 60 * 60 * 1000; // 3 hours
+                      if (timeSinceKickoff >= minGameDuration) {
+                        activityKey = 'finished';
+                      }
+                    }
+                  }
+                }
+
                 return {
                   slot: idx,
                   player_id: playerId,
@@ -926,7 +965,7 @@ class SleeperService {
                     scheduleEntry?.game_id ||
                     scoreboardEntry?.gameId ||
                     null,
-                  activity_key: determineActivityKey(),
+                  activity_key: activityKey,
                   stats_available: !!statsEntry,
                   stats: statsEntry || null,
                   scoreboard_status: scoreboardEntry?.status || null,
@@ -953,15 +992,6 @@ class SleeperService {
               .filter(Boolean);
 
           const starters = formatStarters(m.starters || [], m.starters_points || []);
-
-          // Debug: log first starter to verify stats are included
-          if (starters.length > 0 && starters[0]) {
-            console.log('📊 First starter being sent:', {
-              name: starters[0].name,
-              hasStats: !!starters[0].stats,
-              statsKeys: starters[0].stats ? Object.keys(starters[0].stats).slice(0, 5) : []
-            });
-          }
 
           const numericPoints =
             typeof m.points === 'number' ? m.points : Number(m.points) || 0;

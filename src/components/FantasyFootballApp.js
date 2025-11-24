@@ -1133,6 +1133,24 @@ const FantasyFootballApp = () => {
     }
 
     const now = Date.now();
+
+    // Debug: log specific player details to understand the issue
+    const shouldDebug = starter?.points === 0 || (starter?.name && starter.name.includes('Knight'));
+    if (shouldDebug) {
+      console.log('🐛 Debug player:', {
+        name: starter.name,
+        points: starter.points,
+        activity_key: starter.activity_key,
+        scoreboard_activity_key: starter.scoreboard_activity_key,
+        game_status: starter.game_status,
+        raw_game_status: starter.raw_game_status,
+        scoreboard_status: starter.scoreboard_status,
+        scoreboard_detail: starter.scoreboard_detail,
+        game_start: starter.game_start,
+        kickoffParsed: parseTimestamp(starter.game_start),
+        timeSinceKickoff: starter.game_start ? now - parseTimestamp(starter.game_start) : null
+      });
+    }
     const kickoff = parseTimestamp(
       starter?.scoreboard_start ??
         starter?.game_start ??
@@ -1361,7 +1379,7 @@ const FantasyFootballApp = () => {
         hasLiveDetail ||
         statsAvailable ||
         kickoffHasPassed ||
-        (pointsValue !== null && pointsValue !== 0)
+        pointsValue !== null
     );
 
     const hasGameUpcomingSignal = Boolean(
@@ -1416,12 +1434,25 @@ const FantasyFootballApp = () => {
     // Final check: if marked as 'live' but no live indicators, mark as finished
     // This handles cases where we have points but no kickoff time or status data
     if (resolvedKey === 'live') {
-      if (kickoffLikelyFinished && !hasLiveDetail && !scoreboardHasLive) {
-        // Game kicked off 4.5+ hours ago with no live indicators
-        resolvedKey = 'finished';
-      } else if (!hasKickoff && pointsValue !== null && !hasLiveDetail && !scoreboardHasLive) {
-        // No kickoff time, but has points and no live indicators - assume finished
-        resolvedKey = 'finished';
+      const hasAnyLiveIndicators = hasLiveDetail || scoreboardHasLive || scoreboardActivityKeyRaw === 'live';
+
+      if (!hasAnyLiveIndicators) {
+        // No live indicators - check if game should be finished
+        if (kickoffLikelyFinished) {
+          // Game kicked off 4.5+ hours ago - definitely finished
+          resolvedKey = 'finished';
+        } else if (!hasKickoff && pointsValue !== null) {
+          // No kickoff time but has points - assume finished
+          resolvedKey = 'finished';
+        } else if (hasKickoff && kickoffHasPassed && !scoreboardHasUpcoming) {
+          // Kickoff has passed and no upcoming signals - likely finished
+          // Check if enough time has passed (at least 3 hours for NFL games)
+          const timeSinceKickoff = now - kickoff;
+          const minGameDuration = 3 * 60 * 60 * 1000; // 3 hours
+          if (timeSinceKickoff >= minGameDuration) {
+            resolvedKey = 'finished';
+          }
+        }
       }
     }
 
@@ -1485,20 +1516,10 @@ const FantasyFootballApp = () => {
   };
 
   const getStarterSecondaryInfo = (starter, statusMeta) => {
-    const info = [];
+    const gameInfo = [];
+    let injuryInfo = null;
 
-    // Debug: log what we're getting for the first finished player
-    if (statusMeta?.key === 'finished' && starter?.player_id) {
-      console.log('🔍 Finished player:', {
-        name: starter.name,
-        statusKey: statusMeta.key,
-        hasStats: !!starter.stats,
-        stats: starter.stats,
-        statsType: typeof starter.stats
-      });
-    }
-
-    const addInfo = value => {
+    const addGameInfo = value => {
       if (value === null || value === undefined) {
         return;
       }
@@ -1506,24 +1527,24 @@ const FantasyFootballApp = () => {
       if (!text) {
         return;
       }
-      const exists = info.some(item => item.toLowerCase() === text.toLowerCase());
+      const exists = gameInfo.some(item => item.toLowerCase() === text.toLowerCase());
       if (!exists) {
-        info.push(text);
+        gameInfo.push(text);
       }
     };
 
     if (starter?.is_bye) {
-      addInfo(
+      addGameInfo(
         starter?.bye_week != null && starter.bye_week !== ''
           ? `Bye Week ${starter.bye_week}`
           : 'Bye Week'
       );
-      return info;
+      return { gameInfo, injuryInfo };
     }
 
     const opponentLabel = getOpponentLabel(starter);
     if (opponentLabel) {
-      addInfo(opponentLabel);
+      addGameInfo(opponentLabel);
     }
 
     if (statusMeta?.key === 'upcoming') {
@@ -1531,7 +1552,7 @@ const FantasyFootballApp = () => {
         starter?.scoreboard_start ?? starter?.game_start
       );
       if (kickoffLabel) {
-        addInfo(kickoffLabel);
+        addGameInfo(kickoffLabel);
       }
     }
 
@@ -1541,61 +1562,22 @@ const FantasyFootballApp = () => {
         (typeof starter?.raw_game_status === 'string' && starter.raw_game_status) ||
         (typeof starter?.game_status === 'string' && starter.game_status);
       if (detail) {
-        addInfo(detail.toUpperCase());
+        addGameInfo(detail.toUpperCase());
       }
     }
 
     if (statusMeta?.key === 'finished') {
-      // Show stats instead of "FINAL"
-      const stats = starter?.stats;
-
-      if (stats && typeof stats === 'object') {
-        const statParts = [];
-
-        // Common stat abbreviations by position
-        if (stats.pass_yd || stats.pass_td) {
-          const yds = stats.pass_yd || 0;
-          const tds = stats.pass_td || 0;
-          const ints = stats.pass_int || 0;
-          statParts.push(`${yds} YDS, ${tds} TD${tds !== 1 ? 'S' : ''}${ints > 0 ? `, ${ints} INT${ints !== 1 ? 'S' : ''}` : ''}`);
-        }
-
-        if (stats.rush_yd || stats.rush_td) {
-          const yds = stats.rush_yd || 0;
-          const tds = stats.rush_td || 0;
-          const att = stats.rush_att || 0;
-          statParts.push(`${att} CAR, ${yds} YDS${tds > 0 ? `, ${tds} TD${tds !== 1 ? 'S' : ''}` : ''}`);
-        }
-
-        if (stats.rec || stats.rec_yd || stats.rec_td) {
-          const rec = stats.rec || 0;
-          const yds = stats.rec_yd || 0;
-          const tds = stats.rec_td || 0;
-          statParts.push(`${rec} REC, ${yds} YDS${tds > 0 ? `, ${tds} TD${tds !== 1 ? 'S' : ''}` : ''}`);
-        }
-
-        if (statParts.length > 0) {
-          statParts.forEach(stat => addInfo(stat));
-        }
-      }
-
-      // If no stats available, show game status detail
-      if (info.length === (opponentLabel ? 1 : 0)) {
-        const detail =
-          (typeof starter?.scoreboard_detail === 'string' && starter.scoreboard_detail) ||
-          (typeof starter?.raw_game_status === 'string' && starter.raw_game_status) ||
-          (typeof starter?.game_status === 'string' && starter.game_status);
-        if (detail && detail.toLowerCase() !== 'final') {
-          addInfo(detail.toUpperCase());
-        }
-      }
+      // For finished games, we don't add extra info since:
+      // - The "Finished" badge is hidden (showBadge: false)
+      // - The fantasy points are already displayed prominently
+      // - Detailed stats from Sleeper are only available for fully completed weeks
     }
 
     const injury = starter?.injury_status;
     if (injury && typeof injury === 'string') {
       const trimmed = injury.trim();
       if (trimmed && trimmed.toLowerCase() !== 'n/a' && trimmed.toLowerCase() !== 'healthy') {
-        addInfo(trimmed.toUpperCase());
+        injuryInfo = trimmed.toUpperCase();
       }
     } else {
       const practice = starter?.practice_status;
@@ -1606,12 +1588,12 @@ const FantasyFootballApp = () => {
           trimmedPractice.toLowerCase() !== 'full' &&
           trimmedPractice.toLowerCase() !== 'na'
         ) {
-          addInfo(trimmedPractice.toUpperCase());
+          injuryInfo = trimmedPractice.toUpperCase();
         }
       }
     }
 
-    return info;
+    return { gameInfo, injuryInfo };
   };
 
   const renderTeamLineup = (team, label = null, lineupDataOverride = null) => {
@@ -1640,7 +1622,7 @@ const FantasyFootballApp = () => {
         <ul className="divide-y divide-gray-200">
           {startersWithStatus.length > 0 ? (
             startersWithStatus.map(({ starter, statusMeta }) => {
-              const secondaryInfo = getStarterSecondaryInfo(starter, statusMeta);
+              const { gameInfo, injuryInfo } = getStarterSecondaryInfo(starter, statusMeta);
               return (
                 <li
                   key={`${team.roster_id}-${starter.slot}-${starter.player_id}`}
@@ -1651,15 +1633,22 @@ const FantasyFootballApp = () => {
                       {starter.position || ''}
                     </span>
                     <div>
-                      <p className="font-medium text-gray-800">{starter.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-800">{starter.name}</p>
+                        {injuryInfo && (
+                          <span className="text-[10px] font-semibold text-red-600">
+                            {injuryInfo}
+                          </span>
+                        )}
+                      </div>
                       {starter.team && (
                         <p className="text-[11px] uppercase tracking-wide text-gray-400">
                           {starter.team}
                         </p>
                       )}
-                      {secondaryInfo.length > 0 && (
+                      {gameInfo.length > 0 && (
                         <p className="text-[11px] text-gray-500 mt-0.5">
-                          {secondaryInfo.join(' • ')}
+                          {gameInfo.join(' • ')}
                         </p>
                       )}
                     </div>
