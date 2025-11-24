@@ -1957,7 +1957,7 @@ const FantasyFootballApp = () => {
 
       <div className={`${surfaceCard} p-4 sm:p-6 space-y-6`}>
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-50">Season {selectedSeasonYear}</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-50">{selectedSeasonYear}</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div className="rounded-xl bg-gradient-to-br from-blue-500/20 via-slate-900/60 to-slate-900/60 border border-blue-400/30 p-3">
