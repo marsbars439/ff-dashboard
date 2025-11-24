@@ -62,7 +62,7 @@ jobs:
 
       - name: Deploy updated stack on Unraid
         run: |
-          sudo /usr/bin/bash /boot/config/custom/deploy_ff_dashboard.sh
+          /usr/bin/bash /boot/config/custom/deploy_ff_dashboard.sh
       
       - name: Cleanup dangling Docker images
         run: |

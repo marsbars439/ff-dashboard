@@ -1350,7 +1350,7 @@ const FantasyFootballApp = () => {
         (resolvedKey === 'finished' && playerActivityStyles[resolvedKey]) ||
         backendKey === 'finished' ||
         hasFinishedDetail ||
-        (kickoffLikelyFinished && (statsAvailable || pointsValue !== null))
+        kickoffLikelyFinished
     );
 
     const hasGameStartedSignal = Boolean(
@@ -1413,6 +1413,18 @@ const FantasyFootballApp = () => {
       resolvedKey = 'upcoming';
     }
 
+    // Final check: if marked as 'live' but no live indicators, mark as finished
+    // This handles cases where we have points but no kickoff time or status data
+    if (resolvedKey === 'live') {
+      if (kickoffLikelyFinished && !hasLiveDetail && !scoreboardHasLive) {
+        // Game kicked off 4.5+ hours ago with no live indicators
+        resolvedKey = 'finished';
+      } else if (!hasKickoff && pointsValue !== null && !hasLiveDetail && !scoreboardHasLive) {
+        // No kickoff time, but has points and no live indicators - assume finished
+        resolvedKey = 'finished';
+      }
+    }
+
     return playerActivityStyles[resolvedKey] || playerActivityStyles.upcoming;
   };
 
@@ -1442,44 +1454,32 @@ const FantasyFootballApp = () => {
   };
 
   const renderStatusPills = (statusCounts, size = 'md', options = {}) => {
-    const { includeFinished = false } = options;
-    const entries = Object.entries(statusCounts || {})
-      .filter(([key, count]) => {
-        const statusMeta = playerActivityStyles[key];
-        if (!statusMeta || count <= 0) {
-          return false;
-        }
-        if (!includeFinished && key === 'finished') {
-          return false;
-        }
-        return true;
-      })
-      .sort((a, b) => playerActivityOrder[a[0]] - playerActivityOrder[b[0]]);
+    if (!statusCounts) {
+      return null;
+    }
 
-    if (entries.length === 0) {
+    // Calculate remaining players (live + upcoming, excluding finished and inactive)
+    const live = statusCounts.live || 0;
+    const upcoming = statusCounts.upcoming || 0;
+    const remaining = live + upcoming;
+
+    if (remaining === 0) {
       return null;
     }
 
     const baseClass =
       size === 'xs' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]';
-    const dotSize = size === 'xs' ? 'w-1 h-1' : 'w-1.5 h-1.5';
+
+    // Debug: log the counts to help identify the issue
+    console.log('Status counts:', { statusCounts, live, upcoming, remaining });
 
     return (
-      <div className="flex flex-wrap gap-1">
-        {entries.map(([key, count]) => {
-          const statusMeta = playerActivityStyles[key];
-          const label = statusMeta.summaryLabel ?? statusMeta.label;
-          return (
-            <span
-              key={key}
-              title={statusMeta.description}
-              className={`inline-flex items-center gap-1 rounded-full border font-medium ${statusMeta.badgeClasses} ${baseClass}`}
-            >
-              <span className={`${dotSize} rounded-full ${statusMeta.dotClasses}`} />
-              {label ? `${count} ${label}` : count}
-            </span>
-          );
-        })}
+      <div className="flex justify-center">
+        <span
+          className={`inline-flex items-center gap-1 rounded-full border font-medium border-sky-200 bg-sky-50 text-sky-700 ${baseClass}`}
+        >
+          {remaining} Remaining
+        </span>
       </div>
     );
   };
@@ -1659,85 +1659,86 @@ const FantasyFootballApp = () => {
     const awaySummary = renderStatusPills(awayLineup.statusCounts, 'xs');
     const homePointsValue = normalizePoints(home?.points);
     const awayPointsValue = normalizePoints(away?.points);
+    const isWeekComplete = weekNumber <= lastCompletedWeek;
     const homeWin =
+      isWeekComplete &&
       homePointsValue !== null &&
       awayPointsValue !== null &&
       homePointsValue > awayPointsValue;
     const awayWin =
+      isWeekComplete &&
       homePointsValue !== null &&
       awayPointsValue !== null &&
       awayPointsValue > homePointsValue;
     const isExpanded = !!expandedMatchups[matchupKey];
 
     return (
-      <div key={matchupKey} className="bg-white rounded-lg shadow">
+      <div key={matchupKey} className="rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm">
+        <div className="grid grid-cols-2 divide-x divide-gray-200">
+          {/* Home Team - name left, score right */}
+          <div className={`p-3 ${homeWin ? 'bg-emerald-600' : ''}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <span className={`text-sm font-medium block truncate ${homeWin ? 'text-white' : 'text-gray-900'}`}>
+                  {home?.manager_name || 'TBD'}
+                </span>
+                {home?.team_name && (
+                  <p className={`text-xs mt-1 ${homeWin ? 'text-white/80' : 'text-gray-500'}`}>{home.team_name}</p>
+                )}
+              </div>
+              <div className="flex-shrink-0 text-center">
+                <span className={`text-lg font-bold block ${homeWin ? 'text-white' : 'text-gray-700'}`}>
+                  {formatPoints(home?.points)}
+                </span>
+                <div className="mt-1 min-h-[20px]">
+                  {homeSummary}
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Away Team - score left, name right */}
+          <div className={`p-3 ${awayWin ? 'bg-emerald-600' : ''}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-shrink-0 text-center">
+                <span className={`text-lg font-bold block ${awayWin ? 'text-white' : 'text-gray-700'}`}>
+                  {formatPoints(away?.points)}
+                </span>
+                <div className="mt-1 min-h-[20px]">
+                  {awaySummary}
+                </div>
+              </div>
+              <div className="flex-1 min-w-0 text-right">
+                <span className={`text-sm font-medium block truncate ${awayWin ? 'text-white' : 'text-gray-900'}`}>
+                  {away?.manager_name || 'TBD'}
+                </span>
+                {away?.team_name && (
+                  <p className={`text-xs mt-1 ${awayWin ? 'text-white/80' : 'text-gray-500'}`}>{away.team_name}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
         <button
           type="button"
           onClick={() => toggleMatchupExpansion(matchupKey)}
-          className="w-full px-3 py-3 sm:px-4 sm:py-4 flex items-center justify-between text-left"
+          className="w-full px-3 py-2 border-t border-gray-200 flex items-center justify-center gap-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
         >
-          <div className="flex-1 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p
-                  className={`text-sm sm:text-base font-semibold ${
-                    homeWin ? 'text-green-700' : 'text-gray-900'
-                  }`}
-                >
-                  {home?.manager_name || 'TBD'}
-                </p>
-                {home?.team_name && (
-                  <p className="text-xs text-gray-500">{home.team_name}</p>
-                )}
-                {homeSummary && <div className="mt-1">{homeSummary}</div>}
-              </div>
-              <span
-                className={`text-sm sm:text-base font-bold ${
-                  homeWin ? 'text-green-700' : 'text-gray-700'
-                }`}
-              >
-                {formatPoints(home?.points)}
-              </span>
-            </div>
-            <div className="text-center text-xs uppercase tracking-wide text-gray-400">vs</div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p
-                  className={`text-sm sm:text-base font-semibold ${
-                    awayWin ? 'text-green-700' : 'text-gray-900'
-                  }`}
-                >
-                  {away?.manager_name || 'TBD'}
-                </p>
-                {away?.team_name && (
-                  <p className="text-xs text-gray-500">{away.team_name}</p>
-                )}
-                {awaySummary && <div className="mt-1">{awaySummary}</div>}
-              </div>
-              <span
-                className={`text-sm sm:text-base font-bold ${
-                  awayWin ? 'text-green-700' : 'text-gray-700'
-                }`}
-              >
-                {formatPoints(away?.points)}
-              </span>
-            </div>
-          </div>
+          <span>{isExpanded ? 'Hide Lineups' : 'View Lineups'}</span>
           <ChevronDown
-            className={`w-5 h-5 text-gray-500 transition-transform ${
+            className={`w-4 h-4 transition-transform ${
               isExpanded ? 'transform rotate-180' : ''
             }`}
           />
         </button>
-          {isExpanded && (
-            <div className="border-t px-3 py-3 sm:px-4 sm:py-4 bg-gray-50">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderTeamLineup(home, null, homeLineup)}
-                {renderTeamLineup(away, null, awayLineup)}
-              </div>
+        {isExpanded && (
+          <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 bg-gray-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {renderTeamLineup(home, null, homeLineup)}
+              {renderTeamLineup(away, null, awayLineup)}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
       );
   };
 
@@ -1772,15 +1773,15 @@ const FantasyFootballApp = () => {
       : true;
 
     return (
-      <div key={week.week} className="bg-gray-50 rounded-lg">
+      <div key={week.week} className="bg-gray-100 rounded-lg border border-gray-200">
         <button
           type="button"
           onClick={() => toggleWeekExpansion(week.week)}
-          className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left"
+          className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left hover:bg-gray-50 transition-colors rounded-lg"
           aria-expanded={isExpanded}
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-1 gap-2">
-            <h4 className="font-semibold">Week {week.week}</h4>
+            <h4 className="font-semibold text-gray-900">Week {week.week}</h4>
             {isActiveWeek && <span className={headerMessageClass}>{headerMessage}</span>}
           </div>
           <ChevronDown
@@ -1791,7 +1792,7 @@ const FantasyFootballApp = () => {
         </button>
 
         {isExpanded && (
-          <div className="border-t border-gray-200 px-3 pb-3 sm:px-4 sm:pb-4 pt-3 sm:pt-4">
+          <div className="border-t border-gray-200 px-3 pb-3 sm:px-4 sm:pb-4 pt-3 sm:pt-4 bg-gray-50">
             {hasActiveLineups ? (
               <div className="space-y-3">
                 {activeWeekMatchups.matchups.map((matchup, idx) =>
@@ -1808,40 +1809,50 @@ const FantasyFootballApp = () => {
                 {isActiveWeek && activeWeekError && (
                   <p className="text-xs text-red-600 mb-2">{activeWeekError}</p>
                 )}
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-xs sm:text-sm table-fixed">
-                    <tbody className="divide-y divide-gray-200">
-                      {week.matchups.map((m, idx) => {
-                        const homePoints = normalizePoints(m.home?.points);
-                        const awayPoints = normalizePoints(m.away?.points);
-                        const homeWin =
-                          homePoints !== null &&
-                          awayPoints !== null &&
-                          homePoints > awayPoints;
-                        const awayWin =
-                          homePoints !== null &&
-                          awayPoints !== null &&
-                          awayPoints > homePoints;
-                        return (
-                          <tr key={idx} className="text-left">
-                            <td className={`px-2 py-1 w-1/5 ${homeWin ? 'bg-green-50 text-green-700 font-semibold rounded-l' : ''}`}>
-                              {m.home?.manager_name || 'TBD'}
-                            </td>
-                            <td className={`px-2 py-1 w-1/5 text-right ${homeWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
-                              {formatPoints(m.home?.points)}
-                            </td>
-                            <td className="px-2 py-1 w-1/5 text-center">vs</td>
-                            <td className={`px-2 py-1 w-1/5 ${awayWin ? 'bg-green-50 text-green-700 font-semibold' : ''}`}>
-                              {m.away?.manager_name || 'TBD'}
-                            </td>
-                            <td className={`px-2 py-1 w-1/5 text-right ${awayWin ? 'bg-green-50 text-green-700 font-semibold rounded-r' : ''}`}>
-                              {formatPoints(m.away?.points)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="space-y-3">
+                  {week.matchups.map((m, idx) => {
+                    const homePoints = normalizePoints(m.home?.points);
+                    const awayPoints = normalizePoints(m.away?.points);
+                    const isWeekComplete = week.week <= lastCompletedWeek;
+                    const homeWin =
+                      isWeekComplete &&
+                      homePoints !== null &&
+                      awayPoints !== null &&
+                      homePoints > awayPoints;
+                    const awayWin =
+                      isWeekComplete &&
+                      homePoints !== null &&
+                      awayPoints !== null &&
+                      awayPoints > homePoints;
+                    return (
+                      <div key={idx} className="rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm">
+                        <div className="grid grid-cols-2 divide-x divide-gray-200">
+                          {/* Home Team - name left, score right */}
+                          <div className={`p-3 ${homeWin ? 'bg-emerald-600' : ''}`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`text-sm font-medium truncate ${homeWin ? 'text-white' : 'text-gray-900'}`}>
+                                {m.home?.manager_name || 'TBD'}
+                              </span>
+                              <span className={`text-lg font-bold ${homeWin ? 'text-white' : 'text-gray-700'}`}>
+                                {formatPoints(m.home?.points)}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Away Team - score left, name right */}
+                          <div className={`p-3 ${awayWin ? 'bg-emerald-600' : ''}`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`text-lg font-bold ${awayWin ? 'text-white' : 'text-gray-700'}`}>
+                                {formatPoints(m.away?.points)}
+                              </span>
+                              <span className={`text-sm font-medium truncate ${awayWin ? 'text-white' : 'text-gray-900'}`}>
+                                {m.away?.manager_name || 'TBD'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -1957,7 +1968,7 @@ const FantasyFootballApp = () => {
 
       <div className={`${surfaceCard} p-4 sm:p-6 space-y-6`}>
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-50">Season {selectedSeasonYear}</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-50">{selectedSeasonYear}</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div className="rounded-xl bg-gradient-to-br from-blue-500/20 via-slate-900/60 to-slate-900/60 border border-blue-400/30 p-3">
