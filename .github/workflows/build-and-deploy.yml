@@ -2,16 +2,12 @@ name: Build & Deploy FF Dashboard to Unraid
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
   workflow_dispatch:
 
 concurrency:
   group: ff-dashboard
   cancel-in-progress: true
-
-env:
-  BACKEND_IMAGE: ghcr.io/${{ secrets.GHCR_USERNAME }}/ff-dashboard-backend:latest
-  FRONTEND_IMAGE: ghcr.io/${{ secrets.GHCR_USERNAME }}/ff-dashboard:latest
 
 jobs:
   build-and-deploy:
@@ -30,19 +26,39 @@ jobs:
           username: ${{ secrets.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_TOKEN }}
 
+      # Decide tags based on branch (main -> latest, dev -> dev)
+      - name: Set image tags
+        id: vars
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            echo "BACKEND_TAG=latest" >> $GITHUB_OUTPUT
+            echo "FRONTEND_TAG=latest" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_REF_NAME}" == "dev" ]]; then
+            echo "BACKEND_TAG=dev" >> $GITHUB_OUTPUT
+            echo "FRONTEND_TAG=dev" >> $GITHUB_OUTPUT
+          else
+            # Fallback (not really used with current triggers)
+            echo "BACKEND_TAG=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+            echo "FRONTEND_TAG=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
-          tags: ${{ env.BACKEND_IMAGE }}
+          tags: |
+            ghcr.io/${{ secrets.GHCR_USERNAME }}/ff-dashboard-backend:${{ steps.vars.outputs.BACKEND_TAG }}
+            ghcr.io/${{ secrets.GHCR_USERNAME }}/ff-dashboard-backend:${{ github.sha }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ env.FRONTEND_IMAGE }}
+          tags: |
+            ghcr.io/${{ secrets.GHCR_USERNAME }}/ff-dashboard:${{ steps.vars.outputs.FRONTEND_TAG }}
+            ghcr.io/${{ secrets.GHCR_USERNAME }}/ff-dashboard:${{ github.sha }}
 
       - name: Deploy updated stack on Unraid
         run: |

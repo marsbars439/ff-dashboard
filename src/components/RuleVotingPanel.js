@@ -48,7 +48,7 @@ const RuleVotingPanel = () => {
   const isSubmitting = activeProposal ? !!voteStatus[activeProposal.id] : false;
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+    <div className="card-primary">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center space-x-2">

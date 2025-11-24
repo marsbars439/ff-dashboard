@@ -106,7 +106,7 @@ const RecordsView = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 rounded-xl border border-white/10 shadow-2xl p-4 sm:p-6 text-white">
+        <div className="card-primary text-white">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div>
               <h3 className="text-lg sm:text-xl font-bold flex items-center space-x-2">
@@ -120,7 +120,7 @@ const RecordsView = ({
             {medalRankings.map((manager, index) => (
               <div
                 key={manager.name}
-                className="p-3 sm:p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all duration-200"
+                className="card-tertiary hover:bg-white/10 transition-all duration-200"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
@@ -170,7 +170,7 @@ const RecordsView = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <div className="card-primary">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
             <Target className="w-5 h-5 text-red-500" />
             <span>Chumpion Count Rankings</span>
@@ -178,7 +178,7 @@ const RecordsView = ({
 
           <div className="space-y-2 sm:space-y-3">
             {chumpionRankings.map((manager, index) => (
-              <div key={manager.name} className="w-full p-3 sm:p-4 rounded-lg border-2 bg-white border-gray-200">
+              <div key={manager.name} className="card-tertiary">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2 min-w-0 flex-1">
                     <span className="font-bold text-base sm:text-lg flex-shrink-0">#{index + 1}</span>
@@ -203,7 +203,7 @@ const RecordsView = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <div className="card-primary">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-5 flex items-center space-x-2">
             <BarChart3 className="w-5 h-5 text-blue-500" />
             <span>Win Percentage Rankings</span>
@@ -213,8 +213,8 @@ const RecordsView = ({
             {winPctRankings.map((manager, index) => (
               <div
                 key={manager.name}
-                className={`p-2 sm:p-3 rounded-lg border ${
-                  manager.active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300 opacity-75'
+                className={`card-tertiary ${
+                  manager.active ? '' : 'opacity-75'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -239,7 +239,7 @@ const RecordsView = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <div className="card-primary">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-5 flex items-center space-x-2">
             <TrendingUp className="w-5 h-5 text-green-500" />
             <span>Points Per Game Rankings</span>
@@ -249,8 +249,8 @@ const RecordsView = ({
             {ppgRankings.map((manager, index) => (
               <div
                 key={`${manager.name}-${index}`}
-                className={`p-2 sm:p-3 rounded-lg border ${
-                  manager.active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300 opacity-75'
+                className={`card-tertiary ${
+                  manager.active ? '' : 'opacity-75'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -276,8 +276,8 @@ const RecordsView = ({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center space-x-2">
+      <div className="card-primary">
+        <h3 className="text-lg sm:text-xl font-bold text-slate-50 mb-4 sm:mb-6 flex items-center space-x-2">
           <Zap className="w-5 h-5 text-purple-500" />
           <span>Individual Manager Lookup</span>
         </h3>
@@ -303,7 +303,7 @@ const RecordsView = ({
         </div>
 
         {selectedManager && allRecords[selectedManager] && (
-          <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
+          <div className="card-secondary">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
               <h4 className="text-xl sm:text-2xl font-bold text-gray-900">
                 {allRecords[selectedManager].name}
@@ -316,7 +316,7 @@ const RecordsView = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              <div className="bg-white p-3 sm:p-4 rounded-lg">
+              <div className="card-tertiary">
                 <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Franchise Record</p>
                 <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {allRecords[selectedManager].totalWins}-{allRecords[selectedManager].totalLosses}
@@ -326,7 +326,7 @@ const RecordsView = ({
                 </p>
               </div>
 
-              <div className="bg-white p-3 sm:p-4 rounded-lg">
+              <div className="card-tertiary">
                 <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Championships</p>
                 <p className="text-xl sm:text-2xl font-bold text-yellow-600">
                   {allRecords[selectedManager].championships}
@@ -336,7 +336,7 @@ const RecordsView = ({
                 </p>
               </div>
 
-              <div className="bg-white p-3 sm:p-4 rounded-lg">
+              <div className="card-tertiary">
                 <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Net Earnings</p>
                 <p
                   className={`text-xl sm:text-2xl font-bold ${
@@ -352,7 +352,7 @@ const RecordsView = ({
                 </p>
               </div>
 
-              <div className="bg-white p-3 sm:p-4 rounded-lg">
+              <div className="card-tertiary">
                 <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Points Per Game</p>
                 <p className="text-xl sm:text-2xl font-bold text-blue-600">
                   {allRecords[selectedManager].pointsPerGame.toFixed(1)}
