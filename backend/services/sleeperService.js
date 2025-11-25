@@ -1005,7 +1005,6 @@ class SleeperService {
 
                 // Get ESPN player stats if available
                 const gameId = espnGame?.gameId || null;
-                const player = playersMap[playerId];
                 const espnId = player?.espn_id ? parseInt(player.espn_id) : null;
                 let espnPlayerStats = null;
 
