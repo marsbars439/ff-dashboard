@@ -596,15 +596,20 @@ class SleeperService {
           Array.from(espnGamesByTeam.values()).map(game => game.gameId)
         );
 
+        console.log(`📊 Fetching ESPN stats for ${uniqueGameIds.size} games`);
+
         for (const gameId of uniqueGameIds) {
           try {
             const summary = await espnService.getGameSummary(gameId);
             if (summary && summary.boxscore) {
               const playerStats = espnService.parsePlayerStats(summary.boxscore);
               espnPlayerStatsByGame.set(gameId, playerStats);
+              console.log(`✅ Fetched stats for game ${gameId}: ${playerStats.size} players`);
+            } else {
+              console.log(`⚠️  No boxscore data for game ${gameId}`);
             }
           } catch (error) {
-            console.warn(`Failed to fetch ESPN stats for game ${gameId}:`, error.message);
+            console.warn(`❌ Failed to fetch ESPN stats for game ${gameId}:`, error.message);
           }
         }
 
@@ -1011,6 +1016,12 @@ class SleeperService {
                 if (gameId && espnId && espnPlayerStatsByGame.has(gameId)) {
                   const gameStats = espnPlayerStatsByGame.get(gameId);
                   espnPlayerStats = gameStats.get(espnId) || null;
+
+                  if (!espnPlayerStats) {
+                    console.log(`⚠️  No ESPN stats found for ${name} (ESPN ID: ${espnId}, Game: ${gameId})`);
+                  }
+                } else if (!espnId && name) {
+                  console.log(`⚠️  No ESPN ID for player: ${name} (Sleeper ID: ${playerId})`);
                 }
 
                 return {
@@ -1062,6 +1073,8 @@ class SleeperService {
                     passing_line: espnPlayerStats.passingLine || null,
                     rushing_line: espnPlayerStats.rushingLine || null,
                     receiving_line: espnPlayerStats.receivingLine || null,
+                    kicking_line: espnPlayerStats.kickingLine || null,
+                    defensive_line: espnPlayerStats.defensiveLine || null,
                     detailed_stats: espnPlayerStats.stats || null
                   } : null
                 };

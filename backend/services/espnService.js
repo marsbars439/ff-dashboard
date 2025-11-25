@@ -219,6 +219,12 @@ class ESPNService {
             playerData.rushingLine = `${stats[0]} CAR, ${stats[1]} YDS${stats[3] ? ', ' + stats[3] + ' TD' : ''}`;
           } else if (categoryName === 'receiving' && stats.length > 0) {
             playerData.receivingLine = `${stats[0]} REC, ${stats[1]} YDS${stats[3] ? ', ' + stats[3] + ' TD' : ''}`;
+          } else if (categoryName === 'kicking' && stats.length > 0) {
+            // FG, PCT, LONG, XP, PTS format
+            playerData.kickingLine = `${stats[0]} FG, ${stats[3]} XP, ${stats[4]} PTS`;
+          } else if (categoryName === 'defensive' && stats.length > 0) {
+            // TOT, SOLO, SACKS, TFL, PD, QB HTS, TD format
+            playerData.defensiveLine = `${stats[0]} TOT, ${stats[2]} SACKS`;
           }
         }
       }

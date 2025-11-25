@@ -1552,12 +1552,23 @@ const FantasyFootballApp = () => {
       // Add ESPN stats for live games
       if (starter?.espn_stats) {
         const stats = starter.espn_stats;
-        if (stats.passing_line) {
+        const pos = starter?.position?.toUpperCase();
+
+        // Show most relevant stat based on position
+        if (pos === 'QB' && stats.passing_line) {
           addGameInfo(stats.passing_line);
-        } else if (stats.rushing_line) {
-          addGameInfo(stats.rushing_line);
-        } else if (stats.receiving_line) {
+        } else if ((pos === 'RB' || pos === 'FB') && (stats.rushing_line || stats.receiving_line)) {
+          // RBs: prioritize rushing, but show receiving if they didn't rush
+          addGameInfo(stats.rushing_line || stats.receiving_line);
+        } else if ((pos === 'WR' || pos === 'TE') && stats.receiving_line) {
           addGameInfo(stats.receiving_line);
+        } else if (pos === 'K' && stats.kicking_line) {
+          addGameInfo(stats.kicking_line);
+        } else if (pos === 'DEF' && stats.defensive_line) {
+          addGameInfo(stats.defensive_line);
+        } else {
+          // Fallback: show any available stat
+          addGameInfo(stats.passing_line || stats.rushing_line || stats.receiving_line || stats.kicking_line || stats.defensive_line);
         }
       }
     }
@@ -1566,12 +1577,23 @@ const FantasyFootballApp = () => {
       // For finished games, show ESPN traditional stats if available
       if (starter?.espn_stats) {
         const stats = starter.espn_stats;
-        if (stats.passing_line) {
+        const pos = starter?.position?.toUpperCase();
+
+        // Show most relevant stat based on position
+        if (pos === 'QB' && stats.passing_line) {
           addGameInfo(stats.passing_line);
-        } else if (stats.rushing_line) {
-          addGameInfo(stats.rushing_line);
-        } else if (stats.receiving_line) {
+        } else if ((pos === 'RB' || pos === 'FB') && (stats.rushing_line || stats.receiving_line)) {
+          // RBs: prioritize rushing, but show receiving if they didn't rush
+          addGameInfo(stats.rushing_line || stats.receiving_line);
+        } else if ((pos === 'WR' || pos === 'TE') && stats.receiving_line) {
           addGameInfo(stats.receiving_line);
+        } else if (pos === 'K' && stats.kicking_line) {
+          addGameInfo(stats.kicking_line);
+        } else if (pos === 'DEF' && stats.defensive_line) {
+          addGameInfo(stats.defensive_line);
+        } else {
+          // Fallback: show any available stat
+          addGameInfo(stats.passing_line || stats.rushing_line || stats.receiving_line || stats.kicking_line || stats.defensive_line);
         }
       }
     }
