@@ -1,4 +1,5 @@
 const axios = require('axios');
+const logger = require('../utils/logger');
 const gameStatusService = require('./gameStatusService');
 const espnService = require('./espnService');
 
@@ -129,7 +130,7 @@ class SleeperService {
       };
       return players;
     } catch (error) {
-      console.error('❌ Error fetching Sleeper players:', error.message);
+      logger.error('Error fetching Sleeper players', { error: error.message });
       throw error;
     }
   }
@@ -576,9 +577,8 @@ class SleeperService {
 
         const playersMap = await this.getPlayersMap();
         const statsByPlayer = await this.getWeeklyPlayerStats(season, week);
-        const scheduleByTeam = await this.getWeeklySchedule(season, week);
 
-        // Fetch ESPN game data for reliable kickoff times and status
+        // Fetch ESPN game data for NFL schedule, kickoff times, and status
         const espnScoreboard = await espnService.getWeekGames(season, week);
         const espnGamesByTeam = espnService.parseGames(espnScoreboard);
 
@@ -716,14 +716,10 @@ class SleeperService {
                 const pointsValue = Number.isFinite(parsedPoints) ? parsedPoints : null;
 
                 const statsEntry = statsByPlayer[playerId] || null;
-                const scheduleEntry = team ? scheduleByTeam[team] || null : null;
 
                 const rawStatusPieces = [];
                 if (statsEntry && (statsEntry.status || statsEntry.game_status)) {
                   rawStatusPieces.push(statsEntry.status || statsEntry.game_status);
-                }
-                if (scheduleEntry && (scheduleEntry.status || scheduleEntry.raw_status)) {
-                  rawStatusPieces.push(scheduleEntry.status || scheduleEntry.raw_status);
                 }
                 if (scoreboardEntry?.rawStatusText) {
                   rawStatusPieces.push(scoreboardEntry.rawStatusText);
@@ -735,9 +731,6 @@ class SleeperService {
 
                 const normalizedStatsStatus = statsEntry?.status
                   ? this.normalizeGameStatus(statsEntry.status)
-                  : null;
-                const normalizedScheduleStatus = scheduleEntry?.status
-                  ? this.normalizeGameStatus(scheduleEntry.status)
                   : null;
                 const normalizedScoreboardStatus = scoreboardEntry?.status
                   ? this.normalizeGameStatus(scoreboardEntry.status)
@@ -764,8 +757,7 @@ class SleeperService {
                   scoreboardEntry?.startTime,
                   statsEntry?.game_start,
                   statsEntry?.game_start_time,
-                  statsEntry?.game_start_ms,
-                  scheduleEntry?.start_time
+                  statsEntry?.game_start_ms
                 );
 
                 const scoreboardOpponent =
@@ -784,10 +776,7 @@ class SleeperService {
                     statsEntry.opponent
                       ? statsEntry.opponent.toUpperCase()
                       : null) ||
-                  deriveOpponentFromGameId(statsEntry?.game_id, team) ||
-                  (scheduleEntry && scheduleEntry.opponent
-                    ? scheduleEntry.opponent.toUpperCase()
-                    : null);
+                  deriveOpponentFromGameId(statsEntry?.game_id, team);
 
                 const scoreboardHomeAway =
                   scoreboardEntry && team
@@ -1156,11 +1145,13 @@ class SleeperService {
                   scoreboard_clock: scoreboardEntry?.clock || null,
                   // ESPN traditional stats
                   espn_stats: espnPlayerStats ? {
-                    passing_line: espnPlayerStats.passingLine || null,
-                    rushing_line: espnPlayerStats.rushingLine || null,
-                    receiving_line: espnPlayerStats.receivingLine || null,
-                    kicking_line: espnPlayerStats.kickingLine || null,
-                    defensive_line: espnPlayerStats.defensiveLine || null,
+                    stat_line: espnPlayerStats.statLine || null,
+                    passing: espnPlayerStats.passing || null,
+                    rushing: espnPlayerStats.rushing || null,
+                    receiving: espnPlayerStats.receiving || null,
+                    fumbles: espnPlayerStats.fumbles || null,
+                    kicking: espnPlayerStats.kicking || null,
+                    defensive: espnPlayerStats.defensive || null,
                     detailed_stats: espnPlayerStats.stats || null
                   } : null
                 };

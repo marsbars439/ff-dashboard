@@ -221,25 +221,104 @@ class ESPNService {
 
           playerData.stats[categoryName] = categoryStats;
 
-          // Build a human-readable stat line
+          // Build stat components (we'll combine them later)
           if (categoryName === 'passing' && stats.length > 0) {
-            playerData.passingLine = stats[0]; // e.g., "25/34, 281 YDS, 1 TD"
+            playerData.passing = {
+              comp: stats[0] || '0/0',
+              yds: parseInt(stats[1]) || 0,
+              td: parseInt(stats[3]) || 0,
+              int: parseInt(stats[4]) || 0
+            };
           } else if (categoryName === 'rushing' && stats.length > 0) {
-            playerData.rushingLine = `${stats[0]} CAR, ${stats[1]} YDS${stats[3] ? ', ' + stats[3] + ' TD' : ''}`;
+            playerData.rushing = {
+              car: parseInt(stats[0]) || 0,
+              yds: parseInt(stats[1]) || 0,
+              td: parseInt(stats[3]) || 0
+            };
           } else if (categoryName === 'receiving' && stats.length > 0) {
-            playerData.receivingLine = `${stats[0]} REC, ${stats[1]} YDS${stats[3] ? ', ' + stats[3] + ' TD' : ''}`;
+            playerData.receiving = {
+              rec: parseInt(stats[0]) || 0,
+              yds: parseInt(stats[1]) || 0,
+              td: parseInt(stats[3]) || 0
+            };
+          } else if (categoryName === 'fumbles' && stats.length > 0) {
+            playerData.fumbles = {
+              fum: parseInt(stats[0]) || 0,
+              lost: parseInt(stats[1]) || 0
+            };
           } else if (categoryName === 'kicking' && stats.length > 0) {
-            // FG, PCT, LONG, XP, PTS format
-            playerData.kickingLine = `${stats[0]} FG, ${stats[3]} XP, ${stats[4]} PTS`;
+            playerData.kicking = {
+              fgm: stats[0] || '0/0',
+              xpm: stats[3] || '0/0',
+              pts: parseInt(stats[4]) || 0
+            };
           } else if (categoryName === 'defensive' && stats.length > 0) {
-            // TOT, SOLO, SACKS, TFL, PD, QB HTS, TD format
-            playerData.defensiveLine = `${stats[0]} TOT, ${stats[2]} SACKS`;
+            playerData.defensive = {
+              tackles: parseInt(stats[0]) || 0,
+              sacks: parseFloat(stats[2]) || 0
+            };
           }
         }
       }
     }
 
+    // Build comprehensive stat lines for each player
+    for (const playerData of playerStatsById.values()) {
+      playerData.statLine = this.buildComprehensiveStatLine(playerData);
+    }
+
     return { playerStatsById, playerStatsByName };
+  }
+
+  /**
+   * Build a comprehensive single-line stat summary
+   * @param {Object} playerData - Player data with stats
+   * @returns {string} Comprehensive stat line
+   */
+  buildComprehensiveStatLine(playerData) {
+    const parts = [];
+    const { passing, rushing, receiving, fumbles, kicking, defensive } = playerData;
+
+    // Passing stats
+    if (passing && (passing.yds > 0 || passing.td > 0 || passing.int > 0)) {
+      let passStr = `${passing.comp}, ${passing.yds} PASS YDS`;
+      if (passing.td > 0) passStr += `, ${passing.td} PASS TD`;
+      if (passing.int > 0) passStr += `, ${passing.int} INT`;
+      parts.push(passStr);
+    }
+
+    // Rushing stats
+    if (rushing && (rushing.yds > 0 || rushing.td > 0)) {
+      let rushStr = `${rushing.car} CAR, ${rushing.yds} RUSH YDS`;
+      if (rushing.td > 0) rushStr += `, ${rushing.td} RUSH TD`;
+      parts.push(rushStr);
+    }
+
+    // Receiving stats
+    if (receiving && (receiving.yds > 0 || receiving.td > 0)) {
+      let recStr = `${receiving.rec} REC, ${receiving.yds} REC YDS`;
+      if (receiving.td > 0) recStr += `, ${receiving.td} REC TD`;
+      parts.push(recStr);
+    }
+
+    // Fumbles (always show if lost fumbles exist)
+    if (fumbles && fumbles.lost > 0) {
+      parts.push(`${fumbles.lost} FL`);
+    }
+
+    // Kicking stats
+    if (kicking && kicking.pts > 0) {
+      parts.push(`${kicking.fgm} FG, ${kicking.xpm} XP (${kicking.pts} PTS)`);
+    }
+
+    // Defensive stats
+    if (defensive && (defensive.tackles > 0 || defensive.sacks > 0)) {
+      let defStr = `${defensive.tackles} TOT`;
+      if (defensive.sacks > 0) defStr += `, ${defensive.sacks} SACKS`;
+      parts.push(defStr);
+    }
+
+    return parts.join(' • ') || null;
   }
 }
 
