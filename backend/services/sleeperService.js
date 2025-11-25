@@ -584,9 +584,17 @@ class SleeperService {
 
         // Build ESPN ID to Sleeper ID mapping
         const espnIdToSleeperId = new Map();
+        const sleeperPlayersByName = new Map(); // Fallback: match by name
+
         Object.entries(playersMap).forEach(([sleeperId, player]) => {
           if (player.espn_id) {
             espnIdToSleeperId.set(parseInt(player.espn_id), sleeperId);
+          }
+
+          // Build name-based lookup as fallback (normalize names)
+          if (player.full_name) {
+            const normalizedName = player.full_name.toLowerCase().replace(/[^a-z]/g, '');
+            sleeperPlayersByName.set(normalizedName, sleeperId);
           }
         });
 
@@ -602,9 +610,9 @@ class SleeperService {
           try {
             const summary = await espnService.getGameSummary(gameId);
             if (summary && summary.boxscore) {
-              const playerStats = espnService.parsePlayerStats(summary.boxscore);
-              espnPlayerStatsByGame.set(gameId, playerStats);
-              console.log(`✅ Fetched stats for game ${gameId}: ${playerStats.size} players`);
+              const { playerStatsById, playerStatsByName } = espnService.parsePlayerStats(summary.boxscore);
+              espnPlayerStatsByGame.set(gameId, { playerStatsById, playerStatsByName });
+              console.log(`✅ Fetched stats for game ${gameId}: ${playerStatsById.size} players`);
             } else {
               console.log(`⚠️  No boxscore data for game ${gameId}`);
             }
@@ -1013,15 +1021,93 @@ class SleeperService {
                 const espnId = player?.espn_id ? parseInt(player.espn_id) : null;
                 let espnPlayerStats = null;
 
-                if (gameId && espnId && espnPlayerStatsByGame.has(gameId)) {
-                  const gameStats = espnPlayerStatsByGame.get(gameId);
-                  espnPlayerStats = gameStats.get(espnId) || null;
+                if (gameId && espnPlayerStatsByGame.has(gameId)) {
+                  const { playerStatsById, playerStatsByName } = espnPlayerStatsByGame.get(gameId);
 
-                  if (!espnPlayerStats) {
-                    console.log(`⚠️  No ESPN stats found for ${name} (ESPN ID: ${espnId}, Game: ${gameId})`);
+                  // Try matching by ESPN ID first
+                  if (espnId) {
+                    espnPlayerStats = playerStatsById.get(espnId) || null;
                   }
-                } else if (!espnId && name) {
-                  console.log(`⚠️  No ESPN ID for player: ${name} (Sleeper ID: ${playerId})`);
+
+                  // Fallback: Try fuzzy name matching with position verification
+                  if (!espnPlayerStats && name) {
+                    // Helper to normalize names (remove suffixes, special chars)
+                    const normalizeForMatching = (str) => {
+                      return str
+                        .toLowerCase()
+                        .replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '') // Remove suffixes
+                        .replace(/[^a-z]/g, '') // Remove non-alpha
+                        .trim();
+                    };
+
+                    const sleeperNormalized = normalizeForMatching(name);
+
+                    // Try exact normalized match first
+                    let candidate = playerStatsByName.get(sleeperNormalized);
+
+                    // If no exact match, try fuzzy matching with all players in the game
+                    if (!candidate) {
+                      let bestMatch = null;
+                      let bestScore = 0;
+
+                      for (const espnPlayer of playerStatsById.values()) {
+                        const espnNormalized = normalizeForMatching(espnPlayer.name || '');
+
+                        // Calculate similarity score
+                        let score = 0;
+
+                        // Check if normalized names match
+                        if (sleeperNormalized === espnNormalized) {
+                          score = 100;
+                        } else if (sleeperNormalized.includes(espnNormalized) || espnNormalized.includes(sleeperNormalized)) {
+                          // Partial match (handles nicknames like "AJ" vs "A.J.")
+                          score = 80;
+                        } else {
+                          // Calculate Levenshtein-like similarity
+                          const maxLen = Math.max(sleeperNormalized.length, espnNormalized.length);
+                          const minLen = Math.min(sleeperNormalized.length, espnNormalized.length);
+                          if (maxLen > 0 && minLen / maxLen > 0.7) {
+                            // Names are similar length
+                            let matches = 0;
+                            for (let i = 0; i < minLen; i++) {
+                              if (sleeperNormalized[i] === espnNormalized[i]) {
+                                matches++;
+                              }
+                            }
+                            score = (matches / maxLen) * 70;
+                          }
+                        }
+
+                        // Position bonus (if positions match, add confidence)
+                        if (score > 50 && position && espnPlayer.position) {
+                          if (position.toUpperCase() === espnPlayer.position.toUpperCase()) {
+                            score += 20;
+                          }
+                        }
+
+                        if (score > bestScore && score >= 70) {
+                          bestScore = score;
+                          bestMatch = espnPlayer;
+                        }
+                      }
+
+                      if (bestMatch) {
+                        candidate = bestMatch;
+                        console.log(`✅ Fuzzy matched ${name} to ${bestMatch.name} (score: ${bestScore.toFixed(0)}, pos: ${position}/${bestMatch.position})`);
+                      }
+                    } else {
+                      console.log(`✅ Exact name match: ${name} → ${candidate.name}`);
+                    }
+
+                    espnPlayerStats = candidate;
+                  }
+
+                  if (!espnPlayerStats && name) {
+                    // Only log if it's not a team defense (those don't have individual stats in box scores)
+                    if (position !== 'DEF') {
+                      console.log(`⚠️  No ESPN stats found for ${name} (Pos: ${position}, Game: ${gameId})`);
+                    }
+                  }
                 }
 
                 return {

@@ -162,13 +162,14 @@ class ESPNService {
   /**
    * Extract player stats from ESPN box score
    * @param {Object} boxscore - ESPN box score data
-   * @returns {Map<number, Object>} Map of ESPN player ID to stats
+   * @returns {Object} Object with playerStatsById (Map) and playerStatsByName (Map)
    */
   parsePlayerStats(boxscore) {
-    const playerStatsMap = new Map();
+    const playerStatsById = new Map();
+    const playerStatsByName = new Map();
 
     if (!boxscore || !boxscore.players) {
-      return playerStatsMap;
+      return { playerStatsById, playerStatsByName };
     }
 
     for (const teamStats of boxscore.players) {
@@ -188,19 +189,27 @@ class ESPNService {
           if (!athlete || !athlete.id) continue;
 
           const espnId = parseInt(athlete.id);
+          const playerName = athlete.displayName || athlete.fullName;
+          const normalizedName = playerName ? playerName.toLowerCase().replace(/[^a-z]/g, '') : null;
 
-          if (!playerStatsMap.has(espnId)) {
-            playerStatsMap.set(espnId, {
+          if (!playerStatsById.has(espnId)) {
+            const playerData = {
               espnId,
-              name: athlete.displayName || athlete.fullName,
+              name: playerName,
               position: athlete.position?.abbreviation || null,
               jersey: athlete.jersey || null,
               headshot: athlete.headshot?.href || null,
               stats: {}
-            });
+            };
+            playerStatsById.set(espnId, playerData);
+
+            // Also index by normalized name for fallback matching
+            if (normalizedName) {
+              playerStatsByName.set(normalizedName, playerData);
+            }
           }
 
-          const playerData = playerStatsMap.get(espnId);
+          const playerData = playerStatsById.get(espnId);
 
           // Build stats object for this category
           const categoryStats = {};
@@ -230,7 +239,7 @@ class ESPNService {
       }
     }
 
-    return playerStatsMap;
+    return { playerStatsById, playerStatsByName };
   }
 }
 
