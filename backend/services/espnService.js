@@ -70,6 +70,34 @@ class ESPNService {
   }
 
   /**
+   * Get detailed game summary including player stats
+   * @param {string} gameId - ESPN game ID
+   * @returns {Promise<Object>} Game summary with player stats
+   */
+  async getGameSummary(gameId) {
+    const cacheKey = `summary-${gameId}`;
+    const now = Date.now();
+    const cached = this.cache.get(cacheKey);
+
+    if (cached && now - cached.timestamp < this.cacheTtl) {
+      return cached.data;
+    }
+
+    try {
+      const response = await this.client.get('/summary', {
+        params: { event: gameId }
+      });
+      const data = response.data;
+
+      this.cache.set(cacheKey, { data, timestamp: now });
+      return data;
+    } catch (error) {
+      console.error(`❌ Error fetching ESPN game summary ${gameId}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
    * Parse ESPN game data into a normalized format
    * @param {Object} scoreboard - ESPN scoreboard response
    * @returns {Map<string, Object>} Map of team abbreviation to game info
@@ -129,6 +157,74 @@ class ESPNService {
     }
 
     return gamesByTeam;
+  }
+
+  /**
+   * Extract player stats from ESPN box score
+   * @param {Object} boxscore - ESPN box score data
+   * @returns {Map<number, Object>} Map of ESPN player ID to stats
+   */
+  parsePlayerStats(boxscore) {
+    const playerStatsMap = new Map();
+
+    if (!boxscore || !boxscore.players) {
+      return playerStatsMap;
+    }
+
+    for (const teamStats of boxscore.players) {
+      if (!teamStats.statistics) continue;
+
+      for (const statCategory of teamStats.statistics) {
+        const categoryName = statCategory.name; // 'passing', 'rushing', 'receiving'
+        const labels = statCategory.labels || [];
+        const keys = statCategory.keys || [];
+
+        if (!statCategory.athletes) continue;
+
+        for (const athleteEntry of statCategory.athletes) {
+          const athlete = athleteEntry.athlete;
+          const stats = athleteEntry.stats || [];
+
+          if (!athlete || !athlete.id) continue;
+
+          const espnId = parseInt(athlete.id);
+
+          if (!playerStatsMap.has(espnId)) {
+            playerStatsMap.set(espnId, {
+              espnId,
+              name: athlete.displayName || athlete.fullName,
+              position: athlete.position?.abbreviation || null,
+              jersey: athlete.jersey || null,
+              headshot: athlete.headshot?.href || null,
+              stats: {}
+            });
+          }
+
+          const playerData = playerStatsMap.get(espnId);
+
+          // Build stats object for this category
+          const categoryStats = {};
+          stats.forEach((value, index) => {
+            if (keys[index] && value !== undefined) {
+              categoryStats[keys[index]] = value;
+            }
+          });
+
+          playerData.stats[categoryName] = categoryStats;
+
+          // Build a human-readable stat line
+          if (categoryName === 'passing' && stats.length > 0) {
+            playerData.passingLine = stats[0]; // e.g., "25/34, 281 YDS, 1 TD"
+          } else if (categoryName === 'rushing' && stats.length > 0) {
+            playerData.rushingLine = `${stats[0]} CAR, ${stats[1]} YDS${stats[3] ? ', ' + stats[3] + ' TD' : ''}`;
+          } else if (categoryName === 'receiving' && stats.length > 0) {
+            playerData.receivingLine = `${stats[0]} REC, ${stats[1]} YDS${stats[3] ? ', ' + stats[3] + ' TD' : ''}`;
+          }
+        }
+      }
+    }
+
+    return playerStatsMap;
   }
 }
 

@@ -1242,7 +1242,16 @@ const FantasyFootballApp = () => {
     let rawStatusKey = null;
     if (rawStatus) {
       const liveRegex = /\b(q[1-4]|1st|2nd|3rd|4th|ot)\b/;
+      // Check for "final" BEFORE checking for "ot" to handle "FINAL/OT" correctly
       if (
+        rawStatus.includes('final') ||
+        rawStatus.includes('post') ||
+        rawStatus.includes('complete') ||
+        rawStatus.includes('finished') ||
+        rawStatus.includes('closed')
+      ) {
+        rawStatusKey = 'finished';
+      } else if (
         rawStatus.includes('in_progress') ||
         rawStatus.includes('live') ||
         rawStatus.includes('playing') ||
@@ -1251,14 +1260,6 @@ const FantasyFootballApp = () => {
         rawStatus.includes('quarter')
       ) {
         rawStatusKey = 'live';
-      } else if (
-        rawStatus.includes('final') ||
-        rawStatus.includes('post') ||
-        rawStatus.includes('complete') ||
-        rawStatus.includes('finished') ||
-        rawStatus.includes('closed')
-      ) {
-        rawStatusKey = 'finished';
       } else if (
         rawStatus.includes('pre') ||
         rawStatus.includes('sched') ||
@@ -1547,13 +1548,32 @@ const FantasyFootballApp = () => {
       if (detail) {
         addGameInfo(detail.toUpperCase());
       }
+
+      // Add ESPN stats for live games
+      if (starter?.espn_stats) {
+        const stats = starter.espn_stats;
+        if (stats.passing_line) {
+          addGameInfo(stats.passing_line);
+        } else if (stats.rushing_line) {
+          addGameInfo(stats.rushing_line);
+        } else if (stats.receiving_line) {
+          addGameInfo(stats.receiving_line);
+        }
+      }
     }
 
     if (statusMeta?.key === 'finished') {
-      // For finished games, we don't add extra info since:
-      // - The "Finished" badge is hidden (showBadge: false)
-      // - The fantasy points are already displayed prominently
-      // - Detailed stats from Sleeper are only available for fully completed weeks
+      // For finished games, show ESPN traditional stats if available
+      if (starter?.espn_stats) {
+        const stats = starter.espn_stats;
+        if (stats.passing_line) {
+          addGameInfo(stats.passing_line);
+        } else if (stats.rushing_line) {
+          addGameInfo(stats.rushing_line);
+        } else if (stats.receiving_line) {
+          addGameInfo(stats.receiving_line);
+        }
+      }
     }
 
     const injury = starter?.injury_status;

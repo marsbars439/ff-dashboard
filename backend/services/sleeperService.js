@@ -582,6 +582,32 @@ class SleeperService {
         const espnScoreboard = await espnService.getWeekGames(season, week);
         const espnGamesByTeam = espnService.parseGames(espnScoreboard);
 
+        // Build ESPN ID to Sleeper ID mapping
+        const espnIdToSleeperId = new Map();
+        Object.entries(playersMap).forEach(([sleeperId, player]) => {
+          if (player.espn_id) {
+            espnIdToSleeperId.set(parseInt(player.espn_id), sleeperId);
+          }
+        });
+
+        // Fetch ESPN player stats for all games this week
+        const espnPlayerStatsByGame = new Map();
+        const uniqueGameIds = new Set(
+          Array.from(espnGamesByTeam.values()).map(game => game.gameId)
+        );
+
+        for (const gameId of uniqueGameIds) {
+          try {
+            const summary = await espnService.getGameSummary(gameId);
+            if (summary && summary.boxscore) {
+              const playerStats = espnService.parsePlayerStats(summary.boxscore);
+              espnPlayerStatsByGame.set(gameId, playerStats);
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch ESPN stats for game ${gameId}:`, error.message);
+          }
+        }
+
         const scoreboardByTeam = await gameStatusService.getWeekGameStatuses(
           season,
           Number.isFinite(parsedWeek) ? parsedWeek : null
@@ -977,6 +1003,17 @@ class SleeperService {
                 // Without reliable kickoff/status information from Sleeper, this is too error-prone
                 // Better to show "Not Started" for an upcoming game than "Finished" for a game that hasn't happened
 
+                // Get ESPN player stats if available
+                const gameId = espnGame?.gameId || null;
+                const player = playersMap[playerId];
+                const espnId = player?.espn_id ? parseInt(player.espn_id) : null;
+                let espnPlayerStats = null;
+
+                if (gameId && espnId && espnPlayerStatsByGame.has(gameId)) {
+                  const gameStats = espnPlayerStatsByGame.get(gameId);
+                  espnPlayerStats = gameStats.get(espnId) || null;
+                }
+
                 return {
                   slot: idx,
                   player_id: playerId,
@@ -1020,7 +1057,14 @@ class SleeperService {
                       ? scoreboardEntry.awayScore
                       : null,
                   scoreboard_quarter: scoreboardEntry?.quarter || null,
-                  scoreboard_clock: scoreboardEntry?.clock || null
+                  scoreboard_clock: scoreboardEntry?.clock || null,
+                  // ESPN traditional stats
+                  espn_stats: espnPlayerStats ? {
+                    passing_line: espnPlayerStats.passingLine || null,
+                    rushing_line: espnPlayerStats.rushingLine || null,
+                    receiving_line: espnPlayerStats.receivingLine || null,
+                    detailed_stats: espnPlayerStats.stats || null
+                  } : null
                 };
               })
               .filter(Boolean);
