@@ -107,15 +107,17 @@ This occurred because the frontend tried to access `response.keepers` but got th
 
 ---
 
-## Bug #4: Undefined `scheduleEntry` Variable ✅ FIXED
+## Bug #4: Undefined `scheduleEntry` and `normalizedScheduleStatus` Variables ✅ FIXED
 
 **Location**: [backend/services/sleeperService.js](backend/services/sleeperService.js)
 
-**Lines Affected**: 791, 847, 952, 1118
+**Lines Affected**: 791, 844, 872, 950, 1118
 
-**Problem**: The variable `scheduleEntry` was referenced in multiple places but never defined, causing a ReferenceError.
+**Problem**: The variables `scheduleEntry` and `normalizedScheduleStatus` were referenced in multiple places but never defined, causing ReferenceErrors.
 
-**Error**: `ReferenceError: scheduleEntry is not defined`
+**Errors**:
+- `ReferenceError: scheduleEntry is not defined`
+- `ReferenceError: normalizedScheduleStatus is not defined`
 
 **Impact**: The `/api/seasons/:year/active-week/matchups` endpoint was returning 500 errors, preventing the "Current Matchup" section from displaying on the Seasons tab.
 
@@ -155,6 +157,30 @@ game_id: statsEntry?.game_id || scheduleEntry?.game_id || scoreboardEntry?.gameI
 
 // After:
 game_id: statsEntry?.game_id || scoreboardEntry?.gameId || null
+```
+
+**Fix**: Removed all references to the undefined `normalizedScheduleStatus` variable:
+
+5. **Line 844** - Removed from `isByeWeek` check:
+```javascript
+// Before:
+const isByeWeek = normalizedStatus === 'bye' || normalizedStatsStatus === 'bye' ||
+  normalizedScheduleStatus === 'bye' || normalizedScoreboardStatus === 'bye' || ...
+
+// After:
+const isByeWeek = normalizedStatus === 'bye' || normalizedStatsStatus === 'bye' ||
+  normalizedScoreboardStatus === 'bye' || ...
+```
+
+6. **Line 872** - Removed from `statusCandidates` array:
+```javascript
+// Before:
+const statusCandidates = [normalizedStatus, normalizedStatsStatus,
+  normalizedScheduleStatus, normalizedScoreboardStatus].filter(Boolean);
+
+// After:
+const statusCandidates = [normalizedStatus, normalizedStatsStatus,
+  normalizedScoreboardStatus].filter(Boolean);
 ```
 
 **Result**: Active week matchups endpoint now works correctly and the "Current Matchup" section displays on the Seasons tab.

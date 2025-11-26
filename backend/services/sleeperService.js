@@ -841,7 +841,6 @@ class SleeperService {
                 const isByeWeek =
                   normalizedStatus === 'bye' ||
                   normalizedStatsStatus === 'bye' ||
-                  normalizedScheduleStatus === 'bye' ||
                   normalizedScoreboardStatus === 'bye' ||
                   (normalizedByeWeek != null &&
                     weekForComparison != null &&
@@ -870,7 +869,6 @@ class SleeperService {
                   const statusCandidates = [
                     normalizedStatus,
                     normalizedStatsStatus,
-                    normalizedScheduleStatus,
                     normalizedScoreboardStatus
                   ].filter(Boolean);
 
