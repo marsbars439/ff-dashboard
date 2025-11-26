@@ -16,7 +16,12 @@
       "Bash(powershell -Command \"Get-Content server.js | Select-Object -First 250 | Select-String -Pattern ''createRulesRouter'' -Context 2,2\")",
       "Bash(tasklist:*)",
       "Bash(node -e:*)",
-      "Bash(dir /s /b *.db)"
+      "Bash(dir /s /b *.db)",
+      "Bash(dir:*)",
+      "Bash(npx prisma:*)",
+      "Bash(python:*)",
+      "Bash(powershell -Command \"Get-Content backend\\server.js | Select-Object -Last 50\")",
+      "Bash(powershell -Command:*)"
     ],
     "deny": [],
     "ask": []

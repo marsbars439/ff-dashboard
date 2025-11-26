@@ -1,4 +1,6 @@
 const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const multer = require('multer');
@@ -20,6 +22,7 @@ const { createRateLimiters } = require('./services/rateLimit');
 const { scheduleBackgroundJobs } = require('./services/backgroundJobs');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { validateEnv } = require('./utils/validateEnv');
+const WebSocketService = require('./services/websocket');
 require('dotenv').config();
 
 // Validate environment variables on startup
@@ -209,6 +212,44 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// Security middleware
+const helmet = require('helmet');
+const slowDown = require('express-slow-down');
+
+// Apply security headers with Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'wss:', 'ws:'],
+      fontSrc: ["'self'", 'data:'],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  noSniff: true,
+  xssFilter: true,
+  hidePoweredBy: true
+}));
+
+// Slow down repeated requests to prevent abuse
+const speedLimiter = slowDown({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  delayAfter: 50, // Allow 50 requests per window without delay
+  delayMs: () => 500 // Add 500ms delay per request after threshold
+});
+
+app.use('/api/', speedLimiter);
 
 // HTTP request logging
 app.use(morgan('combined', { stream: logger.stream }));
@@ -2293,6 +2334,131 @@ scheduleBackgroundJobs({
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Create HTTP server for Socket.IO
+const httpServer = createServer(app);
+
+// Initialize Socket.IO with CORS settings
+const io = new Server(httpServer, {
+  cors: corsOptions,
+  transports: ['websocket', 'polling']
+});
+
+// WebSocket authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  const managerId = socket.handshake.auth.managerId;
+
+  if (!token) {
+    logger.warn('WebSocket connection attempt without token', {
+      socketId: socket.id,
+      handshake: socket.handshake.address
+    });
+    return next(new Error('Authentication required'));
+  }
+
+  // Validate token (admin or manager)
+  const isAdmin = isAdminTokenValid(token);
+  const isManager = managerId && isManagerTokenValid(managerId, token);
+
+  if (isAdmin || isManager) {
+    socket.managerId = managerId;
+    socket.isAdmin = isAdmin;
+    logger.debug('WebSocket authenticated', {
+      socketId: socket.id,
+      managerId,
+      isAdmin
+    });
+    next();
+  } else {
+    logger.warn('WebSocket connection attempt with invalid token', {
+      socketId: socket.id,
+      managerId,
+      hasToken: !!token
+    });
+    next(new Error('Invalid token'));
+  }
+});
+
+// WebSocket event handlers
+io.on('connection', (socket) => {
+  logger.info('WebSocket client connected', {
+    socketId: socket.id,
+    managerId: socket.managerId,
+    isAdmin: socket.isAdmin
+  });
+
+  // Subscribe to active week updates
+  socket.on('subscribe:activeWeek', (year) => {
+    socket.join(`activeWeek:${year}`);
+    logger.debug('Client subscribed to active week', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  socket.on('unsubscribe:activeWeek', (year) => {
+    socket.leave(`activeWeek:${year}`);
+    logger.debug('Client unsubscribed from active week', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  // Subscribe to rule voting updates
+  socket.on('subscribe:rules', (year) => {
+    socket.join(`rules:${year}`);
+    logger.debug('Client subscribed to rules', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  socket.on('unsubscribe:rules', (year) => {
+    socket.leave(`rules:${year}`);
+    logger.debug('Client unsubscribed from rules', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  // Subscribe to season updates
+  socket.on('subscribe:seasons', (year) => {
+    socket.join(`seasons:${year}`);
+    logger.debug('Client subscribed to seasons', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  socket.on('unsubscribe:seasons', (year) => {
+    socket.leave(`seasons:${year}`);
+    logger.debug('Client unsubscribed from seasons', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  socket.on('disconnect', (reason) => {
+    logger.info('WebSocket client disconnected', {
+      socketId: socket.id,
+      managerId: socket.managerId,
+      reason
+    });
+  });
+
+  socket.on('error', (error) => {
+    logger.error('WebSocket error', {
+      socketId: socket.id,
+      error: error.message
+    });
+  });
+});
+
+// Create WebSocket service instance and make it available to controllers
+const wsService = new WebSocketService(io);
+app.set('io', io);
+app.set('wsService', wsService);
+
 // Async server startup to ensure database is initialized before accepting requests
 let server;
 async function startServer() {
@@ -2301,8 +2467,11 @@ async function startServer() {
     // before starting the HTTP server to prevent race conditions with early requests
     logger.info('Starting server...');
 
-    server = app.listen(PORT, () => {
-      logger.info('Server started', { port: PORT, env: process.env.NODE_ENV || 'development' });
+    server = httpServer.listen(PORT, () => {
+      logger.info('Server started with WebSocket support', {
+        port: PORT,
+        env: process.env.NODE_ENV || 'development'
+      });
     });
   } catch (error) {
     logger.error('Failed to start server', { error: error.message });
@@ -2317,13 +2486,25 @@ module.exports = app;
 // Handle graceful shutdown
 process.on('SIGINT', () => {
   logger.info('Shutting down gracefully...');
+
+  // Close WebSocket connections
+  if (io) {
+    io.close(() => {
+      logger.info('WebSocket connections closed');
+    });
+  }
+
+  // Close database
   db.close((err) => {
     if (err) {
       logger.error('Error closing database', { error: err.message });
     }
     logger.info('Database connection closed');
+
+    // Close HTTP server
     if (server && server.listening) {
       server.close(() => {
+        logger.info('Server closed');
         process.exit(0);
       });
     } else {
