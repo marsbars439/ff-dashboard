@@ -89,6 +89,24 @@ async function isKeeperTradeLocked(db, year) {
 }
 
 /**
+ * Get keeper trade lock row for a year
+ */
+async function getKeeperTradeLockRow(db, year) {
+  const { getAsync } = db;
+
+  try {
+    const lockRow = await getAsync(
+      'SELECT season_year, locked, locked_at, updated_at FROM keeper_trade_locks WHERE season_year = ?',
+      [year]
+    );
+    return lockRow;
+  } catch (error) {
+    logger.error('Error fetching keeper trade lock row', { year, error: error.message });
+    return null;
+  }
+}
+
+/**
  * Get keepers for a specific year
  */
 async function getKeepersByYear(req, res, next) {
@@ -101,7 +119,15 @@ async function getKeepersByYear(req, res, next) {
       [year]
     );
 
-    res.json(keepers);
+    // Get lock status
+    const lockRow = await getKeeperTradeLockRow(req.db, year);
+
+    res.json({
+      keepers,
+      locked: lockRow ? lockRow.locked === 1 : false,
+      lockedAt: lockRow?.locked_at || null,
+      updatedAt: lockRow?.updated_at || null
+    });
   } catch (error) {
     logger.error('Error fetching keepers', { year: req.params.year, error: error.message });
     next(error);

@@ -14,7 +14,9 @@
       "Bash(timeout:*)",
       "Bash(ping:*)",
       "Bash(powershell -Command \"Get-Content server.js | Select-Object -First 250 | Select-String -Pattern ''createRulesRouter'' -Context 2,2\")",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(node -e:*)",
+      "Bash(dir /s /b *.db)"
     ],
     "deny": [],
     "ask": []

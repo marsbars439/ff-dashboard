@@ -1,9 +1,23 @@
-# Preseason Tab Data Loading - Bug Fix
+# Preseason Tab Data Loading - Issue Resolution
 
 ## Issue
 Rosters/managers/keepers were not getting pulled into the preseason tab.
 
 ## Root Cause Analysis
+
+### **PRIMARY ISSUE: Database Not Configured**
+
+After investigation, the main problem is that the database lacks required configuration data:
+
+1. **Empty `league_settings` table** - No Sleeper league IDs configured for any season
+2. **Missing `sleeper_user_id` values** - All managers have `null` for `sleeper_user_id`
+
+When the frontend calls `/api/seasons/${year}/keepers`, the backend:
+- Looks up the league ID for that year in `league_settings`
+- Returns 404 "League ID not found for year" because the table is empty
+- Cannot fetch roster data from Sleeper without a league ID
+
+### **SECONDARY ISSUE: Code Bugs (Fixed)**
 
 ### Problem 1: Missing `manager_sleeper_ids` Table
 The migrated controller code was querying a table `manager_sleeper_ids` that doesn't exist in the database schema yet:
@@ -69,19 +83,64 @@ Same fix applied for consistency.
 - ✅ Includes `name_id` so managers are properly associated with rosters
 - ✅ Preseason tab should load rosters with manager information
 
-## Testing Required
+## **REQUIRED: Database Configuration Steps**
 
-1. **Start server** - Verify it starts without errors
+To get the preseason tab working, you need to configure your league settings:
+
+### Step 1: Add League ID for Your Season
+
+Use the API to set the Sleeper league ID for the year you want to display:
+
+```bash
+curl -X PUT http://localhost:3001/api/league-settings/2024 \
+  -H "Content-Type: application/json" \
+  -d '{"leagueId": "YOUR_SLEEPER_LEAGUE_ID"}'
+```
+
+Replace `YOUR_SLEEPER_LEAGUE_ID` with your actual Sleeper league ID (can be found in the Sleeper app URL).
+
+### Step 2: Sync Season Data from Sleeper
+
+After adding the league ID, sync the season data which will populate manager sleeper_user_ids:
+
+```bash
+curl -X POST http://localhost:3001/api/seasons/2024/sync \
+  -H "Content-Type: application/json" \
+  -d '{"leagueId": "YOUR_SLEEPER_LEAGUE_ID"}'
+```
+
+This will:
+- Fetch all league data from Sleeper
+- Populate manager sleeper_user_ids
+- Load team seasons, rosters, and matchup data
+
+### Step 3: Verify It Works
+
+```bash
+curl http://localhost:3001/api/seasons/2024/keepers
+```
+
+Should now return roster data with managers and players.
+
+## Alternative: Direct Database Insert
+
+If you prefer to manually configure the database:
+
+```sql
+-- Add league ID for 2024 season
+INSERT INTO league_settings (year, league_id) VALUES (2024, 'YOUR_SLEEPER_LEAGUE_ID');
+
+-- Update manager sleeper_user_ids (you'll need to look these up from Sleeper API)
+UPDATE managers SET sleeper_user_id = '123456789' WHERE name_id = 'byronkou';
+-- ... repeat for each manager
+```
+
+## Testing After Configuration
+
+1. **Verify league settings** - `curl http://localhost:3001/api/league-settings`
 2. **Test endpoint** - `curl http://localhost:3001/api/seasons/2024/keepers` should return roster data
 3. **Check frontend** - Preseason tab should display rosters with manager names
 4. **Verify manager associations** - Each roster should have a `manager_id` field populated
-
-## Future Work
-
-If the `manager_sleeper_ids` table is needed for managing season-specific Sleeper user IDs:
-1. Add table to database schema
-2. Create migration script
-3. Remove fallback logic (or keep it for backwards compatibility)
 
 ---
 
