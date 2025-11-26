@@ -8,7 +8,9 @@
       "Bash(timeout 15 npm start)",
       "Bash(taskkill:*)",
       "Bash(netstat:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(nul)",
+      "Bash(timeout //T 2 //NOBREAK)"
     ],
     "deny": [],
     "ask": []

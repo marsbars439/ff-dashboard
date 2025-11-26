@@ -5,15 +5,17 @@
 
 const logger = require('../utils/logger');
 const { NotFoundError, ConflictError } = require('../utils/errors');
+const { hydrateManagersWithEmails } = require('../services/managerService');
 
 /**
  * Get all managers
  */
 async function getAllManagers(req, res, next) {
   try {
-    const { getAsync, allAsync } = req.db;
+    const { allAsync } = req.db;
     const managers = await allAsync('SELECT * FROM managers ORDER BY full_name');
-    res.json(managers);
+    const managersWithEmails = await hydrateManagersWithEmails(managers, req.db);
+    res.json({ managers: managersWithEmails });
   } catch (error) {
     logger.error('Error fetching managers', { error: error.message });
     next(error);

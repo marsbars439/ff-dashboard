@@ -113,7 +113,7 @@ async function getKeepersByYear(req, res, next) {
  */
 async function saveKeepers(req, res, next) {
   try {
-    const { runAsync, allAsync } = req.db;
+    const { runAsync, allAsync, db } = req.db;
     const { year, rosterId } = req.params;
     const { keepers } = req.body;
 
@@ -123,35 +123,45 @@ async function saveKeepers(req, res, next) {
       throw new ForbiddenError('Keeper selections are locked for this season');
     }
 
-    // Delete existing keepers for this roster
-    await runAsync(
-      'DELETE FROM keepers WHERE year = ? AND roster_id = ?',
-      [year, rosterId]
-    );
+    // Use transaction to ensure atomic operations
+    await runAsync('BEGIN TRANSACTION');
 
-    // Insert new keepers
-    if (keepers && keepers.length > 0) {
-      const insertPromises = keepers.map(keeper =>
-        runAsync(
-          `INSERT INTO keepers (
-            year, roster_id, player_id, player_name, position, team,
-            trade_from_roster_id, trade_amount, trade_note
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            year,
-            rosterId,
-            keeper.playerId,
-            keeper.playerName || null,
-            keeper.position || null,
-            keeper.team || null,
-            keeper.tradeFromRosterId || null,
-            keeper.tradeAmount || null,
-            keeper.tradeNote || null
-          ]
-        )
+    try {
+      // Delete existing keepers for this roster
+      await runAsync(
+        'DELETE FROM keepers WHERE year = ? AND roster_id = ?',
+        [year, rosterId]
       );
 
-      await Promise.all(insertPromises);
+      // Insert new keepers
+      if (keepers && keepers.length > 0) {
+        for (const keeper of keepers) {
+          await runAsync(
+            `INSERT INTO keepers (
+              year, roster_id, player_id, player_name, position, team,
+              trade_from_roster_id, trade_amount, trade_note
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              year,
+              rosterId,
+              keeper.playerId,
+              keeper.playerName || null,
+              keeper.position || null,
+              keeper.team || null,
+              keeper.tradeFromRosterId || null,
+              keeper.tradeAmount || null,
+              keeper.tradeNote || null
+            ]
+          );
+        }
+      }
+
+      // Commit transaction
+      await runAsync('COMMIT');
+    } catch (error) {
+      // Rollback on error
+      await runAsync('ROLLBACK');
+      throw error;
     }
 
     const savedKeepers = await allAsync(

@@ -146,15 +146,9 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(morgan('combined', { stream: logger.stream }));
 
-// Initialize database
+// Initialize database and wait for schema initialization before starting server
 const db = initDatabase();
 app.use(databaseMiddleware(db));
-
-// Initialize database schema
-initializeDatabaseSchema(db).catch((error) => {
-  logger.error('Failed to initialize database schema', { error: error.message });
-  process.exit(1);
-});
 
 // Promisify database for use in routes and background jobs
 const { promisifyDb } = require('./utils/database');
@@ -194,19 +188,13 @@ const {
 } = require('./middleware/auth');
 
 // Mount routes
-const authRouter = require('./routes/auth');
-const rulesRouter = require('./routes/rules');
-const sleeperRouter = require('./routes/sleeper');
-const summariesRouter = require('./routes/summaries');
+const { createAuthRouter } = require('./routes/auth');
+const { createRulesRouter } = require('./routes/rules');
+const { createSleeperRouter } = require('./routes/sleeper');
+const { createSummariesRouter } = require('./routes/summaries');
 const managersRouter = require('./routes/managers');
 const seasonsRouter = require('./routes/seasons');
 const keepersRouter = require('./routes/keepers');
-
-// Create auth and other routers that need dependencies
-const { createAuthRouter } = authRouter;
-const { createRulesRouter } = rulesRouter;
-const { createSleeperRouter } = sleeperRouter;
-const { createSummariesRouter } = summariesRouter;
 
 const crypto = require('crypto');
 
@@ -364,10 +352,26 @@ scheduleBackgroundJobs({
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Start server
-const server = app.listen(PORT, () => {
-  logger.info('Server started', { port: PORT, env: process.env.NODE_ENV || 'development' });
-});
+// Start server after database is initialized
+let server;
+
+async function startServer() {
+  try {
+    // Initialize database schema before starting server
+    await initializeDatabaseSchema(db);
+    logger.info('Database schema initialized successfully');
+
+    // Start HTTP server
+    server = app.listen(PORT, () => {
+      logger.info('Server started', { port: PORT, env: process.env.NODE_ENV || 'development' });
+    });
+  } catch (error) {
+    logger.error('Failed to start server', { error: error.message });
+    process.exit(1);
+  }
+}
+
+startServer();
 
 // Graceful shutdown
 process.on('SIGINT', () => {

@@ -12,6 +12,49 @@ const { AUTH } = require('../utils/constants');
 const adminTokens = new Map(); // token -> expiry timestamp
 const managerTokens = new Map(); // managerId -> { token, expiry }
 
+// Cleanup interval to prevent memory leaks
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Run cleanup every hour
+
+/**
+ * Clean up expired tokens to prevent memory leaks
+ */
+function cleanupExpiredTokens() {
+  const now = Date.now();
+  let adminCleaned = 0;
+  let managerCleaned = 0;
+
+  // Clean up expired admin tokens
+  for (const [token, expiry] of adminTokens.entries()) {
+    if (now > expiry) {
+      adminTokens.delete(token);
+      adminCleaned++;
+    }
+  }
+
+  // Clean up expired manager tokens
+  for (const [managerId, tokenData] of managerTokens.entries()) {
+    if (now > tokenData.expiry) {
+      managerTokens.delete(managerId);
+      managerCleaned++;
+    }
+  }
+
+  if (adminCleaned > 0 || managerCleaned > 0) {
+    logger.debug('Token cleanup completed', {
+      adminTokensCleaned: adminCleaned,
+      managerTokensCleaned: managerCleaned,
+      adminTokensRemaining: adminTokens.size,
+      managerTokensRemaining: managerTokens.size
+    });
+  }
+}
+
+// Start cleanup interval
+const cleanupInterval = setInterval(cleanupExpiredTokens, CLEANUP_INTERVAL_MS);
+
+// Ensure cleanup interval doesn't prevent process from exiting
+cleanupInterval.unref();
+
 /**
  * Generate a random token
  */

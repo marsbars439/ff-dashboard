@@ -13,8 +13,13 @@ const { NotFoundError } = require('../utils/errors');
 async function getAllSeasons(req, res, next) {
   try {
     const { allAsync } = req.db;
-    const seasons = await allAsync('SELECT * FROM team_seasons ORDER BY year DESC, regular_season_rank');
-    res.json(seasons);
+    const seasons = await allAsync(`
+      SELECT ts.*, m.full_name as manager_name
+      FROM team_seasons ts
+      LEFT JOIN managers m ON ts.name_id = m.name_id
+      ORDER BY ts.year DESC, ts.regular_season_rank ASC
+    `);
+    res.json({ teamSeasons: seasons });
   } catch (error) {
     logger.error('Error fetching all seasons', { error: error.message });
     next(error);
