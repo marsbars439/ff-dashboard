@@ -788,7 +788,6 @@ class SleeperService {
                     : null;
 
                 const homeAway =
-                  scheduleEntry?.home_away ||
                   scoreboardHomeAway ||
                   (opponent && team ? (opponent === team ? 'home' : 'away') : null);
 
@@ -844,7 +843,6 @@ class SleeperService {
                   normalizedStatsStatus === 'bye' ||
                   normalizedScheduleStatus === 'bye' ||
                   normalizedScoreboardStatus === 'bye' ||
-                  (scheduleEntry && scheduleEntry.status === 'bye') ||
                   (normalizedByeWeek != null &&
                     weekForComparison != null &&
                     normalizedByeWeek === weekForComparison);
@@ -949,7 +947,7 @@ class SleeperService {
                     return 'inactive';
                   }
 
-                  if (!team && !statsEntry && !scheduleEntry) {
+                  if (!team && !statsEntry) {
                     return 'inactive';
                   }
 
@@ -1117,7 +1115,6 @@ class SleeperService {
                   practice_status: practiceStatus,
                   game_id:
                     statsEntry?.game_id ||
-                    scheduleEntry?.game_id ||
                     scoreboardEntry?.gameId ||
                     null,
                   activity_key: activityKey,
