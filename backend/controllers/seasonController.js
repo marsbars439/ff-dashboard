@@ -116,11 +116,23 @@ async function getActiveWeekMatchups(req, res, next) {
       throw new NotFoundError('League ID not found for year');
     }
 
-    const managers = await allAsync(`
-      SELECT m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
-      FROM managers m
-      LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?
-    `, [year]);
+    // Try to fetch managers with season-specific sleeper IDs if table exists
+    let managers;
+    try {
+      managers = await allAsync(`
+        SELECT m.full_name, m.name_id, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+        FROM managers m
+        LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?
+      `, [year]);
+    } catch (error) {
+      // If manager_sleeper_ids table doesn't exist, fall back to just managers table
+      if (error.message.includes('no such table: manager_sleeper_ids')) {
+        logger.warn('manager_sleeper_ids table not found, using default sleeper_user_id from managers table');
+        managers = await allAsync('SELECT full_name, name_id, sleeper_user_id FROM managers');
+      } else {
+        throw error;
+      }
+    }
 
     let week = Number.isInteger(requestedWeek) ? requestedWeek : null;
     if (!week) {
@@ -190,11 +202,23 @@ async function getFinalRosters(req, res, next) {
       throw new NotFoundError('League ID not found for year');
     }
 
-    const managers = await allAsync(`
-      SELECT m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
-      FROM managers m
-      LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?
-    `, [year]);
+    // Try to fetch managers with season-specific sleeper IDs if table exists
+    let managers;
+    try {
+      managers = await allAsync(`
+        SELECT m.full_name, m.name_id, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+        FROM managers m
+        LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?
+      `, [year]);
+    } catch (error) {
+      // If manager_sleeper_ids table doesn't exist, fall back to just managers table
+      if (error.message.includes('no such table: manager_sleeper_ids')) {
+        logger.warn('manager_sleeper_ids table not found, using default sleeper_user_id from managers table');
+        managers = await allAsync('SELECT full_name, name_id, sleeper_user_id FROM managers');
+      } else {
+        throw error;
+      }
+    }
 
     const { rosters, draftedPlayers } = await sleeperService.getFinalRosters(leagueSettings.league_id, managers);
     res.json({ rosters, draftedPlayers });

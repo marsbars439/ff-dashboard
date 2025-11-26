@@ -12,7 +12,9 @@
       "Bash(nul)",
       "Bash(timeout //T 2 //NOBREAK)",
       "Bash(timeout:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(powershell -Command \"Get-Content server.js | Select-Object -First 250 | Select-String -Pattern ''createRulesRouter'' -Context 2,2\")",
+      "Bash(tasklist:*)"
     ],
     "deny": [],
     "ask": []
