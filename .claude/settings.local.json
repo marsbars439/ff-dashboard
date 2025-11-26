@@ -10,7 +10,9 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(nul)",
-      "Bash(timeout //T 2 //NOBREAK)"
+      "Bash(timeout //T 2 //NOBREAK)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)"
     ],
     "deny": [],
     "ask": []

@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const managerController = require('../controllers/managerController');
+const seasonController = require('../controllers/seasonController');
 const { requireAdmin } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { createManager, updateManager } = require('../validators/seasonSchemas');
@@ -23,5 +24,8 @@ router.put('/:managerId', requireAdmin, validate(updateManager), managerControll
 
 // Delete manager (admin only)
 router.delete('/:managerId', requireAdmin, managerController.deleteManager);
+
+// Get manager's seasons (migrated from server.js)
+router.get('/:nameId/seasons', seasonController.getManagerSeasons);
 
 module.exports = router;

@@ -22,12 +22,25 @@ router.get('/:year/settings', validate(getSeasonByYear), seasonController.getLea
 router.get('/:year/active-week/matchups', validate(getActiveWeekMatchups), seasonController.getActiveWeekMatchups);
 
 // Get playoff bracket
-router.get('/:year/playoff-bracket', validate(getPlayoffBracket), seasonController.getPlayoffBracket);
+router.get('/:year/playoff-bracket', validate(getPlayoffBracket), seasonController.getPlayoffMatchups);
 
 // Sync season from Sleeper (admin only)
 router.post('/:year/sync', requireAdmin, validate(syncSleeperSeason), seasonController.syncSleeperSeason);
 
 // Get league stats
 router.get('/stats/summary', seasonController.getLeagueStats);
+
+// Team Seasons routes (migrated from server.js)
+router.get('/team-seasons', seasonController.getAllSeasons);
+router.get('/team-seasons/:year', seasonController.getSeasonByYear);
+router.post('/team-seasons', requireAdmin, seasonController.createTeamSeason);
+router.put('/team-seasons/:id', requireAdmin, seasonController.updateTeamSeason);
+router.delete('/team-seasons/:id', requireAdmin, seasonController.deleteTeamSeason);
+
+// All matchups for a season (migrated from server.js)
+router.get('/:year/matchups', validate(getSeasonByYear), seasonController.getSeasonMatchups);
+
+// Final rosters for keeper selection (migrated from server.js)
+router.get('/:year/keepers', validate(getSeasonByYear), seasonController.getFinalRosters);
 
 module.exports = router;

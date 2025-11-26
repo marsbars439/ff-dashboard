@@ -34,16 +34,15 @@ async function getSeasonByYear(req, res, next) {
     const { allAsync } = req.db;
     const { year } = req.params;
 
-    const seasons = await allAsync(
-      'SELECT * FROM team_seasons WHERE year = ? ORDER BY regular_season_rank',
-      [year]
-    );
+    const teamSeasons = await allAsync(`
+      SELECT ts.*, m.full_name as manager_name
+      FROM team_seasons ts
+      LEFT JOIN managers m ON ts.name_id = m.name_id
+      WHERE ts.year = ?
+      ORDER BY ts.regular_season_rank ASC
+    `, [year]);
 
-    if (!seasons || seasons.length === 0) {
-      throw new NotFoundError(`No season data found for year ${year}`);
-    }
-
-    res.json(seasons);
+    res.json({ teamSeasons });
   } catch (error) {
     logger.error('Error fetching season by year', { year: req.params.year, error: error.message });
     next(error);
@@ -75,22 +74,71 @@ async function getLeagueSettings(req, res, next) {
 }
 
 /**
- * Get active week matchups with live data
+ * Get weekly matchups for a specific season
+ */
+async function getSeasonMatchups(req, res, next) {
+  try {
+    const { getAsync, allAsync } = req.db;
+    const { year } = req.params;
+
+    const leagueSettings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
+
+    if (!leagueSettings || !leagueSettings.league_id) {
+      throw new NotFoundError('League ID not found for year');
+    }
+
+    const managers = await allAsync(`
+      SELECT m.name_id, m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+      FROM managers m
+      LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?
+    `, [year]);
+
+    const matchups = await sleeperService.getSeasonMatchups(leagueSettings.league_id, managers);
+    res.json({ matchups });
+  } catch (error) {
+    logger.error('Error fetching season matchups', { year: req.params.year, error: error.message });
+    next(error);
+  }
+}
+
+/**
+ * Get active week matchups with starting lineups
  */
 async function getActiveWeekMatchups(req, res, next) {
   try {
-    const { year } = req.params;
-    const { getAsync } = req.db;
+    const { getAsync, allAsync } = req.db;
+    const year = parseInt(req.params.year, 10);
+    const requestedWeek = req.query.week ? parseInt(req.query.week, 10) : null;
 
-    const settings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
+    const leagueSettings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
 
-    if (!settings || !settings.league_id) {
-      throw new NotFoundError(`No league settings found for year ${year}`);
+    if (!leagueSettings || !leagueSettings.league_id) {
+      throw new NotFoundError('League ID not found for year');
     }
 
-    const matchups = await sleeperService.getActiveWeekMatchups(settings.league_id, parseInt(year));
+    const managers = await allAsync(`
+      SELECT m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+      FROM managers m
+      LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?
+    `, [year]);
 
-    res.json(matchups);
+    let week = Number.isInteger(requestedWeek) ? requestedWeek : null;
+    if (!week) {
+      week = await sleeperService.getCurrentNFLWeek();
+    }
+
+    if (!week) {
+      return res.status(400).json({ error: 'Unable to determine active week' });
+    }
+
+    const data = await sleeperService.getWeeklyMatchupsWithLineups(
+      leagueSettings.league_id,
+      week,
+      managers,
+      year
+    );
+
+    res.json(data);
   } catch (error) {
     logger.error('Error fetching active week matchups', {
       year: req.params.year,
@@ -101,27 +149,57 @@ async function getActiveWeekMatchups(req, res, next) {
 }
 
 /**
- * Get playoff bracket for a season
+ * Get playoff matchups for a specific season
  */
-async function getPlayoffBracket(req, res, next) {
+async function getPlayoffMatchups(req, res, next) {
   try {
+    const { getAsync, allAsync } = req.db;
     const { year } = req.params;
-    const { getAsync } = req.db;
 
-    const settings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
+    const leagueSettings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
 
-    if (!settings || !settings.league_id) {
-      throw new NotFoundError(`No league settings found for year ${year}`);
+    if (!leagueSettings || !leagueSettings.league_id) {
+      throw new NotFoundError('League ID not found for year');
     }
 
-    const bracket = await sleeperService.getPlayoffBracket(settings.league_id, parseInt(year));
+    const managers = await allAsync(`
+      SELECT m.name_id, m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+      FROM managers m
+      LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?
+    `, [year]);
 
-    res.json(bracket);
+    const bracket = await sleeperService.getPlayoffMatchups(leagueSettings.league_id, managers);
+    res.json({ bracket });
   } catch (error) {
-    logger.error('Error fetching playoff bracket', {
-      year: req.params.year,
-      error: error.message
-    });
+    logger.error('Error fetching playoff matchups', { year: req.params.year, error: error.message });
+    next(error);
+  }
+}
+
+/**
+ * Get final rosters (keepers) for a specific season
+ */
+async function getFinalRosters(req, res, next) {
+  try {
+    const { getAsync, allAsync } = req.db;
+    const { year } = req.params;
+
+    const leagueSettings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
+
+    if (!leagueSettings || !leagueSettings.league_id) {
+      throw new NotFoundError('League ID not found for year');
+    }
+
+    const managers = await allAsync(`
+      SELECT m.full_name, COALESCE(msi.sleeper_user_id, m.sleeper_user_id) as sleeper_user_id
+      FROM managers m
+      LEFT JOIN manager_sleeper_ids msi ON m.name_id = msi.name_id AND msi.season = ?
+    `, [year]);
+
+    const { rosters, draftedPlayers } = await sleeperService.getFinalRosters(leagueSettings.league_id, managers);
+    res.json({ rosters, draftedPlayers });
+  } catch (error) {
+    logger.error('Error fetching final rosters', { year: req.params.year, error: error.message });
     next(error);
   }
 }
@@ -216,12 +294,127 @@ async function getLeagueStats(req, res, next) {
   }
 }
 
+/**
+ * Create a new team season
+ */
+async function createTeamSeason(req, res, next) {
+  try {
+    const { runAsync } = req.db;
+    const {
+      year, name_id, team_name, wins, losses, points_for, points_against,
+      regular_season_rank, playoff_finish, dues, payout, dues_chumpion, high_game
+    } = req.body;
+
+    if (!year || !name_id || wins === undefined || losses === undefined) {
+      return res.status(400).json({ error: 'year, name_id, wins, and losses are required' });
+    }
+
+    const result = await runAsync(`
+      INSERT INTO team_seasons (
+        year, name_id, team_name, wins, losses, points_for, points_against,
+        regular_season_rank, playoff_finish, dues, payout, dues_chumpion, high_game
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      year, name_id, team_name || '', wins, losses, points_for || 0, points_against || 0,
+      regular_season_rank || null, playoff_finish || null, dues, payout || 0,
+      dues_chumpion || 0, high_game || null
+    ]);
+
+    logger.info('Team season created', { seasonId: result.lastID, year, name_id });
+    res.json({
+      message: 'Team season added successfully',
+      seasonId: result.lastID
+    });
+  } catch (error) {
+    logger.error('Error creating team season', { error: error.message });
+    next(error);
+  }
+}
+
+/**
+ * Update a team season
+ */
+async function updateTeamSeason(req, res, next) {
+  try {
+    const { runAsync } = req.db;
+    const { id } = req.params;
+    const {
+      year, name_id, team_name, wins, losses, points_for, points_against,
+      regular_season_rank, playoff_finish, dues, payout, dues_chumpion, high_game
+    } = req.body;
+
+    await runAsync(`
+      UPDATE team_seasons SET
+        year = ?, name_id = ?, team_name = ?, wins = ?, losses = ?,
+        points_for = ?, points_against = ?, regular_season_rank = ?,
+        playoff_finish = ?, dues = ?, payout = ?, dues_chumpion = ?, high_game = ?
+      WHERE id = ?
+    `, [
+      year, name_id, team_name, wins, losses, points_for, points_against,
+      regular_season_rank, playoff_finish, dues, payout, dues_chumpion || 0, high_game, id
+    ]);
+
+    logger.info('Team season updated', { seasonId: id });
+    res.json({ message: 'Team season updated successfully' });
+  } catch (error) {
+    logger.error('Error updating team season', { seasonId: req.params.id, error: error.message });
+    next(error);
+  }
+}
+
+/**
+ * Delete a team season
+ */
+async function deleteTeamSeason(req, res, next) {
+  try {
+    const { runAsync } = req.db;
+    const { id } = req.params;
+
+    await runAsync('DELETE FROM team_seasons WHERE id = ?', [id]);
+
+    logger.info('Team season deleted', { seasonId: id });
+    res.json({ message: 'Team season deleted successfully' });
+  } catch (error) {
+    logger.error('Error deleting team season', { seasonId: req.params.id, error: error.message });
+    next(error);
+  }
+}
+
+/**
+ * Get team seasons by manager
+ */
+async function getManagerSeasons(req, res, next) {
+  try {
+    const { allAsync } = req.db;
+    const { nameId } = req.params;
+
+    const teamSeasons = await allAsync(`
+      SELECT ts.*, m.full_name as manager_name
+      FROM team_seasons ts
+      LEFT JOIN managers m ON ts.name_id = m.name_id
+      WHERE ts.name_id = ?
+      ORDER BY ts.year DESC
+    `, [nameId]);
+
+    res.json({ teamSeasons });
+  } catch (error) {
+    logger.error('Error fetching manager seasons', { nameId: req.params.nameId, error: error.message });
+    next(error);
+  }
+}
+
 module.exports = {
   getAllSeasons,
   getSeasonByYear,
   getLeagueSettings,
+  getSeasonMatchups,
   getActiveWeekMatchups,
-  getPlayoffBracket,
+  getPlayoffMatchups,
+  getFinalRosters,
+  createTeamSeason,
+  updateTeamSeason,
+  deleteTeamSeason,
+  getManagerSeasons,
   syncSleeperSeason,
   getLeagueStats
 };
