@@ -12,6 +12,16 @@ const { getSeasonByYear, syncSleeperSeason, getActiveWeekMatchups, getPlayoffBra
 // Get all seasons
 router.get('/', seasonController.getAllSeasons);
 
+// Team Seasons routes (migrated from server.js) - MUST come before /:year routes
+router.get('/team-seasons', seasonController.getAllSeasons);
+router.get('/team-seasons/:year', seasonController.getSeasonByYear);
+router.post('/team-seasons', requireAdmin, seasonController.createTeamSeason);
+router.put('/team-seasons/:id', requireAdmin, seasonController.updateTeamSeason);
+router.delete('/team-seasons/:id', requireAdmin, seasonController.deleteTeamSeason);
+
+// Get league stats - specific path before /:year
+router.get('/stats/summary', seasonController.getLeagueStats);
+
 // Get season by year
 router.get('/:year', validate(getSeasonByYear), seasonController.getSeasonByYear);
 
@@ -24,23 +34,13 @@ router.get('/:year/active-week/matchups', validate(getActiveWeekMatchups), seaso
 // Get playoff bracket
 router.get('/:year/playoff-bracket', validate(getPlayoffBracket), seasonController.getPlayoffMatchups);
 
-// Sync season from Sleeper (admin only)
-router.post('/:year/sync', requireAdmin, validate(syncSleeperSeason), seasonController.syncSleeperSeason);
-
-// Get league stats
-router.get('/stats/summary', seasonController.getLeagueStats);
-
-// Team Seasons routes (migrated from server.js)
-router.get('/team-seasons', seasonController.getAllSeasons);
-router.get('/team-seasons/:year', seasonController.getSeasonByYear);
-router.post('/team-seasons', requireAdmin, seasonController.createTeamSeason);
-router.put('/team-seasons/:id', requireAdmin, seasonController.updateTeamSeason);
-router.delete('/team-seasons/:id', requireAdmin, seasonController.deleteTeamSeason);
-
 // All matchups for a season (migrated from server.js)
 router.get('/:year/matchups', validate(getSeasonByYear), seasonController.getSeasonMatchups);
 
 // Final rosters for keeper selection (migrated from server.js)
 router.get('/:year/keepers', validate(getSeasonByYear), seasonController.getFinalRosters);
+
+// Sync season from Sleeper (admin only)
+router.post('/:year/sync', requireAdmin, validate(syncSleeperSeason), seasonController.syncSleeperSeason);
 
 module.exports = router;

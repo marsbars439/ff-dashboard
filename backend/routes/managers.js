@@ -13,6 +13,9 @@ const { createManager, updateManager } = require('../validators/seasonSchemas');
 // Get all managers
 router.get('/', managerController.getAllManagers);
 
+// Get manager's seasons (migrated from server.js) - MUST come before /:managerId
+router.get('/:nameId/seasons', seasonController.getManagerSeasons);
+
 // Get manager by ID
 router.get('/:managerId', managerController.getManagerById);
 
@@ -24,8 +27,5 @@ router.put('/:managerId', requireAdmin, validate(updateManager), managerControll
 
 // Delete manager (admin only)
 router.delete('/:managerId', requireAdmin, managerController.deleteManager);
-
-// Get manager's seasons (migrated from server.js)
-router.get('/:nameId/seasons', seasonController.getManagerSeasons);
 
 module.exports = router;
