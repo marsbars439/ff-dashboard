@@ -20,6 +20,18 @@ A comprehensive web application for tracking fantasy football league records, st
   - Playoff format
   - Champion plaque engraving instructions
 
+- **Real-time Updates**: WebSocket integration for live data updates
+  - Active week matchup changes broadcast to all connected clients
+  - Rule voting updates in real-time
+  - Keeper selection changes synchronized across sessions
+  - Automatic React Query cache invalidation on updates
+
+- **Security Features**:
+  - Helmet security headers (CSP, XSS protection, frame options)
+  - Express rate limiting on authentication endpoints
+  - CORS configuration with environment-based origin control
+  - Secure session management with short-lived tokens
+
 - **LLM Summaries**: Generate AI-based summaries via `POST /api/summarize` (requires `OPENAI_API_KEY` in `backend/.env`)
 - **Rate Limiting**: Summary endpoint allows 20 requests per minute by default and can be tuned with `SUMMARY_RATE_LIMIT_MAX` and `SUMMARY_RATE_LIMIT_WINDOW_MS` variables
 
@@ -103,10 +115,24 @@ make clean
 
 ## Technologies
 
+### Frontend
 - React 18
+- TanStack React Query (data fetching and caching)
+- Socket.IO Client (real-time WebSocket communication)
 - Tailwind CSS (via CDN)
 - Lucide React (for icons)
-- Docker (for deployment)
+
+### Backend
+- Express.js
+- Socket.IO (WebSocket server)
+- Better-SQLite3 (database)
+- Helmet (security headers)
+- Express Slow Down (rate limiting)
+- Winston (logging)
+
+### Deployment
+- Docker & Docker Compose
+- Nginx (reverse proxy)
 
 ## Docker Images
 
