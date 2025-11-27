@@ -23,16 +23,6 @@ export function useTeamSeasons(year = null) {
 
   const teamSeasons = data?.teamSeasons || [];
 
-  // Debug logging
-  console.log('[useTeamSeasons] Hook called', {
-    year,
-    endpoint,
-    dataReceived: data,
-    teamSeasonsCount: teamSeasons.length,
-    isLoading,
-    error
-  });
-
   return {
     teamSeasons,
     loading: isLoading,
