@@ -22,7 +22,8 @@
       "Bash(python:*)",
       "Bash(powershell -Command \"Get-Content backend\\server.js | Select-Object -Last 50\")",
       "Bash(powershell -Command:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(node test-db.js:*)"
     ],
     "deny": [],
     "ask": []
