@@ -12,8 +12,8 @@ export function useTeamSeasons(year = null) {
     : queryKeys.teamSeasons.all;
 
   const endpoint = year
-    ? `/api/team-seasons/${year}`
-    : '/api/team-seasons';
+    ? `/team-seasons/${year}`
+    : '/team-seasons';
 
   const { data, isLoading, error } = useQuery({
     queryKey,

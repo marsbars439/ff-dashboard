@@ -11,7 +11,7 @@ const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000; // 30 seconds
 export function useActiveWeek(year, enabled = true) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.activeWeek.current(year),
-    queryFn: () => api.get(`/api/active-week/${year}`),
+    queryFn: () => api.get(`/active-week/${year}`),
     enabled: !!year && enabled,
     staleTime: 0, // Always consider active week data stale
     cacheTime: 5 * 60 * 1000, // 5 minutes

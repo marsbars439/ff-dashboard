@@ -9,7 +9,7 @@ import { api, queryKeys } from '../utils/queryClient';
 export function useManagers() {
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.managers.all,
-    queryFn: () => api.get('/api/managers'),
+    queryFn: () => api.get('/managers'),
     staleTime: 10 * 60 * 1000, // 10 minutes - managers data changes infrequently
   });
 

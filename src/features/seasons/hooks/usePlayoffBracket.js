@@ -13,7 +13,7 @@ export function usePlayoffBracket(year, isRegularSeasonComplete) {
       if (!isRegularSeasonComplete) {
         return [];
       }
-      return await api.get(`/api/playoff-bracket/${year}`);
+      return await api.get(`/playoff-bracket/${year}`);
     },
     enabled: !!year && isRegularSeasonComplete, // Only run if year and season is complete
     staleTime: 10 * 60 * 1000, // 10 minutes

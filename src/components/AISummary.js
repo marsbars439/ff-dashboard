@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API } from '../utils/constants';
 
 const AISummary = () => {
   const [summary, setSummary] = useState('');
@@ -10,7 +11,7 @@ const AISummary = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/summary');
+        const response = await fetch(`${API.BASE_URL}/summary`);
         if (!response.ok) {
           throw new Error(`Request failed with status ${response.status}`);
         }

@@ -15,7 +15,7 @@ export function useSeasonMatchups(year) {
       if (seasonsWithoutMatchups.includes(year)) {
         return [];
       }
-      return await api.get(`/api/matchups/${year}`);
+      return await api.get(`/matchups/${year}`);
     },
     enabled: !!year, // Only run query if year is provided
     staleTime: 10 * 60 * 1000, // 10 minutes - historical matchups don't change

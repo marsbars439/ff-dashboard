@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API } from '../utils/constants';
 
 const AIPreview = () => {
   const [summary, setSummary] = useState('');
@@ -10,7 +11,7 @@ const AIPreview = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/preview');
+        const response = await fetch(`${API.BASE_URL}/preview`);
         if (!response.ok) {
           throw new Error(`Request failed with status ${response.status}`);
         }
