@@ -105,6 +105,48 @@ npm install helmet express-slow-down
   - Summary generation
   - Cloudflare Access authentication
 
+### 3. Controller Integration (Real-time Broadcasting)
+
+All critical data-changing endpoints now broadcast WebSocket updates in real-time:
+
+####  Season Controller ([backend/controllers/seasonController.js](backend/controllers/seasonController.js))
+**`getActiveWeekMatchups` (Lines 107-161)**
+- Broadcasts active week matchup data after fetching from Sleeper
+- Event: `activeWeek:update`
+- Payload: Complete matchup data with lineups and scores
+- Subscribers: All clients subscribed to `activeWeek:{year}`
+
+#### Rules Controller ([backend/routes/rules.js](backend/routes/rules.js))
+**`POST /rule-changes/:id/vote` (Lines 550-665)**
+- Broadcasts vote update immediately after recording vote
+- Event: `rule:voteUpdate`
+- Payload: Updated vote counts and proposal data
+- Subscribers: All clients subscribed to `rules:{seasonYear}`
+
+**`DELETE /rule-changes/:id/vote` (Lines 667-774)**
+- Broadcasts vote update after removing vote
+- Event: `rule:voteUpdate`
+- Payload: Updated vote counts after deletion
+- Subscribers: All clients subscribed to `rules:{seasonYear}`
+
+#### Keeper Controller ([backend/controllers/keeperController.js](backend/controllers/keeperController.js))
+**`saveKeepers` (Lines 140-216)**
+- Broadcasts keeper selection changes after successful save
+- Event: `keeper:update`
+- Payload: Complete keeper data for the roster
+- Subscribers: All clients subscribed to `keepers:{year}`
+
+**Implementation Pattern:**
+```javascript
+// Get wsService from Express app
+const wsService = req.app.get('wsService');
+
+// Broadcast update if service available
+if (wsService) {
+  wsService.broadcastActiveWeekUpdate(year, data);
+}
+```
+
 ---
 
 ## 🏗️ Architecture
@@ -172,18 +214,43 @@ npm install helmet express-slow-down
 
 ---
 
-## 📁 Files Created
+## 📁 Files Created/Modified
 
-### Backend
+### Backend - Created
 - [backend/services/websocket.js](backend/services/websocket.js) - WebSocket service class (133 lines)
-- Modified: [backend/server.js](backend/server.js) - Added WebSocket and security middleware
 
-### Frontend
+### Backend - Modified
+- [backend/server.js](backend/server.js) - Added WebSocket and security middleware
+- [backend/controllers/seasonController.js](backend/controllers/seasonController.js) - Added active week broadcasting
+- [backend/routes/rules.js](backend/routes/rules.js) - Added vote update broadcasting
+- [backend/controllers/keeperController.js](backend/controllers/keeperController.js) - Added keeper selection broadcasting
+
+### Frontend - Created
 - [src/utils/socket.js](src/utils/socket.js) - WebSocket client service (311 lines)
 - [src/hooks/useWebSocket.js](src/hooks/useWebSocket.js) - React WebSocket hooks (225 lines)
+- [.env.production](.env.production) - Production environment variables
+- [.env](.env) - Local development environment variables
+
+### Frontend - Modified
+- [Dockerfile](Dockerfile) - Updated to copy .env.production during build
+- [.gitignore](.gitignore) - Allow .env.production in git
+- [src/state/AdminSessionContext.js](src/state/AdminSessionContext.js) - Fixed env var name
+- [src/state/ManagerAuthContext.js](src/state/ManagerAuthContext.js) - Fixed env var name
+- [src/state/KeeperToolsContext.js](src/state/KeeperToolsContext.js) - Fixed env var name
+- [src/state/RuleVotingContext.js](src/state/RuleVotingContext.js) - Fixed env var name
+- [src/features/seasons/components/SeasonsView.js](src/features/seasons/components/SeasonsView.js) - Fixed env var name
+- [src/components/Analytics.js](src/components/Analytics.js) - Fixed env var name
+- [src/components/FantasyFootballApp.js](src/components/FantasyFootballApp.js) - Fixed env var name
+- [src/hooks/useTeamSeasons.js](src/hooks/useTeamSeasons.js) - Removed `/api` prefix
+- [src/hooks/useManagers.js](src/hooks/useManagers.js) - Removed `/api` prefix
+- [src/features/seasons/hooks/useActiveWeek.js](src/features/seasons/hooks/useActiveWeek.js) - Removed `/api` prefix
+- [src/features/seasons/hooks/usePlayoffBracket.js](src/features/seasons/hooks/usePlayoffBracket.js) - Removed `/api` prefix
+- [src/features/seasons/hooks/useSeasonMatchups.js](src/features/seasons/hooks/useSeasonMatchups.js) - Removed `/api` prefix
+- [src/components/AISummary.js](src/components/AISummary.js) - Use API.BASE_URL constant
+- [src/components/AIPreview.js](src/components/AIPreview.js) - Use API.BASE_URL constant
 
 ### Documentation
-- [SPRINT_7_COMPLETE.md](SPRINT_7_COMPLETE.md) - This file
+- [SPRINT_7_COMPLETE.md](SPRINT_7_COMPLETE.md) - This file (comprehensive sprint documentation)
 
 ---
 
@@ -422,9 +489,10 @@ Recommended tests to add:
 - [ ] DDoS protection with cloudflare/nginx
 - [ ] Content validation middleware
 
-### Controller Integration
-- [ ] Update rule voting controller to broadcast votes
-- [ ] Update keeper controller to broadcast lock changes
+### Controller Integration ✅ COMPLETE
+- [x] Updated season controller to broadcast active week matchups
+- [x] Updated rule voting controller to broadcast votes (POST and DELETE)
+- [x] Updated keeper controller to broadcast keeper selection changes
 - [ ] Update sync service to broadcast standings updates
 - [ ] Add WebSocket events to active week polling
 
