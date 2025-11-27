@@ -651,6 +651,12 @@ function createRulesRouter({
         mapManagersToSummaries(activeManagerRows)
       );
 
+      // Broadcast vote update via WebSocket
+      const wsService = req.app.get('wsService');
+      if (wsService) {
+        wsService.broadcastRuleVoteUpdate(proposalRow.season_year, proposalId, formatted.votes);
+      }
+
       res.json({ proposal: formatted });
     } catch (error) {
       console.error('Error recording rule change vote:', error);
@@ -753,6 +759,12 @@ function createRulesRouter({
         {},
         mapManagersToSummaries(activeManagerRows)
       );
+
+      // Broadcast vote update via WebSocket
+      const wsService = req.app.get('wsService');
+      if (wsService) {
+        wsService.broadcastRuleVoteUpdate(proposalRow.season_year, proposalId, formatted.votes);
+      }
 
       res.json({ proposal: formatted });
     } catch (error) {

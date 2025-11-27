@@ -197,6 +197,12 @@ async function saveKeepers(req, res, next) {
 
     logger.info('Keepers saved', { year, rosterId, count: savedKeepers.length });
 
+    // Broadcast keeper update via WebSocket
+    const wsService = req.app.get('wsService');
+    if (wsService) {
+      wsService.broadcastKeeperUpdate(year, rosterId, savedKeepers);
+    }
+
     res.json({
       year: parseInt(year),
       rosterId: parseInt(rosterId),

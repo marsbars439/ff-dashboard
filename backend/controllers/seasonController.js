@@ -150,6 +150,12 @@ async function getActiveWeekMatchups(req, res, next) {
       year
     );
 
+    // Broadcast active week update via WebSocket
+    const wsService = req.app.get('wsService');
+    if (wsService) {
+      wsService.broadcastActiveWeekUpdate(year, data);
+    }
+
     res.json(data);
   } catch (error) {
     logger.error('Error fetching active week matchups', {
