@@ -21,8 +21,20 @@ export function useTeamSeasons(year = null) {
     staleTime: 5 * 60 * 1000, // 5 minutes - team seasons update more frequently
   });
 
+  const teamSeasons = data?.teamSeasons || [];
+
+  // Debug logging
+  console.log('[useTeamSeasons] Hook called', {
+    year,
+    endpoint,
+    dataReceived: data,
+    teamSeasonsCount: teamSeasons.length,
+    isLoading,
+    error
+  });
+
   return {
-    teamSeasons: data?.teamSeasons || [],
+    teamSeasons,
     loading: isLoading,
     error: error?.message || null
   };
