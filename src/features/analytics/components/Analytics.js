@@ -230,7 +230,7 @@ const Analytics = ({ onBack }) => {
   });
   const [excludedPositions, setExcludedPositions] = useState([]);
   const [activeFilterKey, setActiveFilterKey] = useState(null);
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
   const [refreshMessage, setRefreshMessage] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [rosLastUpdated, setRosLastUpdated] = useState(null);

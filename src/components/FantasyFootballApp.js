@@ -14,7 +14,7 @@ const RulesSection = lazy(() => import('../features/rules'));
 const AdminTools = lazy(() => import('../features/admin'));
 const Analytics = lazy(() => import('../features/analytics'));
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
 const VALID_TABS = new Set(['records', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
 const DASHBOARD_TABS = [
   { id: 'records', label: 'Hall of Records' },
