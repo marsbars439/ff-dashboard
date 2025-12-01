@@ -10,7 +10,8 @@ import { useManagerAuth } from './ManagerAuthContext';
 import { useAdminSession } from './AdminSessionContext';
 import { useKeeperTools } from './KeeperToolsContext';
 
-const DEFAULT_API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
+// TEMPORARY: Hardcoded to work around .env file not being loaded
+const DEFAULT_API_BASE_URL = 'http://localhost:3001/api';
 
 const parseJsonResponse = async (response) => {
   const text = await response.text();

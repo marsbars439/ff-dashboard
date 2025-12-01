@@ -26,7 +26,14 @@
       "Bash(node test-db.js:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)",
+      "Bash(git restore:*)",
+      "Bash(node server.js:*)",
+      "Bash(echo:*)",
+      "Bash(cat:*)",
+      "Bash(set REACT_APP_API_BASE_URL=http://localhost:3001/api:*)"
     ],
     "deny": [],
     "ask": []

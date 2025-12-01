@@ -9,7 +9,8 @@ import React, {
 } from 'react';
 import { useManagerAuth } from './ManagerAuthContext';
 
-const DEFAULT_API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
+// TEMPORARY: Hardcoded to work around .env file not being loaded
+const DEFAULT_API_BASE_URL = 'http://localhost:3001/api';
 const INITIAL_KEEPER_LOCK_STATE = { locked: false, lockedAt: null, updatedAt: null };
 const INITIAL_TRADE = { from: '', to: '', amount: '', note: '' };
 

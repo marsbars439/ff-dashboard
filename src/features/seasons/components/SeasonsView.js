@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CalendarRange, ChevronDown } from 'lucide-react';
 import PlayoffBracket from '../../../components/PlayoffBracket';
-import AISummary from '../../../components/AISummary';
-import AIPreview from '../../../components/AIPreview';
 import DashboardSection from '../../../components/DashboardSection';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../../../utils/date';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
+// TEMPORARY: Hardcoded to work around .env file not being loaded
+const API_BASE_URL = 'http://localhost:3001/api';
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
 const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
 
@@ -379,13 +378,6 @@ export function SeasonsView({ teamSeasons, loading, error }) {
       dotClasses: 'bg-slate-400',
       rowClasses: 'bg-slate-50/60'
     }
-  };
-
-  const playerActivityOrder = {
-    live: 0,
-    upcoming: 1,
-    finished: 2,
-    inactive: 3
   };
 
   const getStarterActivityStatus = starter => {
@@ -1006,7 +998,7 @@ export function SeasonsView({ teamSeasons, loading, error }) {
     );
   };
 
-  const { previousWeeks, currentWeek, upcomingWeeks } = useMemo(() => {
+  const { previousWeeks, upcomingWeeks } = useMemo(() => {
     if (!Array.isArray(seasonMatchups) || seasonMatchups.length === 0) {
       return { previousWeeks: [], currentWeek: null, upcomingWeeks: [] };
     }
@@ -1252,10 +1244,6 @@ export function SeasonsView({ teamSeasons, loading, error }) {
     () => formatWeekRangeLabel(previousWeeks, 'Previous Results'),
     [previousWeeks]
   );
-  const currentWeekLabel = useMemo(
-    () => formatWeekRangeLabel(currentWeek ? [currentWeek] : [], 'Current Week'),
-    [currentWeek]
-  );
   const upcomingWeeksLabel = useMemo(
     () => formatWeekRangeLabel(upcomingWeeks, 'Upcoming Matchups'),
     [upcomingWeeks]
@@ -1431,23 +1419,6 @@ export function SeasonsView({ teamSeasons, loading, error }) {
       actions={seasonSelector}
       bodyClassName="space-y-6 sm:space-y-8"
     >
-      {selectedSeasonYear === mostRecentYear && lastCompletedWeek > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className={`${surfaceCard} p-4 sm:p-6`}>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-50 mb-4">
-              Week {lastCompletedWeek} In Review
-            </h2>
-            <AISummary />
-          </div>
-          <div className={`${surfaceCard} p-4 sm:p-6`}>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-50 mb-4">
-              Week {lastCompletedWeek + 1} Preview
-            </h2>
-            <AIPreview />
-          </div>
-        </div>
-      )}
-
       <div className={`${surfaceCard} p-4 sm:p-6 space-y-6`}>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h2 className="text-xl sm:text-2xl font-bold text-slate-50">{selectedSeasonYear}</h2>
@@ -1563,16 +1534,6 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                 </div>
               )}
             </div>
-            {currentWeek && (
-              <div className="border border-white/10 rounded-lg bg-slate-950/40">
-                <div className="px-3 py-3 sm:px-4 sm:py-4 text-slate-100">
-                  <span className="font-semibold">{currentWeekLabel}</span>
-                </div>
-                <div className="border-t border-white/10 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
-                  {renderWeekCard(currentWeek)}
-                </div>
-              </div>
-            )}
             <div className="border border-white/10 rounded-lg bg-slate-950/40">
               <button
                 type="button"

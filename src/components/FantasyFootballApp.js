@@ -9,15 +9,18 @@ import { useKeeperTools } from '../state/KeeperToolsContext';
 // Sprint 4: Feature-based architecture with lazy loading
 const RecordsView = lazy(() => import('../features/records'));
 const SeasonsView = lazy(() => import('../features/seasons'));
+const WeekView = lazy(() => import('../features/week'));
 const KeeperTools = lazy(() => import('../features/keepers'));
 const RulesSection = lazy(() => import('../features/rules'));
 const AdminTools = lazy(() => import('../features/admin'));
 const Analytics = lazy(() => import('../features/analytics'));
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
-const VALID_TABS = new Set(['records', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
+// TEMPORARY: Hardcoded to work around .env file not being loaded
+const API_BASE_URL = 'http://localhost:3001/api';
+const VALID_TABS = new Set(['records', 'week', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
 const DASHBOARD_TABS = [
   { id: 'records', label: 'Hall of Records' },
+  { id: 'week', label: 'Week', isDynamic: true },
   { id: 'seasons', label: 'Seasons' },
   { id: 'preseason', label: 'Preseason' },
   { id: 'rules', label: 'Rules' },
@@ -76,6 +79,15 @@ const FantasyFootballApp = () => {
     () => teamSeasons.filter(s => s.year === mostRecentYear),
     [teamSeasons, mostRecentYear]
   );
+
+  const currentWeekNumber = useMemo(() => {
+    const seasons = teamSeasons.filter(s => s.year === mostRecentYear);
+    if (seasons.length === 0) return 1;
+    const lastCompletedWeek = Math.max(
+      ...seasons.map(s => s.wins + s.losses + (s.ties || 0))
+    );
+    return lastCompletedWeek + 1;
+  }, [teamSeasons, mostRecentYear]);
 
   const currentChampion = useMemo(
     () => currentYearSeasons.find(s => s.playoff_finish === 1),
@@ -419,6 +431,16 @@ const FantasyFootballApp = () => {
     ...inactiveRecords.sort((a, b) => b.pointsPerGame - a.pointsPerGame)
   ];
 
+  // Create dynamic tabs with current week number
+  const dynamicTabs = useMemo(() => {
+    return DASHBOARD_TABS.map(tab => {
+      if (tab.isDynamic && tab.id === 'week') {
+        return { ...tab, label: `Week ${currentWeekNumber}` };
+      }
+      return tab;
+    });
+  }, [currentWeekNumber]);
+
   const renderRecordsSection = () => (
     <Suspense fallback={<LoadingSpinner message="Loading Records..." />}>
       <RecordsView
@@ -445,6 +467,12 @@ const FantasyFootballApp = () => {
         loading={false}
         error={null}
       />
+    </Suspense>
+  );
+
+  const renderWeekSection = () => (
+    <Suspense fallback={<LoadingSpinner message="Loading Week..." />}>
+      <WeekView teamSeasons={teamSeasons} />
     </Suspense>
   );
 
@@ -483,11 +511,12 @@ const FantasyFootballApp = () => {
   );
 
   const tabSections = {
+    records: renderRecordsSection,
+    week: renderWeekSection,
     seasons: renderSeasonsSection,
     preseason: renderPreseasonSection,
-    records: renderRecordsSection,
-    admin: renderAdminSection,
     rules: renderRulesSection,
+    admin: renderAdminSection,
     analytics: renderAnalyticsSection
   };
 
@@ -519,7 +548,7 @@ const FantasyFootballApp = () => {
     <div className="ff-dashboard section-stack">
       <header className="layout-section">
         <DashboardHeader
-          tabs={DASHBOARD_TABS}
+          tabs={dynamicTabs}
           activeTab={activeTab}
           onTabChange={updateActiveTab}
         />
