@@ -8,8 +8,7 @@ import React, {
   useState
 } from 'react';
 
-// TEMPORARY: Hardcoded to work around .env file not being loaded
-const DEFAULT_API_BASE_URL = 'http://localhost:3001/api';
+const DEFAULT_API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
 const DEFAULT_STORAGE_KEY = 'ff-dashboard-manager-auth';
 
 const INITIAL_MANAGER_AUTH_STATE = {

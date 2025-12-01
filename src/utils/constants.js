@@ -4,9 +4,8 @@
  */
 
 // API Configuration
-// TEMPORARY: Hardcoded to work around .env file not being loaded
 export const API = {
-  BASE_URL: 'http://localhost:3001/api',
+  BASE_URL: process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api'),
   TIMEOUT_MS: 30000, // 30 seconds
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY_MS: 1000

@@ -15,8 +15,7 @@ const RulesSection = lazy(() => import('../features/rules'));
 const AdminTools = lazy(() => import('../features/admin'));
 const Analytics = lazy(() => import('../features/analytics'));
 
-// TEMPORARY: Hardcoded to work around .env file not being loaded
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
 const VALID_TABS = new Set(['records', 'week', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
 const DASHBOARD_TABS = [
   { id: 'records', label: 'Hall of Records' },

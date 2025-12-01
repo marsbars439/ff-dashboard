@@ -5,8 +5,7 @@ import AIPreview from '../../../components/AIPreview';
 import DashboardSection from '../../../components/DashboardSection';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../../../utils/date';
 
-// TEMPORARY: Hardcoded to work around .env file not being loaded
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
 const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
 
