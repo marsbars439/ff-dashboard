@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CalendarRange, ChevronDown } from 'lucide-react';
 import PlayoffBracket from '../../../components/PlayoffBracket';
 import DashboardSection from '../../../components/DashboardSection';
-import { SkeletonTable, SkeletonCard, SkeletonMatchup } from '../../../shared/components';
+import { SkeletonTable, SkeletonCard, SkeletonMatchup, BarChart } from '../../../shared/components';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../../../utils/date';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
@@ -1493,6 +1493,54 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                 ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Season Visualization Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
+          <BarChart
+            data={{
+              labels: teamSeasons
+                .filter(s => s.year === selectedSeasonYear)
+                .sort((a, b) => b.points_for - a.points_for)
+                .slice(0, 8)
+                .map(s => s.manager_name.split(' ').slice(-1)[0]),
+              values: teamSeasons
+                .filter(s => s.year === selectedSeasonYear)
+                .sort((a, b) => b.points_for - a.points_for)
+                .slice(0, 8)
+                .map(s => s.points_for),
+              label: 'Points For'
+            }}
+            title="Points For Leaders"
+            subtitle={`Top scorers in ${selectedSeasonYear}`}
+            horizontal={false}
+          />
+          <BarChart
+            data={{
+              labels: teamSeasons
+                .filter(s => s.year === selectedSeasonYear)
+                .sort((a, b) => {
+                  const pctA = a.wins / (a.wins + a.losses || 1);
+                  const pctB = b.wins / (b.wins + b.losses || 1);
+                  return pctB - pctA;
+                })
+                .slice(0, 8)
+                .map(s => s.manager_name.split(' ').slice(-1)[0]),
+              values: teamSeasons
+                .filter(s => s.year === selectedSeasonYear)
+                .sort((a, b) => {
+                  const pctA = a.wins / (a.wins + a.losses || 1);
+                  const pctB = b.wins / (b.wins + b.losses || 1);
+                  return pctB - pctA;
+                })
+                .slice(0, 8)
+                .map(s => (s.wins / (s.wins + s.losses || 1)) * 100),
+              label: 'Win %'
+            }}
+            title="Win Percentage"
+            subtitle={`Best records in ${selectedSeasonYear}`}
+            horizontal={false}
+          />
         </div>
 
         {topWeeklyScores.length > 0 && (

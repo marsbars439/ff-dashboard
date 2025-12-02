@@ -11,6 +11,7 @@ import {
   Frown
 } from 'lucide-react';
 import DashboardSection from '../../../components/DashboardSection';
+import { BarChart, PieChart } from '../../../shared/components';
 
 const RecordsView = ({
   allRecords,
@@ -274,6 +275,49 @@ const RecordsView = ({
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Data Visualization Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
+        <BarChart
+          data={{
+            labels: winPctRankings.filter(m => m.active).slice(0, 8).map(m => m.name.split(' ').slice(-1)[0]),
+            values: winPctRankings.filter(m => m.active).slice(0, 8).map(m => (m.winPct * 100)),
+            label: 'Win %'
+          }}
+          title="Win Percentage Leaders"
+          subtitle="Top 8 active managers by win percentage"
+          horizontal={true}
+        />
+        <BarChart
+          data={{
+            labels: ppgRankings.filter(m => m.active).slice(0, 8).map(m => m.name.split(' ').slice(-1)[0]),
+            values: ppgRankings.filter(m => m.active).slice(0, 8).map(m => m.pointsPerGame),
+            label: 'PPG'
+          }}
+          title="Points Per Game Leaders"
+          subtitle="Top 8 active managers by scoring average"
+          horizontal={true}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
+        <PieChart
+          data={{
+            labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
+            values: medalRankings.slice(0, 6).map(m => m.championships)
+          }}
+          title="Championship Distribution"
+          subtitle="Total championships by manager (Top 6)"
+        />
+        <PieChart
+          data={{
+            labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
+            values: medalRankings.slice(0, 6).map(m => m.totalMedals)
+          }}
+          title="Medal Distribution"
+          subtitle="All playoff finishes by manager (Top 6)"
+        />
       </div>
 
       <div className="card-primary">
