@@ -42,7 +42,7 @@ const resolveManagerId = (team, managerNameToId) => {
   return managerNameToId.get(managerName) || null;
 };
 
-const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
+const MatchupCard = ({ matchup, prediction, onScoreChange, className = '' }) => {
   const homeScoreValue = prediction?.homeScore ?? '';
   const awayScoreValue = prediction?.awayScore ?? '';
   const parsedHome = normalizePoints(homeScoreValue);
@@ -79,14 +79,14 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
           value={value}
           placeholder={currentPoints !== null ? currentPoints.toFixed(1) : 'Points'}
           onChange={(e) => onScoreChange(matchup.key, isHome ? 'homeScore' : 'awayScore', e.target.value)}
-          className="w-full rounded-md border border-white/15 bg-slate-950/40 px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs sm:text-sm text-slate-50 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+          className="w-full rounded-md border border-slate-700/50 bg-slate-950/40 px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs sm:text-sm text-slate-50 focus:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
         />
       </div>
     );
   };
 
   return (
-    <div className="rounded-md border border-white/12 bg-transparent p-1.5 sm:p-2 space-y-1">
+    <div className={`rounded-md border border-slate-700/40 bg-slate-900/20 p-1.5 sm:p-2 space-y-1 w-full ${className}`}>
       {matchup.unmapped && (
         <div className="flex justify-end mb-1">
           <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-100">
@@ -114,7 +114,7 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, ch
     </div>
     <div className="w-full overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0">
       <table className="w-full text-[10px] sm:text-xs md:text-sm table-auto">
-        <thead className="text-slate-300 border-b border-white/10">
+        <thead className="text-slate-300 border-b border-slate-700/40">
           <tr>
             <th className="text-left py-1.5 sm:py-2 pr-2 sm:pr-3 font-semibold">Rank</th>
             <th className="text-left py-1.5 sm:py-2 pr-2 sm:pr-3 font-semibold">Manager</th>
@@ -124,7 +124,7 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, ch
             <th className="text-left py-1.5 sm:py-2 font-semibold hidden md:table-cell">Change</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/10">
+        <tbody className="divide-y divide-slate-700/30">
           {standings.map((team) => {
             const inPlayoffs = playoffIds.has(team.id);
             const isWildcard = wildcardId && team.id === wildcardId;
@@ -199,13 +199,13 @@ const ProjectedBracket = ({ seeds }) => {
     const bottomMuted = !bottomSeed;
 
     return (
-      <div className="rounded-md border border-white/12 bg-slate-950/40 px-2 sm:px-3 py-1.5 sm:py-2 space-y-1">
+      <div className="rounded-md border border-slate-700/40 bg-slate-900/30 px-2 sm:px-3 py-1.5 sm:py-2 space-y-1">
         <div className="space-y-1">
-          <div className="rounded border border-white/12 bg-slate-900/50 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs flex justify-between items-center gap-1">
+          <div className="rounded border border-slate-700/40 bg-slate-900/50 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs flex justify-between items-center gap-1">
             <span className={`font-semibold truncate ${topMuted ? 'text-slate-400' : 'text-slate-50'}`}>{topName}</span>
             <span className="text-[9px] sm:text-[10px] text-slate-300 whitespace-nowrap flex-shrink-0">{topSeedLabel}</span>
           </div>
-          <div className="rounded border border-white/12 bg-slate-900/50 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs flex justify-between items-center gap-1">
+          <div className="rounded border border-slate-700/40 bg-slate-900/50 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs flex justify-between items-center gap-1">
             <span className={`font-semibold truncate ${bottomMuted ? 'text-slate-400' : 'text-slate-50'}`}>{bottomName}</span>
             <span className="text-[9px] sm:text-[10px] text-slate-300 whitespace-nowrap flex-shrink-0">{bottomSeedLabel}</span>
           </div>
@@ -247,34 +247,23 @@ const ProjectedBracket = ({ seeds }) => {
 
       {/* Desktop: Grid view */}
       <div className="hidden lg:block">
-        <div
-          className="grid gap-2"
-          style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gridTemplateRows: 'repeat(8, minmax(0, 1fr))' }}
-        >
+        <div className="flex items-center gap-3">
           {/* Round 1 */}
-          <div style={{ gridColumn: 1, gridRow: '1 / span 2' }}>
+          <div className="flex-1 flex flex-col justify-center gap-3">
             <MatchupBox topSeed={seed1} bottomSeed={null} bottomPlaceholder="Bye" />
-          </div>
-          <div style={{ gridColumn: 1, gridRow: '3 / span 2' }}>
             <MatchupBox topSeed={seed4} bottomSeed={seed5} />
-          </div>
-          <div style={{ gridColumn: 1, gridRow: '6 / span 2' }}>
             <MatchupBox topSeed={seed2} bottomSeed={null} bottomPlaceholder="Bye" />
-          </div>
-          <div style={{ gridColumn: 1, gridRow: '8 / span 2' }}>
             <MatchupBox topSeed={seed6} bottomSeed={seed3} />
           </div>
 
           {/* Semifinals */}
-          <div style={{ gridColumn: 2, gridRow: '2 / span 3' }}>
+          <div className="flex-1 flex flex-col justify-center gap-6">
             <MatchupBox topSeed={seed1} bottomSeed={null} topPlaceholder="Seed 1" bottomPlaceholder="Winner 4/5" />
-          </div>
-          <div style={{ gridColumn: 2, gridRow: '6 / span 3' }}>
             <MatchupBox topSeed={seed2} bottomSeed={null} topPlaceholder="Seed 2" bottomPlaceholder="Winner 3/6" />
           </div>
 
           {/* Final */}
-          <div style={{ gridColumn: 3, gridRow: '4 / span 3' }}>
+          <div className="flex-1 flex flex-col justify-center">
             <MatchupBox topSeed={null} bottomSeed={null} topPlaceholder="Winner Semis" bottomPlaceholder="Winner Semis" />
           </div>
         </div>
@@ -628,7 +617,7 @@ const PlayoffSimulator = () => {
           </button>
         </div>
         {upcomingWeeks.length === 0 ? (
-          <div className="rounded-lg border border-white/10 bg-slate-950/60 p-2.5 sm:p-3">
+          <div className="rounded-lg border border-slate-700/40 bg-slate-900/30 p-2.5 sm:p-3">
             <p className="text-xs sm:text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
           </div>
         ) : (
@@ -643,13 +632,14 @@ const PlayoffSimulator = () => {
                       {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2">
-                    {weekMatchups.map((matchup) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2 justify-items-center">
+                    {weekMatchups.map((matchup, idx) => (
                       <MatchupCard
                         key={matchup.key}
                         matchup={matchup}
                         prediction={predictions[matchup.key]}
                         onScoreChange={handleScoreChange}
+                        className={weekMatchups.length % 2 === 1 && idx === weekMatchups.length - 1 ? 'sm:col-span-2 sm:max-w-[calc(50%-0.25rem)] lg:col-span-1 lg:max-w-none' : ''}
                       />
                     ))}
                   </div>
