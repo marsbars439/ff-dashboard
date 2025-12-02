@@ -650,14 +650,12 @@ const PlayoffSimulator = () => {
                       // Handle 3-column layout (lg breakpoint)
                       if (isLastRowLg) {
                         if (remainderLg === 1) {
-                          // 1 item in last row: span middle column
-                          classNames.push('lg:col-start-2', 'lg:col-span-1', 'lg:justify-self-center', 'lg:max-w-[calc(33.333%-0.375rem)]');
+                          // 1 item in last row: center it in middle column, keep full width
+                          classNames.push('lg:col-start-2', 'lg:col-span-1');
                         } else if (remainderLg === 2) {
-                          // 2 items in last row: center both
+                          // 2 items in last row: both span from column 1, centered together
                           if (idx === totalCount - 2) {
-                            classNames.push('lg:col-start-1', 'lg:col-span-2', 'lg:justify-self-center', 'lg:max-w-[calc(50%-0.25rem)]');
-                          } else {
-                            classNames.push('lg:col-span-1', 'lg:justify-self-center', 'lg:max-w-[calc(33.333%-0.375rem)]');
+                            classNames.push('lg:col-start-1');
                           }
                         }
                       }
