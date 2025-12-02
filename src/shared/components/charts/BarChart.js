@@ -53,7 +53,16 @@ export const BarChart = ({ data, title, subtitle, className = '', horizontal = f
     plugins: {
       legend: {
         display: false
-      }
+      },
+      tooltip: data.axisOffset !== undefined ? {
+        callbacks: {
+          label: function(context) {
+            const value = context.parsed.y || context.parsed.x;
+            const adjustedValue = value + data.axisOffset;
+            return `${context.dataset.label}: ${adjustedValue.toFixed(1)}%`;
+          }
+        }
+      } : undefined
     },
     scales: {
       [axisKey]: {
