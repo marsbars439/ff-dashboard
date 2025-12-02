@@ -98,7 +98,7 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
   };
 
   return (
-    <div className="card-secondary space-y-2">
+    <div className="rounded-lg border border-white/15 bg-transparent p-2.5 space-y-2">
       {matchup.unmapped && (
         <div className="flex justify-end">
           <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
@@ -545,10 +545,7 @@ const PlayoffSimulator = () => {
                 {upcomingWeeks.map((week) => {
                   const weekMatchups = simulatableMatchups.filter((m) => m.week === week.week);
                   return (
-                    <div
-                      key={week.week}
-                      className="rounded-lg border border-white/10 bg-slate-950/60 p-3 space-y-2"
-                    >
+                    <div key={week.week} className="space-y-2">
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm sm:text-base font-bold text-slate-50">Week {week.week}</h3>
                         <p className="text-[11px] text-slate-300">
