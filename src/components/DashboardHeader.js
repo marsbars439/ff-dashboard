@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { ThemeToggle } from '../shared/components';
 
 const DashboardHeader = ({ tabs, activeTab, onTabChange }) => {
   const normalizedTabs = Array.isArray(tabs) ? tabs : [];
@@ -18,7 +19,8 @@ const DashboardHeader = ({ tabs, activeTab, onTabChange }) => {
             <span className="text-3xl sm:text-4xl" role="img" aria-label="football">🏈</span>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-50">The League Dashboard</h1>
           </div>
-          <nav className="flex flex-wrap justify-center sm:justify-end items-center space-x-3 sm:space-x-6">
+          <nav className="flex flex-wrap justify-center sm:justify-end items-center gap-2 sm:gap-3">
+            <ThemeToggle className="order-last sm:order-first" />
             {normalizedTabs.map((tab) => {
               const isActive = typeof tab.isActive === 'function'
                 ? tab.isActive(activeTab)
