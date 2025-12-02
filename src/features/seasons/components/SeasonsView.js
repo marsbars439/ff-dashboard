@@ -932,18 +932,18 @@ export function SeasonsView({ teamSeasons, loading, error }) {
     return (
       <div key={matchupKey} className="rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm">
         <div className="grid grid-cols-2 divide-x divide-gray-200">
-          <div className={`p-3 ${homeWin ? 'bg-emerald-600' : ''}`}>
+          <div className={`p-2 sm:p-2.5 md:p-3 ${homeWin ? 'bg-emerald-600' : ''}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <span className={`text-sm font-medium block truncate ${homeWin ? 'text-white' : 'text-gray-900'}`}>
+                <span className={`text-xs sm:text-sm font-medium block truncate ${homeWin ? 'text-white' : 'text-gray-900'}`}>
                   {home?.manager_name || 'TBD'}
                 </span>
                 {home?.team_name && (
-                  <p className={`text-xs mt-1 ${homeWin ? 'text-white/80' : 'text-gray-500'}`}>{home.team_name}</p>
+                  <p className={`text-[10px] sm:text-xs mt-0.5 sm:mt-1 ${homeWin ? 'text-white/80' : 'text-gray-500'}`}>{home.team_name}</p>
                 )}
               </div>
               <div className="flex-shrink-0 text-center">
-                <span className={`text-lg font-bold block ${homeWin ? 'text-white' : 'text-gray-700'}`}>
+                <span className={`text-base sm:text-lg font-bold block ${homeWin ? 'text-white' : 'text-gray-700'}`}>
                   {formatPoints(home?.points)}
                 </span>
                 <div className="mt-1 min-h-[20px]">
@@ -952,22 +952,22 @@ export function SeasonsView({ teamSeasons, loading, error }) {
               </div>
             </div>
           </div>
-          <div className={`p-3 ${awayWin ? 'bg-emerald-600' : ''}`}>
+          <div className={`p-2 sm:p-2.5 md:p-3 ${awayWin ? 'bg-emerald-600' : ''}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex-shrink-0 text-center">
-                <span className={`text-lg font-bold block ${awayWin ? 'text-white' : 'text-gray-700'}`}>
+                <span className={`text-base sm:text-lg font-bold block ${awayWin ? 'text-white' : 'text-gray-700'}`}>
                   {formatPoints(away?.points)}
                 </span>
-                <div className="mt-1 min-h-[20px]">
+                <div className="mt-0.5 sm:mt-1 min-h-[20px]">
                   {awaySummary}
                 </div>
               </div>
               <div className="flex-1 min-w-0 text-right">
-                <span className={`text-sm font-medium block truncate ${awayWin ? 'text-white' : 'text-gray-900'}`}>
+                <span className={`text-xs sm:text-sm font-medium block truncate ${awayWin ? 'text-white' : 'text-gray-900'}`}>
                   {away?.manager_name || 'TBD'}
                 </span>
                 {away?.team_name && (
-                  <p className={`text-xs mt-1 ${awayWin ? 'text-white/80' : 'text-gray-500'}`}>{away.team_name}</p>
+                  <p className={`text-[10px] sm:text-xs mt-0.5 sm:mt-1 ${awayWin ? 'text-white/80' : 'text-gray-500'}`}>{away.team_name}</p>
                 )}
               </div>
             </div>
@@ -976,7 +976,7 @@ export function SeasonsView({ teamSeasons, loading, error }) {
         <button
           type="button"
           onClick={() => toggleMatchupExpansion(matchupKey)}
-          className="w-full px-3 py-2 border-t border-gray-200 flex items-center justify-center gap-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          className="w-full px-2 py-1.5 sm:px-3 sm:py-2 border-t border-gray-200 flex items-center justify-center gap-2 text-xs sm:text-sm text-gray-600 hover:bg-gray-50 transition-colors"
         >
           <span>{isExpanded ? 'Hide Lineups' : 'View Lineups'}</span>
           <ChevronDown
@@ -986,8 +986,8 @@ export function SeasonsView({ teamSeasons, loading, error }) {
           />
         </button>
         {isExpanded && (
-          <div className="border-t border-gray-200 px-3 py-3 sm:px-4 sm:py-4 bg-gray-50">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="border-t border-gray-200 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 bg-gray-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
               {renderTeamLineup(home, null, homeLineup)}
               {renderTeamLineup(away, null, awayLineup)}
             </div>
@@ -1283,11 +1283,11 @@ export function SeasonsView({ teamSeasons, loading, error }) {
         <button
           type="button"
           onClick={() => toggleWeekExpansion(week.week)}
-          className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left hover:bg-gray-50 transition-colors rounded-lg"
+          className="w-full flex items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 text-left hover:bg-gray-50 transition-colors rounded-lg"
           aria-expanded={isExpanded}
         >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-1 gap-2">
-            <h4 className="font-semibold text-gray-900">Week {week.week}</h4>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-1 gap-1 sm:gap-2">
+            <h4 className="font-semibold text-xs sm:text-sm md:text-base text-gray-900">Week {week.week}</h4>
             {isActiveWeek && <span className={headerMessageClass}>{headerMessage}</span>}
           </div>
           <ChevronDown
@@ -1298,9 +1298,9 @@ export function SeasonsView({ teamSeasons, loading, error }) {
         </button>
 
         {isExpanded && (
-          <div className="border-t border-gray-200 px-3 pb-3 sm:px-4 sm:pb-4 pt-3 sm:pt-4 bg-gray-50">
+          <div className="border-t border-gray-200 px-2 pb-2 sm:px-3 sm:pb-3 md:px-4 md:pb-4 pt-2 sm:pt-3 md:pt-4 bg-gray-50">
             {hasActiveLineups ? (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {activeWeekMatchups.matchups.map((matchup, idx) =>
                   renderActiveWeekMatchup(matchup, idx, week.week)
                 )}
@@ -1308,14 +1308,14 @@ export function SeasonsView({ teamSeasons, loading, error }) {
             ) : (
               <>
                 {isActiveWeek && activeWeekLoading && (
-                  <p className="text-xs text-gray-500 mb-2">
+                  <p className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">
                     Loading starting lineups from Sleeper...
                   </p>
                 )}
                 {isActiveWeek && activeWeekError && (
-                  <p className="text-xs text-red-600 mb-2">{activeWeekError}</p>
+                  <p className="text-[10px] sm:text-xs text-red-600 mb-1 sm:mb-2">{activeWeekError}</p>
                 )}
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {week.matchups.map((m, idx) => {
                     const homePoints = normalizePoints(m.home?.points);
                     const awayPoints = normalizePoints(m.away?.points);
@@ -1333,22 +1333,22 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                     return (
                       <div key={idx} className="rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm">
                         <div className="grid grid-cols-2 divide-x divide-gray-200">
-                          <div className={`p-3 ${homeWin ? 'bg-emerald-600' : ''}`}>
+                          <div className={`p-2 sm:p-2.5 md:p-3 ${homeWin ? 'bg-emerald-600' : ''}`}>
                             <div className="flex items-center justify-between gap-2">
-                              <span className={`text-sm font-medium truncate ${homeWin ? 'text-white' : 'text-gray-900'}`}>
+                              <span className={`text-xs sm:text-sm font-medium truncate ${homeWin ? 'text-white' : 'text-gray-900'}`}>
                                 {m.home?.manager_name || 'TBD'}
                               </span>
-                              <span className={`text-lg font-bold ${homeWin ? 'text-white' : 'text-gray-700'}`}>
+                              <span className={`text-base sm:text-lg font-bold ${homeWin ? 'text-white' : 'text-gray-700'}`}>
                                 {formatPoints(m.home?.points)}
                               </span>
                             </div>
                           </div>
-                          <div className={`p-3 ${awayWin ? 'bg-emerald-600' : ''}`}>
+                          <div className={`p-2 sm:p-2.5 md:p-3 ${awayWin ? 'bg-emerald-600' : ''}`}>
                             <div className="flex items-center justify-between gap-2">
-                              <span className={`text-lg font-bold ${awayWin ? 'text-white' : 'text-gray-700'}`}>
+                              <span className={`text-base sm:text-lg font-bold ${awayWin ? 'text-white' : 'text-gray-700'}`}>
                                 {formatPoints(m.away?.points)}
                               </span>
-                              <span className={`text-sm font-medium truncate ${awayWin ? 'text-white' : 'text-gray-900'}`}>
+                              <span className={`text-xs sm:text-sm font-medium truncate ${awayWin ? 'text-white' : 'text-gray-900'}`}>
                                 {m.away?.manager_name || 'TBD'}
                               </span>
                             </div>
@@ -1416,36 +1416,36 @@ export function SeasonsView({ teamSeasons, loading, error }) {
       description={`View standings, matchups, and playoff results for the ${selectedSeasonYear || 'selected'} season.`}
       icon={CalendarRange}
       actions={seasonSelector}
-      bodyClassName="space-y-6 sm:space-y-8"
+      bodyClassName="space-y-2 sm:space-y-4 md:space-y-6"
     >
-      <div className={`${surfaceCard} p-4 sm:p-6 space-y-6`}>
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-50">{selectedSeasonYear}</h2>
+      <div className={`${surfaceCard} p-2.5 sm:p-4 md:p-6 space-y-2 sm:space-y-4 md:space-y-6`}>
+        <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
+          <h2 className="text-base sm:text-xl md:text-2xl font-bold text-slate-50">{selectedSeasonYear}</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-          <div className="rounded-xl bg-gradient-to-br from-blue-500/20 via-slate-900/60 to-slate-900/60 border border-blue-400/30 p-3">
-            <p className="text-xs sm:text-sm text-blue-100 font-semibold">Champion</p>
-            <p className="font-semibold text-slate-50">{champion ? champion.manager_name : 'TBD'}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 md:gap-4 text-center">
+          <div className="rounded-xl bg-gradient-to-br from-blue-500/20 via-slate-900/60 to-slate-900/60 border border-blue-400/30 p-2 sm:p-2.5 md:p-3">
+            <p className="text-[10px] sm:text-xs md:text-sm text-blue-100 font-semibold">Champion</p>
+            <p className="font-semibold text-xs sm:text-sm md:text-base text-slate-50">{champion ? champion.manager_name : 'TBD'}</p>
           </div>
-          <div className="rounded-xl bg-gradient-to-br from-emerald-500/20 via-slate-900/60 to-slate-900/60 border border-emerald-400/30 p-3">
-            <p className="text-xs sm:text-sm text-emerald-100 font-semibold">Runner-Up</p>
-            <p className="font-semibold text-slate-50">{runnerUp ? runnerUp.manager_name : 'TBD'}</p>
+          <div className="rounded-xl bg-gradient-to-br from-emerald-500/20 via-slate-900/60 to-slate-900/60 border border-emerald-400/30 p-2 sm:p-2.5 md:p-3">
+            <p className="text-[10px] sm:text-xs md:text-sm text-emerald-100 font-semibold">Runner-Up</p>
+            <p className="font-semibold text-xs sm:text-sm md:text-base text-slate-50">{runnerUp ? runnerUp.manager_name : 'TBD'}</p>
           </div>
-          <div className="rounded-xl bg-gradient-to-br from-amber-500/20 via-slate-900/60 to-slate-900/60 border border-amber-300/40 p-3">
-            <p className="text-xs sm:text-sm text-amber-100 font-semibold">Third Place</p>
-            <p className="font-semibold text-slate-50">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
+          <div className="rounded-xl bg-gradient-to-br from-amber-500/20 via-slate-900/60 to-slate-900/60 border border-amber-300/40 p-2 sm:p-2.5 md:p-3">
+            <p className="text-[10px] sm:text-xs md:text-sm text-amber-100 font-semibold">Third Place</p>
+            <p className="font-semibold text-xs sm:text-sm md:text-base text-slate-50">{thirdPlace ? thirdPlace.manager_name : 'TBD'}</p>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-white/10 text-xs sm:text-sm">
+          <table className="min-w-full divide-y divide-white/10 text-[10px] sm:text-xs md:text-sm">
             <thead className="bg-slate-900/60">
               <tr>
-                <th className="px-3 py-2 text-left font-semibold text-slate-200">Rank</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-200">Manager</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-200">Record</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-200">PF</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-200">PA</th>
+                <th className="px-2 py-1.5 sm:px-3 sm:py-2 text-left font-semibold text-slate-200">Rank</th>
+                <th className="px-2 py-1.5 sm:px-3 sm:py-2 text-left font-semibold text-slate-200">Manager</th>
+                <th className="px-2 py-1.5 sm:px-3 sm:py-2 text-left font-semibold text-slate-200">Record</th>
+                <th className="px-2 py-1.5 sm:px-3 sm:py-2 text-left font-semibold text-slate-200">PF</th>
+                <th className="px-2 py-1.5 sm:px-3 sm:py-2 text-left font-semibold text-slate-200">PA</th>
               </tr>
             </thead>
             <tbody className="bg-slate-950/40 divide-y divide-white/10 text-slate-50">
@@ -1457,14 +1457,14 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                     key={season.name_id}
                     className={season.playoff_finish === 1 ? 'bg-amber-500/10' : ''}
                   >
-                    <td className="px-3 py-2">{season.regular_season_rank}</td>
-                    <td className="px-3 py-2">{season.manager_name}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-1.5 sm:px-3 sm:py-2">{season.regular_season_rank}</td>
+                    <td className="px-2 py-1.5 sm:px-3 sm:py-2">{season.manager_name}</td>
+                    <td className="px-2 py-1.5 sm:px-3 sm:py-2">
                       {season.wins}-{season.losses}
                       {season.ties ? `-${season.ties}` : ''}
                     </td>
-                    <td className="px-3 py-2">{season.points_for.toFixed(1)}</td>
-                    <td className="px-3 py-2">{season.points_against.toFixed(1)}</td>
+                    <td className="px-2 py-1.5 sm:px-3 sm:py-2">{season.points_for.toFixed(1)}</td>
+                    <td className="px-2 py-1.5 sm:px-3 sm:py-2">{season.points_against.toFixed(1)}</td>
                   </tr>
                 ))}
             </tbody>
@@ -1472,10 +1472,10 @@ export function SeasonsView({ teamSeasons, loading, error }) {
         </div>
 
         {topWeeklyScores.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className={`${subCard} border-emerald-400/30 bg-emerald-500/10 p-4`}>
-              <h4 className="font-semibold text-slate-50 mb-2">Top 5 Weekly Scores</h4>
-              <ul className="space-y-2 text-sm text-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+            <div className={`${subCard} border-emerald-400/30 bg-emerald-500/10 p-2 sm:p-3 md:p-4`}>
+              <h4 className="font-semibold text-slate-50 mb-1 sm:mb-1.5 md:mb-2 text-xs sm:text-sm md:text-base">Top 5 Weekly Scores</h4>
+              <ul className="space-y-1 sm:space-y-1.5 md:space-y-2 text-xs sm:text-sm text-slate-100">
                 {topWeeklyScores.map((w, idx) => (
                   <li key={idx} className="flex justify-between">
                     <span>{`Week ${w.week} - ${w.manager}`}</span>
@@ -1484,9 +1484,9 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                 ))}
               </ul>
             </div>
-            <div className={`${subCard} border-rose-400/30 bg-rose-500/10 p-4`}>
-              <h4 className="font-semibold text-slate-50 mb-2">Bottom 5 Weekly Scores</h4>
-              <ul className="space-y-2 text-sm text-slate-100">
+            <div className={`${subCard} border-rose-400/30 bg-rose-500/10 p-2 sm:p-3 md:p-4`}>
+              <h4 className="font-semibold text-slate-50 mb-1 sm:mb-1.5 md:mb-2 text-xs sm:text-sm md:text-base">Bottom 5 Weekly Scores</h4>
+              <ul className="space-y-1 sm:space-y-1.5 md:space-y-2 text-xs sm:text-sm text-slate-100">
                 {bottomWeeklyScores.map((w, idx) => (
                   <li key={idx} className="flex justify-between">
                     <span>{`Week ${w.week} - ${w.manager}`}</span>
@@ -1504,17 +1504,17 @@ export function SeasonsView({ teamSeasons, loading, error }) {
       )}
 
       {!seasonsWithoutMatchups.includes(selectedSeasonYear) && (
-        <div className={`${surfaceCard} p-4 sm:p-6 space-y-4`}>
-          <h3 className="text-lg sm:text-xl font-bold text-slate-50">Matchups</h3>
-          <div className="space-y-4">
+        <div className={`${surfaceCard} p-2.5 sm:p-4 md:p-6 space-y-2 sm:space-y-3 md:space-y-4`}>
+          <h3 className="text-sm sm:text-lg md:text-xl font-bold text-slate-50">Matchups</h3>
+          <div className="space-y-2 sm:space-y-3 md:space-y-4">
             <div className="border border-white/10 rounded-lg bg-slate-950/40">
               <button
                 type="button"
                 onClick={() => setShowPreviousResults(prev => !prev)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left text-slate-100"
+                className="w-full flex items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 text-left text-slate-100"
                 aria-expanded={showPreviousResults}
               >
-                <span className="font-semibold">{previousWeeksLabel}</span>
+                <span className="font-semibold text-xs sm:text-sm md:text-base">{previousWeeksLabel}</span>
                 <ChevronDown
                   className={`w-5 h-5 text-slate-400 transition-transform ${
                     showPreviousResults ? 'transform rotate-180' : ''
@@ -1522,11 +1522,11 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                 />
               </button>
               {showPreviousResults && (
-                <div className="border-t border-white/10 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
+                <div className="border-t border-white/10 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 space-y-2 sm:space-y-3 md:space-y-4">
                   {previousWeeks.length > 0 ? (
                     previousWeeks.map(renderWeekCard)
                   ) : (
-                    <p className="text-sm text-slate-400">
+                    <p className="text-xs sm:text-sm text-slate-400">
                       No completed matchups yet.
                     </p>
                   )}
@@ -1537,10 +1537,10 @@ export function SeasonsView({ teamSeasons, loading, error }) {
               <button
                 type="button"
                 onClick={() => setShowUpcomingMatchups(prev => !prev)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-3 sm:px-4 sm:py-4 text-left text-slate-100"
+                className="w-full flex items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 text-left text-slate-100"
                 aria-expanded={showUpcomingMatchups}
               >
-                <span className="font-semibold">{upcomingWeeksLabel}</span>
+                <span className="font-semibold text-xs sm:text-sm md:text-base">{upcomingWeeksLabel}</span>
                 <ChevronDown
                   className={`w-5 h-5 text-slate-400 transition-transform ${
                     showUpcomingMatchups ? 'transform rotate-180' : ''
@@ -1548,11 +1548,11 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                 />
               </button>
               {showUpcomingMatchups && (
-                <div className="border-t border-white/10 px-3 py-3 sm:px-4 sm:py-4 space-y-4">
+                <div className="border-t border-white/10 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 space-y-2 sm:space-y-3 md:space-y-4">
                   {upcomingWeeks.length > 0 ? (
                     upcomingWeeks.map(renderWeekCard)
                   ) : (
-                    <p className="text-sm text-slate-400">
+                    <p className="text-xs sm:text-sm text-slate-400">
                       No upcoming matchups remaining.
                     </p>
                   )}

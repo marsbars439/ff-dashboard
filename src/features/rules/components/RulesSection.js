@@ -19,7 +19,7 @@ const renderMarkdown = (text = '') => {
   };
 
   const createSimpleList = (items, key) => (
-    <ul key={key} className="mb-4 space-y-1">
+    <ul key={key} className="mb-2 sm:mb-3 md:mb-4 space-y-0.5 sm:space-y-1">
       {items.map((item, i) => {
         const indentStyle = {
           marginLeft: `${Math.max(1, 1 + item.indent * 1.5)}rem`,
@@ -30,7 +30,7 @@ const renderMarkdown = (text = '') => {
         return (
           <li
             key={i}
-            className="text-slate-100 text-sm sm:text-base"
+            className="text-slate-100 text-xs sm:text-sm md:text-base"
             style={indentStyle}
           >
             {item.content}
@@ -63,19 +63,19 @@ const renderMarkdown = (text = '') => {
 
     if (line.startsWith('# ')) {
       elements.push(
-        <h1 key={index} className="text-2xl sm:text-3xl font-bold text-slate-50 mt-6 sm:mt-8 mb-3 sm:mb-4">
+        <h1 key={index} className="text-base sm:text-2xl md:text-3xl font-bold text-slate-50 mt-3 sm:mt-6 md:mt-8 mb-1.5 sm:mb-3 md:mb-4">
           {processInlineFormatting(line.slice(2))}
         </h1>
       );
     } else if (line.startsWith('## ')) {
       elements.push(
-        <h2 key={index} className="text-xl sm:text-2xl font-bold text-slate-100 mt-4 sm:mt-6 mb-2 sm:mb-3">
+        <h2 key={index} className="text-sm sm:text-xl md:text-2xl font-bold text-slate-100 mt-2 sm:mt-4 md:mt-6 mb-1 sm:mb-2 md:mb-3">
           {processInlineFormatting(line.slice(3))}
         </h2>
       );
     } else if (line.startsWith('### ')) {
       elements.push(
-        <h3 key={index} className="text-lg sm:text-xl font-bold text-slate-200 mt-3 sm:mt-4 mb-2">
+        <h3 key={index} className="text-xs sm:text-lg md:text-xl font-bold text-slate-200 mt-1.5 sm:mt-3 md:mt-4 mb-1 sm:mb-2">
           {processInlineFormatting(line.slice(4))}
         </h3>
       );
@@ -83,7 +83,7 @@ const renderMarkdown = (text = '') => {
       elements.push(<br key={index} />);
     } else if (line.trim() !== '') {
       elements.push(
-        <p key={index} className="text-slate-100/90 mb-2 text-sm sm:text-base">
+        <p key={index} className="text-slate-100/90 mb-1 sm:mb-1.5 md:mb-2 text-xs sm:text-sm md:text-base">
           {processInlineFormatting(line)}
         </p>
       );
@@ -104,9 +104,10 @@ const RulesSection = ({ rulesContent }) => (
     title="League Rules"
     description="Governance, settings, and best practices for every season."
     icon={BookOpen}
+    bodyClassName="space-y-2 sm:space-y-4 md:space-y-6"
   >
     <div className="card-primary">
-      <div className="prose prose-sm sm:prose-lg max-w-none text-slate-100">
+      <div className="prose prose-sm sm:prose-base md:prose-lg max-w-none text-slate-100">
         {renderMarkdown(rulesContent || '')}
       </div>
     </div>
