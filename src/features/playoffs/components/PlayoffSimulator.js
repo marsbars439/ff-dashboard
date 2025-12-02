@@ -205,7 +205,7 @@ const ProjectedBracket = ({ seeds }) => {
 
     return (
     <div
-      className="rounded-md border border-white/12 bg-slate-950/40 px-3 py-2 space-y-1 min-w-[180px] min-h-[120px] flex flex-col justify-between"
+      className="rounded-md border border-white/12 bg-slate-950/40 px-3 py-2 space-y-1 min-w-[180px] flex flex-col"
       style={style}
     >
       <div className="space-y-1">
