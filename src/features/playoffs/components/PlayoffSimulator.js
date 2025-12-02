@@ -429,6 +429,19 @@ const PlayoffSimulator = () => {
   const loading = managersLoading || seasonsLoading || matchupsLoading;
   const error = managersError || seasonsError || matchupsError;
 
+  const buildDefaultPredictions = () => {
+    const defaults = {};
+    simulatableMatchups.forEach((matchup) => {
+      const homeAvg = matchup.home.id ? teamAverages[matchup.home.id] : null;
+      const awayAvg = matchup.away.id ? teamAverages[matchup.away.id] : null;
+      defaults[matchup.key] = {
+        homeScore: homeAvg !== null ? Number(homeAvg.toFixed(1)) : '',
+        awayScore: awayAvg !== null ? Number(awayAvg.toFixed(1)) : ''
+      };
+    });
+    return defaults;
+  };
+
   const handleScoreChange = (key, side, value) => {
     setPredictions((prev) => ({
       ...prev,
@@ -439,25 +452,11 @@ const PlayoffSimulator = () => {
     }));
   };
 
-  const handleReset = () => setPredictions({});
+  const handleReset = () => setPredictions(buildDefaultPredictions());
 
   useEffect(() => {
     if (simulatableMatchups.length === 0) return;
-
-    setPredictions((prev) => {
-      const next = { ...prev };
-      simulatableMatchups.forEach((matchup) => {
-        if (!next[matchup.key]) {
-          const homeAvg = matchup.home.id ? teamAverages[matchup.home.id] : null;
-          const awayAvg = matchup.away.id ? teamAverages[matchup.away.id] : null;
-          next[matchup.key] = {
-            homeScore: homeAvg !== null ? Number(homeAvg.toFixed(1)) : '',
-            awayScore: awayAvg !== null ? Number(awayAvg.toFixed(1)) : ''
-          };
-        }
-      });
-      return next;
-    });
+    setPredictions(buildDefaultPredictions());
   }, [simulatableMatchups, teamAverages]);
 
   if (loading) {
@@ -495,34 +494,38 @@ const PlayoffSimulator = () => {
       icon={Sparkles}
       bodyClassName="space-y-3 sm:space-y-4"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-col">
-          <p className="text-xs text-slate-300">
-            Simulating weeks {simulationStartWeek}-{regularSeasonWeeks} ({gamesRemaining} games remaining)
+      <div className="card-primary">
+        <h3 className="text-sm sm:text-lg font-bold text-slate-50 flex items-center gap-2">
+          <Flame className="w-4 h-4 text-amber-300" />
+          <span>How it works</span>
+        </h3>
+        <ul className="mt-2 space-y-1 text-sm text-slate-200 list-disc list-inside">
+          <li>Each matchup starts with both teams' season PPG; adjust scores to explore scenarios.</li>
+          <li>Standings update immediately with each score you add.</li>
+          <li>Seeds 1-5 are by record; seed 6 goes to the PF leader among ranks 6-10.</li>
+        </ul>
+        {unmappedCount > 0 && (
+          <p className="text-[11px] text-amber-200 mt-2">
+            {unmappedCount} matchup(s) are missing a standings mapping and are excluded from calculations.
           </p>
-          <p className="text-[11px] text-slate-400">
-            Playoff rule: top 5 by record + highest Points For from ranks 6-10.
-          </p>
-          {unmappedCount > 0 && (
-            <p className="text-[11px] text-amber-200">
-              {unmappedCount} matchup(s) are missing a standings mapping and are excluded from calculations.
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-400/40 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/60"
-          >
-            <RefreshCcw className="w-4 h-4" />
-            Reset picks
-          </button>
-        </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 sm:gap-4">
         <div className="xl:col-span-2 space-y-3 sm:space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-300">
+              Simulating weeks {simulationStartWeek}-{regularSeasonWeeks} ({gamesRemaining} games remaining)
+            </p>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-400/40 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/60"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              Reset picks
+            </button>
+          </div>
           {upcomingWeeks.length === 0 ? (
             <div className="card-primary">
               <p className="text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
@@ -555,27 +558,15 @@ const PlayoffSimulator = () => {
         </div>
 
         <div className="space-y-3 sm:space-y-4">
-          <div className="card-primary">
-            <h3 className="text-sm sm:text-lg font-bold text-slate-50 flex items-center gap-2">
-              <Flame className="w-4 h-4 text-amber-300" />
-              <span>How it works</span>
-            </h3>
-            <ul className="mt-2 space-y-1 text-sm text-slate-200 list-disc list-inside">
-              <li>Each matchup starts with both teams' season PPG; adjust scores to explore scenarios.</li>
-              <li>Standings update immediately with each score you add.</li>
-              <li>Seeds 1-5 are by record; seed 6 goes to the PF leader among ranks 6-10.</li>
-            </ul>
-          </div>
+          <ProjectedStandingsTable
+            standings={projectedStandings}
+            playoffIds={playoffSeeds.playoffIds}
+            wildcardId={playoffSeeds.wildcardId}
+            byeIds={byeIds}
+            chumpionId={chumpionId}
+          />
         </div>
       </div>
-
-      <ProjectedStandingsTable
-        standings={projectedStandings}
-        playoffIds={playoffSeeds.playoffIds}
-        wildcardId={playoffSeeds.wildcardId}
-        byeIds={byeIds}
-        chumpionId={chumpionId}
-      />
     </DashboardSection>
   );
 };
