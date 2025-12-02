@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardHeader from './DashboardHeader';
 import ActiveTabSection from './ActiveTabSection';
 import { LoadingSpinner } from '../shared/components';
 import { useAdminSession } from '../state/AdminSessionContext';
-import { useManagerAuth } from '../state/ManagerAuthContext';
 import { useKeeperTools } from '../state/KeeperToolsContext';
 
 // Sprint 4: Feature-based architecture with lazy loading
@@ -15,7 +15,13 @@ const RulesSection = lazy(() => import('../features/rules'));
 const AdminTools = lazy(() => import('../features/admin'));
 const Analytics = lazy(() => import('../features/analytics'));
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
+// Detect if env var is set to wrong value (without /api) and use fallback instead
+const envUrl = process.env.REACT_APP_API_BASE_URL;
+const hasCorrectApiPath = envUrl && envUrl.includes('/api');
+const API_BASE_URL = hasCorrectApiPath
+  ? envUrl
+  : (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
+
 const VALID_TABS = new Set(['records', 'week', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
 const DASHBOARD_TABS = [
   { id: 'records', label: 'Hall of Records' },
@@ -31,27 +37,25 @@ const DASHBOARD_TABS = [
 ];
 
 const FantasyFootballApp = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { adminSession, enforceAdminTabAccess } = useAdminSession();
+
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === 'undefined') {
       return 'records';
     }
 
+    const path = location.pathname.replace(/^\//, '') || 'records';
+    const urlTab = VALID_TABS.has(path) ? path : 'records';
     const storedAdminAuthorized = Boolean(adminSession?.token);
 
-    try {
-      const storedTab = window.localStorage?.getItem('ff-dashboard-active-tab');
-      if (storedTab && VALID_TABS.has(storedTab)) {
-        if (!storedAdminAuthorized && (storedTab === 'admin' || storedTab === 'analytics')) {
-          return 'records';
-        }
-        return storedTab;
-      }
-    } catch (error) {
-      console.warn('Unable to read stored active tab:', error);
+    // Check if URL tab requires admin access
+    if (!storedAdminAuthorized && (urlTab === 'admin' || urlTab === 'analytics')) {
+      return 'records';
     }
 
-    return 'records';
+    return urlTab;
   });
 
   const [selectedManager, setSelectedManager] = useState('');
@@ -65,7 +69,9 @@ const FantasyFootballApp = () => {
 
   const updateActiveTab = tab => {
     const nextTab = VALID_TABS.has(tab) ? tab : 'records';
-    setActiveTab(enforceAdminTabAccess(nextTab));
+    const enforcedTab = enforceAdminTabAccess(nextTab);
+    setActiveTab(enforcedTab);
+    navigate(`/${enforcedTab}`, { replace: true });
   };
 
   const mostRecentYear = useMemo(() => (
@@ -178,6 +184,20 @@ const FantasyFootballApp = () => {
   useEffect(() => {
     setActiveTab(prevTab => enforceAdminTabAccess(prevTab));
   }, [enforceAdminTabAccess]);
+
+  // Sync active tab when URL changes (browser back/forward)
+  useEffect(() => {
+    const path = location.pathname.replace(/^\//, '') || 'records';
+    const urlTab = VALID_TABS.has(path) ? path : 'records';
+    if (urlTab !== activeTab) {
+      const enforcedTab = enforceAdminTabAccess(urlTab);
+      setActiveTab(enforcedTab);
+      // If enforced tab is different from URL, update URL
+      if (enforcedTab !== urlTab) {
+        navigate(`/${enforcedTab}`, { replace: true });
+      }
+    }
+  }, [location.pathname, activeTab, enforceAdminTabAccess, navigate]);
 
   useEffect(() => {
     fetchData();
