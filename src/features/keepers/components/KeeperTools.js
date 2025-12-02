@@ -279,32 +279,32 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
           <p className="text-gray-500 text-xs sm:text-sm md:text-base">No roster data available for this season.</p>
         ) : (
           selectedKeeperRoster && (
-            <div className="bg-gray-50 rounded-lg p-2 sm:p-3 md:p-4">
-              <h3 className="font-semibold text-sm sm:text-base md:text-lg mb-1 sm:mb-1.5 md:mb-2">
+            <div className="bg-gray-50 rounded-lg p-1 sm:p-3 md:p-4">
+              <h3 className="font-semibold text-xs sm:text-base md:text-lg mb-1 sm:mb-1.5 md:mb-2 px-1 sm:px-0">
                 {selectedKeeperRoster.manager_name || selectedKeeperRoster.team_name}
               </h3>
               {selectedKeeperRoster.team_name && selectedKeeperRoster.manager_name && (
-                <p className="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-1.5 md:mb-2">{selectedKeeperRoster.team_name}</p>
+                <p className="text-[10px] sm:text-sm text-gray-600 mb-1 sm:mb-1.5 md:mb-2 px-1 sm:px-0">{selectedKeeperRoster.team_name}</p>
               )}
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs sm:text-sm">
+              <div className="overflow-x-auto -mx-1 sm:mx-0">
+                <table className="min-w-full text-[10px] sm:text-xs md:text-sm">
                   <thead>
                     <tr className="text-left">
-                      <th className="py-1 px-2">Player</th>
-                      <th className="py-1 px-2">Previous Cost</th>
-                      <th className="py-1 px-2"># of Years Kept</th>
-                      <th className="py-1 px-2">Trade?</th>
-                      <th className="py-1 px-2">Cost to Keep</th>
-                      <th className="py-1 px-2">Keep?</th>
+                      <th className="py-0.5 px-0.5 sm:py-1 sm:px-2">Player</th>
+                      <th className="py-0.5 px-0.5 sm:py-1 sm:px-2">Prev Cost</th>
+                      <th className="py-0.5 px-0.5 sm:py-1 sm:px-2"># Yrs</th>
+                      <th className="py-0.5 px-0.5 sm:py-1 sm:px-2">Trade?</th>
+                      <th className="py-0.5 px-0.5 sm:py-1 sm:px-2">Cost</th>
+                      <th className="py-0.5 px-0.5 sm:py-1 sm:px-2">Keep?</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedKeeperRoster.players.map((player, idx) => (
                       <tr key={idx} className="border-t">
-                        <td className="py-1 px-2">{player.name}</td>
-                        <td className="py-1 px-2">{player.previous_cost ? `$${player.previous_cost}` : ''}</td>
-                        <td className="py-1 px-2">{player.years_kept}</td>
-                        <td className="py-1 px-2">
+                        <td className="py-0.5 px-0.5 sm:py-1 sm:px-2">{player.name}</td>
+                        <td className="py-0.5 px-0.5 sm:py-1 sm:px-2">{player.previous_cost ? `$${player.previous_cost}` : ''}</td>
+                        <td className="py-0.5 px-0.5 sm:py-1 sm:px-2">{player.years_kept}</td>
+                        <td className="py-0.5 px-0.5 sm:py-1 sm:px-2">
                           {player.locked ? (
                             player.trade && (
                               <span className="text-xs text-gray-600">
@@ -367,8 +367,8 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
                             </>
                           )}
                         </td>
-                        <td className="py-1 px-2">{player.cost_to_keep ? `$${player.cost_to_keep}` : ''}</td>
-                        <td className="py-1 px-2">
+                        <td className="py-0.5 px-0.5 sm:py-1 sm:px-2">{player.cost_to_keep ? `$${player.cost_to_keep}` : ''}</td>
+                        <td className="py-0.5 px-0.5 sm:py-1 sm:px-2">
                           <input
                             type="checkbox"
                             checked={player.keep}
