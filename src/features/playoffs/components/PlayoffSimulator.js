@@ -632,44 +632,16 @@ const PlayoffSimulator = () => {
                       {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2">
-                    {weekMatchups.map((matchup, idx) => {
-                      const totalCount = weekMatchups.length;
-                      const isLastRowSm = totalCount % 2 === 1 && idx === totalCount - 1;
-                      const remainderLg = totalCount % 3;
-                      const isLastRowLg = remainderLg !== 0 && idx >= totalCount - remainderLg;
-
-                      // Build className based on conditions
-                      const classNames = [];
-
-                      // Handle 2-column layout (sm breakpoint)
-                      if (isLastRowSm) {
-                        classNames.push('sm:col-start-1', 'sm:col-span-2', 'sm:justify-self-center', 'sm:max-w-[calc(50%-0.25rem)]');
-                      }
-
-                      // Handle 3-column layout (lg breakpoint)
-                      if (isLastRowLg) {
-                        if (remainderLg === 1) {
-                          // 1 item in last row: center it in middle column, keep full width
-                          classNames.push('lg:col-start-2', 'lg:col-span-1');
-                        } else if (remainderLg === 2) {
-                          // 2 items in last row: both span from column 1, centered together
-                          if (idx === totalCount - 2) {
-                            classNames.push('lg:col-start-1');
-                          }
-                        }
-                      }
-
-                      return (
-                        <MatchupCard
-                          key={matchup.key}
-                          matchup={matchup}
-                          prediction={predictions[matchup.key]}
-                          onScoreChange={handleScoreChange}
-                          className={classNames.join(' ')}
-                        />
-                      );
-                    })}
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
+                    {weekMatchups.map((matchup) => (
+                      <MatchupCard
+                        key={matchup.key}
+                        matchup={matchup}
+                        prediction={predictions[matchup.key]}
+                        onScoreChange={handleScoreChange}
+                        className="w-full sm:w-[calc(50%-0.25rem)] lg:w-[calc(33.333%-0.375rem)]"
+                      />
+                    ))}
                   </div>
                 </div>
               );
