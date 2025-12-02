@@ -517,8 +517,8 @@ const PlayoffSimulator = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-        <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="card-primary space-y-3">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-slate-300">
@@ -534,7 +534,7 @@ const PlayoffSimulator = () => {
               </button>
             </div>
             {upcomingWeeks.length === 0 ? (
-              <div className="card-secondary">
+              <div className="rounded-lg border border-white/10 bg-slate-950/60 p-3">
                 <p className="text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
               </div>
             ) : (
@@ -552,7 +552,7 @@ const PlayoffSimulator = () => {
                           {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups counted
                         </p>
                       </div>
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {weekMatchups.map((matchup) => (
                           <MatchupCard
                             key={matchup.key}
