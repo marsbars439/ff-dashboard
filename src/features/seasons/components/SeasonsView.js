@@ -986,8 +986,8 @@ export function SeasonsView({ teamSeasons, loading, error }) {
           />
         </button>
         {isExpanded && (
-          <div className="border-t border-gray-200 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 bg-gray-50">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+          <div className="border-t border-gray-200 px-2 py-2 sm:px-3 sm:py-3 bg-gray-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
               {renderTeamLineup(home, null, homeLineup)}
               {renderTeamLineup(away, null, awayLineup)}
             </div>
@@ -1283,7 +1283,7 @@ export function SeasonsView({ teamSeasons, loading, error }) {
         <button
           type="button"
           onClick={() => toggleWeekExpansion(week.week)}
-          className="w-full flex items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 text-left hover:bg-gray-50 transition-colors rounded-lg"
+          className="w-full flex items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 text-left hover:bg-gray-50 transition-colors rounded-lg"
           aria-expanded={isExpanded}
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-1 gap-1 sm:gap-2">
@@ -1298,7 +1298,7 @@ export function SeasonsView({ teamSeasons, loading, error }) {
         </button>
 
         {isExpanded && (
-          <div className="border-t border-gray-200 px-2 pb-2 sm:px-3 sm:pb-3 md:px-4 md:pb-4 pt-2 sm:pt-3 md:pt-4 bg-gray-50">
+          <div className="border-t border-gray-200 px-2 pb-2 sm:px-3 sm:pb-3 pt-2 sm:pt-3 bg-gray-50">
             {hasActiveLineups ? (
               <div className="space-y-2 sm:space-y-3">
                 {activeWeekMatchups.matchups.map((matchup, idx) =>
@@ -1416,13 +1416,13 @@ export function SeasonsView({ teamSeasons, loading, error }) {
       description={`View standings, matchups, and playoff results for the ${selectedSeasonYear || 'selected'} season.`}
       icon={CalendarRange}
       actions={seasonSelector}
-      bodyClassName="space-y-2 sm:space-y-4 md:space-y-6"
+      bodyClassName="space-y-2 sm:space-y-4"
     >
-      <div className={`${surfaceCard} p-2.5 sm:p-4 md:p-6 space-y-2 sm:space-y-4 md:space-y-6`}>
+      <div className={`${surfaceCard} p-2.5 sm:p-4 space-y-2 sm:space-y-4`}>
         <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
           <h2 className="text-base sm:text-xl md:text-2xl font-bold text-slate-50">{selectedSeasonYear}</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 md:gap-4 text-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 text-center">
           <div className="rounded-xl bg-gradient-to-br from-blue-500/20 via-slate-900/60 to-slate-900/60 border border-blue-400/30 p-2 sm:p-2.5 md:p-3">
             <p className="text-[10px] sm:text-xs md:text-sm text-blue-100 font-semibold">Champion</p>
             <p className="font-semibold text-xs sm:text-sm md:text-base text-slate-50">{champion ? champion.manager_name : 'TBD'}</p>
@@ -1472,10 +1472,10 @@ export function SeasonsView({ teamSeasons, loading, error }) {
         </div>
 
         {topWeeklyScores.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
-            <div className={`${subCard} border-emerald-400/30 bg-emerald-500/10 p-2 sm:p-3 md:p-4`}>
-              <h4 className="font-semibold text-slate-50 mb-1 sm:mb-1.5 md:mb-2 text-xs sm:text-sm md:text-base">Top 5 Weekly Scores</h4>
-              <ul className="space-y-1 sm:space-y-1.5 md:space-y-2 text-xs sm:text-sm text-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+            <div className={`${subCard} border-emerald-400/30 bg-emerald-500/10 p-2 sm:p-3`}>
+              <h4 className="font-semibold text-slate-50 mb-1 sm:mb-1.5 text-xs sm:text-sm md:text-base">Top 5 Weekly Scores</h4>
+              <ul className="space-y-1 sm:space-y-1.5 text-xs sm:text-sm text-slate-100">
                 {topWeeklyScores.map((w, idx) => (
                   <li key={idx} className="flex justify-between">
                     <span>{`Week ${w.week} - ${w.manager}`}</span>
@@ -1484,9 +1484,9 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                 ))}
               </ul>
             </div>
-            <div className={`${subCard} border-rose-400/30 bg-rose-500/10 p-2 sm:p-3 md:p-4`}>
-              <h4 className="font-semibold text-slate-50 mb-1 sm:mb-1.5 md:mb-2 text-xs sm:text-sm md:text-base">Bottom 5 Weekly Scores</h4>
-              <ul className="space-y-1 sm:space-y-1.5 md:space-y-2 text-xs sm:text-sm text-slate-100">
+            <div className={`${subCard} border-rose-400/30 bg-rose-500/10 p-2 sm:p-3`}>
+              <h4 className="font-semibold text-slate-50 mb-1 sm:mb-1.5 text-xs sm:text-sm md:text-base">Bottom 5 Weekly Scores</h4>
+              <ul className="space-y-1 sm:space-y-1.5 text-xs sm:text-sm text-slate-100">
                 {bottomWeeklyScores.map((w, idx) => (
                   <li key={idx} className="flex justify-between">
                     <span>{`Week ${w.week} - ${w.manager}`}</span>
@@ -1504,14 +1504,14 @@ export function SeasonsView({ teamSeasons, loading, error }) {
       )}
 
       {!seasonsWithoutMatchups.includes(selectedSeasonYear) && (
-        <div className={`${surfaceCard} p-2.5 sm:p-4 md:p-6 space-y-2 sm:space-y-3 md:space-y-4`}>
+        <div className={`${surfaceCard} p-2.5 sm:p-4 space-y-2 sm:space-y-3`}>
           <h3 className="text-sm sm:text-lg md:text-xl font-bold text-slate-50">Matchups</h3>
-          <div className="space-y-2 sm:space-y-3 md:space-y-4">
+          <div className="space-y-2 sm:space-y-3">
             <div className="border border-white/10 rounded-lg bg-slate-950/40">
               <button
                 type="button"
                 onClick={() => setShowPreviousResults(prev => !prev)}
-                className="w-full flex items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 text-left text-slate-100"
+                className="w-full flex items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 text-left text-slate-100"
                 aria-expanded={showPreviousResults}
               >
                 <span className="font-semibold text-xs sm:text-sm md:text-base">{previousWeeksLabel}</span>
@@ -1522,7 +1522,7 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                 />
               </button>
               {showPreviousResults && (
-                <div className="border-t border-white/10 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 space-y-2 sm:space-y-3 md:space-y-4">
+                <div className="border-t border-white/10 px-2 py-2 sm:px-3 sm:py-3 space-y-2 sm:space-y-3">
                   {previousWeeks.length > 0 ? (
                     previousWeeks.map(renderWeekCard)
                   ) : (
@@ -1537,7 +1537,7 @@ export function SeasonsView({ teamSeasons, loading, error }) {
               <button
                 type="button"
                 onClick={() => setShowUpcomingMatchups(prev => !prev)}
-                className="w-full flex items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 text-left text-slate-100"
+                className="w-full flex items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 text-left text-slate-100"
                 aria-expanded={showUpcomingMatchups}
               >
                 <span className="font-semibold text-xs sm:text-sm md:text-base">{upcomingWeeksLabel}</span>
@@ -1548,7 +1548,7 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                 />
               </button>
               {showUpcomingMatchups && (
-                <div className="border-t border-white/10 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 space-y-2 sm:space-y-3 md:space-y-4">
+                <div className="border-t border-white/10 px-2 py-2 sm:px-3 sm:py-3 space-y-2 sm:space-y-3">
                   {upcomingWeeks.length > 0 ? (
                     upcomingWeeks.map(renderWeekCard)
                   ) : (

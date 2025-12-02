@@ -794,8 +794,8 @@ export function WeekView({ teamSeasons }) {
           />
         </button>
         {isExpanded && (
-          <div className="border-t border-gray-200 px-1.5 py-1.5 sm:px-3 sm:py-3 md:px-4 md:py-4 bg-gray-50">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+          <div className="border-t border-gray-200 px-1.5 py-1.5 sm:px-3 sm:py-3 bg-gray-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
               {renderTeamLineup(home, null, homeLineup)}
               {renderTeamLineup(away, null, awayLineup)}
             </div>
@@ -816,18 +816,18 @@ export function WeekView({ teamSeasons }) {
       title={`Week ${currentWeekNumber}`}
       description={`Current week matchups, lineups, and AI-powered insights for Week ${currentWeekNumber}.`}
       icon={CalendarDays}
-      bodyClassName="space-y-2 sm:space-y-4 md:space-y-6"
+      bodyClassName="space-y-2 sm:space-y-4"
     >
       {lastCompletedWeek > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 md:gap-6">
-          <div className={`${surfaceCard} p-2.5 sm:p-4 md:p-6`}>
-            <h2 className="text-sm sm:text-xl md:text-2xl font-bold text-slate-50 mb-1.5 sm:mb-3 md:mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
+          <div className={`${surfaceCard} p-2.5 sm:p-4`}>
+            <h2 className="text-sm sm:text-xl md:text-2xl font-bold text-slate-50 mb-1.5 sm:mb-3">
               Week {lastCompletedWeek} In Review
             </h2>
             <AISummary />
           </div>
-          <div className={`${surfaceCard} p-2.5 sm:p-4 md:p-6`}>
-            <h2 className="text-sm sm:text-xl md:text-2xl font-bold text-slate-50 mb-1.5 sm:mb-3 md:mb-4">
+          <div className={`${surfaceCard} p-2.5 sm:p-4`}>
+            <h2 className="text-sm sm:text-xl md:text-2xl font-bold text-slate-50 mb-1.5 sm:mb-3">
               Week {lastCompletedWeek + 1} Preview
             </h2>
             <AIPreview />
@@ -835,7 +835,7 @@ export function WeekView({ teamSeasons }) {
         </div>
       )}
 
-      <div className={`${surfaceCard} p-2.5 sm:p-4 md:p-6 space-y-2 sm:space-y-3 md:space-y-4`}>
+      <div className={`${surfaceCard} p-2.5 sm:p-4 space-y-2 sm:space-y-3`}>
         <h3 className="text-sm sm:text-lg md:text-xl font-bold text-slate-50">
           Week {currentWeekNumber} Matchups
         </h3>
@@ -850,8 +850,8 @@ export function WeekView({ teamSeasons }) {
 
         {hasActiveLineups && (
           <div>
-            <p className="text-[10px] sm:text-xs text-slate-300 mb-1.5 sm:mb-3 md:mb-4">Starting lineups provided by Sleeper</p>
-            <div className="space-y-1.5 sm:space-y-2.5 md:space-y-3">
+            <p className="text-[10px] sm:text-xs text-slate-300 mb-1.5 sm:mb-3">Starting lineups provided by Sleeper</p>
+            <div className="space-y-1.5 sm:space-y-2.5">
               {activeWeekMatchups.matchups.map((matchup, idx) =>
                 renderActiveWeekMatchup(matchup, idx)
               )}

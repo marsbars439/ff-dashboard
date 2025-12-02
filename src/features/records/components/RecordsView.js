@@ -31,13 +31,13 @@ const RecordsView = ({
       title="Hall of Records"
       description="League champions, medal counts, and manager-by-manager performance snapshots."
       icon={Trophy}
-      bodyClassName="space-y-2 sm:space-y-4 md:space-y-6"
+      bodyClassName="space-y-2 sm:space-y-4"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4 md:gap-6">
-        <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-xl shadow-lg p-2.5 sm:p-4 md:p-6 text-white">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
+        <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-xl shadow-lg p-2.5 sm:p-4 text-white">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1 sm:mb-1.5 md:mb-2">
+              <div className="flex items-center space-x-2 mb-1 sm:mb-1.5">
                 <Crown className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 flex-shrink-0" />
                 <span className="text-[10px] sm:text-xs md:text-sm font-medium opacity-90">{mostRecentYear} CHAMPION</span>
               </div>
@@ -53,11 +53,11 @@ const RecordsView = ({
                   ? `${currentChampion.team_name} • ${currentChampion.wins}-${currentChampion.losses} Record`
                   : 'Season in progress'}
               </p>
-              <p className="text-yellow-100 font-semibold text-xs sm:text-sm md:text-base mb-1.5 sm:mb-2 md:mb-3">
+              <p className="text-yellow-100 font-semibold text-xs sm:text-sm md:text-base mb-1.5 sm:mb-2">
                 {currentChampion ? `$${currentChampion.payout} Prize Money` : ''}
               </p>
               {currentYearSeasons.length > 0 && (
-                <div className="mt-1.5 sm:mt-2 md:mt-3 pt-1.5 sm:pt-2 md:pt-3 text-[10px] sm:text-xs md:text-sm opacity-90">
+                <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 text-[10px] sm:text-xs md:text-sm opacity-90">
                   {currentYearSeasons.find(s => s.playoff_finish === 2) && (
                     <div className="truncate">
                       2nd: {allRecords[currentYearSeasons.find(s => s.playoff_finish === 2).name_id]?.name}
@@ -75,22 +75,22 @@ const RecordsView = ({
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-red-400 to-red-600 rounded-xl shadow-lg p-2.5 sm:p-4 md:p-6 text-white">
+        <div className="bg-gradient-to-r from-red-400 to-red-600 rounded-xl shadow-lg p-2.5 sm:p-4 text-white">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1 sm:mb-1.5 md:mb-2">
+              <div className="flex items-center space-x-2 mb-1 sm:mb-1.5">
                 <Target className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 flex-shrink-0" />
                 <span className="text-[10px] sm:text-xs md:text-sm font-medium opacity-90">{mostRecentYear} CHUMPION</span>
               </div>
               <h2 className="text-sm sm:text-lg md:text-2xl font-bold mb-0.5 sm:mb-1 truncate">
                 {currentChumpion ? allRecords[currentChumpion.name_id]?.name : 'TBD'}
               </h2>
-              <p className="text-red-100 text-xs sm:text-sm md:text-base mb-1 sm:mb-1.5 md:mb-2">
+              <p className="text-red-100 text-xs sm:text-sm md:text-base mb-1 sm:mb-1.5">
                 {currentChumpion
                   ? `${currentChumpion.team_name} • ${currentChumpion.wins}-${currentChumpion.losses} Record`
                   : 'Season in progress'}
               </p>
-              <p className="text-red-100 font-semibold text-xs sm:text-sm md:text-base mb-1.5 sm:mb-2 md:mb-3">
+              <p className="text-red-100 font-semibold text-xs sm:text-sm md:text-base mb-1.5 sm:mb-2">
                 {currentChumpion
                   ? getCurrentYearChumpionDues() > 0
                     ? `Paid $${getCurrentYearChumpionDues()} Extra to ${
@@ -105,9 +105,9 @@ const RecordsView = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
         <div className="card-primary text-white">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 md:gap-4 mb-1.5 sm:mb-3 md:mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-1.5 sm:mb-3">
             <div>
               <h3 className="text-sm sm:text-lg md:text-xl font-bold flex items-center space-x-2">
                 <Award className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
@@ -116,14 +116,14 @@ const RecordsView = ({
             </div>
           </div>
 
-          <div className="space-y-1.5 sm:space-y-2 md:space-y-3">
+          <div className="space-y-1.5 sm:space-y-2.5">
             {medalRankings.map((manager, index) => (
               <div
                 key={manager.name}
                 className="card-tertiary hover:bg-white/10 transition-all duration-200"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4 min-w-0 flex-1">
+                  <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                     <div
                       className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-sm sm:text-base md:text-lg font-bold ${
                         index === 0
@@ -144,8 +144,8 @@ const RecordsView = ({
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-4 md:gap-6 flex-shrink-0 w-full sm:w-auto">
-                    <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-4 flex-shrink-0 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 sm:gap-3">
                       <div className="text-center">
                         <div className="text-amber-300 font-bold text-base sm:text-lg md:text-xl">{manager.championships}</div>
                         <div className="text-[10px] sm:text-[0.65rem] uppercase tracking-wide text-amber-100">🥇 titles</div>
@@ -171,15 +171,15 @@ const RecordsView = ({
         </div>
 
         <div className="card-primary">
-          <h3 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 mb-1.5 sm:mb-3 md:mb-4 flex items-center space-x-2">
+          <h3 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 mb-1.5 sm:mb-3 flex items-center space-x-2">
             <Target className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
             <span>Chumpion Count Rankings</span>
           </h3>
 
-          <div className="space-y-1.5 sm:space-y-2 md:space-y-3">
+          <div className="space-y-1.5 sm:space-y-2.5">
             {chumpionRankings.map((manager, index) => (
               <div key={manager.name} className="card-tertiary">
-                <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
+                <div className="flex items-center justify-between mb-1 sm:mb-1.5">
                   <div className="flex items-center space-x-2 min-w-0 flex-1">
                     <span className="font-bold text-sm sm:text-base md:text-lg flex-shrink-0">#{index + 1}</span>
                     <span className="font-semibold text-xs sm:text-sm md:text-base truncate text-gray-900">{manager.name}</span>
@@ -202,14 +202,14 @@ const RecordsView = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
         <div className="card-primary">
-          <h3 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 mb-1.5 sm:mb-3 md:mb-5 flex items-center space-x-2">
+          <h3 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 mb-1.5 sm:mb-3 flex items-center space-x-2">
             <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
             <span>Win Percentage Rankings</span>
           </h3>
 
-          <div className="space-y-0.5 sm:space-y-1 md:space-y-2">
+          <div className="space-y-0.5 sm:space-y-1.5">
             {winPctRankings.map((manager, index) => (
               <div
                 key={manager.name}
@@ -240,12 +240,12 @@ const RecordsView = ({
         </div>
 
         <div className="card-primary">
-          <h3 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 mb-1.5 sm:mb-3 md:mb-5 flex items-center space-x-2">
+          <h3 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 mb-1.5 sm:mb-3 flex items-center space-x-2">
             <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
             <span>Points Per Game Rankings</span>
           </h3>
 
-          <div className="space-y-0.5 sm:space-y-1 md:space-y-2">
+          <div className="space-y-0.5 sm:space-y-1.5">
             {ppgRankings.map((manager, index) => (
               <div
                 key={`${manager.name}-${index}`}
@@ -277,12 +277,12 @@ const RecordsView = ({
       </div>
 
       <div className="card-primary">
-        <h3 className="text-sm sm:text-lg md:text-xl font-bold text-slate-50 mb-1.5 sm:mb-3 md:mb-4 flex items-center space-x-2">
+        <h3 className="text-sm sm:text-lg md:text-xl font-bold text-slate-50 mb-1.5 sm:mb-3 flex items-center space-x-2">
           <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
           <span>Individual Manager Lookup</span>
         </h3>
 
-        <div className="mb-1.5 sm:mb-3 md:mb-4">
+        <div className="mb-1.5 sm:mb-3">
           <div className="relative">
             <select
               value={selectedManager}
@@ -304,7 +304,7 @@ const RecordsView = ({
 
         {selectedManager && allRecords[selectedManager] && (
           <div className="card-secondary">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1.5 sm:mb-3 md:mb-4 space-y-2 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1.5 sm:mb-3 space-y-2 sm:space-y-0">
               <h4 className="text-base sm:text-xl md:text-2xl font-bold text-gray-900">
                 {allRecords[selectedManager].name}
               </h4>
@@ -315,7 +315,7 @@ const RecordsView = ({
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-3 md:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-3">
               <div className="card-tertiary">
                 <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600 mb-0.5 sm:mb-1">Franchise Record</p>
                 <p className="text-base sm:text-xl md:text-2xl font-bold text-gray-900">

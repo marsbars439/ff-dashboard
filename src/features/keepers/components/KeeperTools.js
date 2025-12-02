@@ -55,10 +55,10 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
         title="Manager Verification"
         description="Authenticate as a league manager to view preseason content."
         icon={ShieldCheck}
-        bodyClassName="space-y-2 sm:space-y-3 md:space-y-4"
+        bodyClassName="space-y-2 sm:space-y-3"
       >
 
-        <div className="card-primary max-w-md mx-auto space-y-2 sm:space-y-3 md:space-y-4">
+        <div className="card-primary max-w-md mx-auto space-y-2 sm:space-y-3">
           {managerAuth.status === 'pending' ? (
             <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-gray-600">
               <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
@@ -69,8 +69,8 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
               </span>
             </div>
           ) : (
-            <form onSubmit={handleManagerLogin} className="space-y-2 sm:space-y-3 md:space-y-4">
-              <div className="space-y-2 sm:space-y-2.5 md:space-y-3">
+            <form onSubmit={handleManagerLogin} className="space-y-2 sm:space-y-3">
+              <div className="space-y-2 sm:space-y-2.5">
                 <select
                   value={managerAuthSelection}
                   onChange={e => setManagerAuthSelection(e.target.value)}
@@ -163,14 +163,14 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
       description={descriptionText}
       icon={ShieldCheck}
       actions={headerActions}
-      bodyClassName="space-y-2 sm:space-y-4 md:space-y-6"
+      bodyClassName="space-y-2 sm:space-y-4"
     >
 
       {!votingLocked && ruleVotingSection}
 
       <div className="card-primary">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-3 md:mb-4">
-          <h3 className="text-sm sm:text-lg md:text-xl font-bold mb-1.5 sm:mb-2 md:mb-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-3">
+          <h3 className="text-sm sm:text-lg md:text-xl font-bold mb-1.5 sm:mb-2">
             {keeperSummaryView === 'keepers'
               ? `Keepers for the ${selectedKeeperYear + 1} season`
               : keeperSummaryView === 'trades'
@@ -252,8 +252,8 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
       </div>
 
       <div className="card-primary">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-3 md:mb-4">
-          <h2 className="text-base sm:text-xl md:text-2xl font-bold text-gray-900 mb-1.5 sm:mb-2 md:mb-0">{selectedKeeperYear} Rosters</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-3">
+          <h2 className="text-base sm:text-xl md:text-2xl font-bold text-gray-900 mb-1.5 sm:mb-2">{selectedKeeperYear} Rosters</h2>
           {keepers.length > 0 && (
             <select
               value={selectedKeeperRosterId || ''}
@@ -271,7 +271,7 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
           )}
         </div>
         {keeperEditingLocked && (
-          <div className="rounded-md border border-yellow-200 bg-yellow-50 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm text-yellow-800 mb-2 sm:mb-3 md:mb-4">
+          <div className="rounded-md border border-yellow-200 bg-yellow-50 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm text-yellow-800 mb-2 sm:mb-3">
             Keeper and trade selections are currently locked by the commissioner.
           </div>
         )}
@@ -279,12 +279,12 @@ const KeeperTools = ({ availableYears = [], managerOptions = [] }) => {
           <p className="text-gray-500 text-xs sm:text-sm md:text-base">No roster data available for this season.</p>
         ) : (
           selectedKeeperRoster && (
-            <div className="bg-gray-50 rounded-lg p-1 sm:p-3 md:p-4">
-              <h3 className="font-semibold text-xs sm:text-base md:text-lg mb-1 sm:mb-1.5 md:mb-2 px-1 sm:px-0">
+            <div className="bg-gray-50 rounded-lg p-1 sm:p-3">
+              <h3 className="font-semibold text-xs sm:text-base md:text-lg mb-1 sm:mb-1.5 px-1 sm:px-0">
                 {selectedKeeperRoster.manager_name || selectedKeeperRoster.team_name}
               </h3>
               {selectedKeeperRoster.team_name && selectedKeeperRoster.manager_name && (
-                <p className="text-[10px] sm:text-sm text-gray-600 mb-1 sm:mb-1.5 md:mb-2 px-1 sm:px-0">{selectedKeeperRoster.team_name}</p>
+                <p className="text-[10px] sm:text-sm text-gray-600 mb-1 sm:mb-1.5 px-1 sm:px-0">{selectedKeeperRoster.team_name}</p>
               )}
               <div className="overflow-x-auto -mx-1 sm:mx-0">
                 <table className="min-w-full text-[10px] sm:text-xs md:text-sm">

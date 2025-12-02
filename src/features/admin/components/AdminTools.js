@@ -70,8 +70,8 @@ const AdminTools = ({
         icon={ShieldCheck}
         className="max-w-xl mx-auto"
       >
-        <div className="card-primary text-slate-100 space-y-2 sm:space-y-3 md:space-y-4">
-          <form onSubmit={handleAdminAuthSubmit} className="space-y-2 sm:space-y-3 md:space-y-4">
+        <div className="card-primary text-slate-100 space-y-2 sm:space-y-3">
+          <form onSubmit={handleAdminAuthSubmit} className="space-y-2 sm:space-y-3">
             {adminSession.status === 'pending' && (
               <p className="text-sm text-slate-200 flex items-center">
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Validating existing session...
@@ -135,7 +135,7 @@ const AdminTools = ({
       description="Commissioner tools, data imports, and AI helpers in one place."
       icon={Gavel}
       actions={adminActions}
-      bodyClassName="space-y-2 sm:space-y-4 md:space-y-6"
+      bodyClassName="space-y-2 sm:space-y-4"
     >
 
       <SleeperAdmin API_BASE_URL={apiBaseUrl} onDataUpdate={onDataUpdate}>
@@ -144,7 +144,7 @@ const AdminTools = ({
 
           return (
             <>
-              {banner && <div className="mb-2 sm:mb-3 md:mb-4">{banner}</div>}
+              {banner && <div className="mb-2 sm:mb-3">{banner}</div>}
               <CollapsibleSection
                 title={
                   <div className="flex items-center space-x-2">
@@ -153,7 +153,7 @@ const AdminTools = ({
                   </div>
                 }
               >
-                <div className="space-y-2 sm:space-y-3 md:space-y-4">{renderDataManagementSection()}</div>
+                <div className="space-y-2 sm:space-y-3">{renderDataManagementSection()}</div>
               </CollapsibleSection>
               <CollapsibleSection
                 title={
@@ -163,7 +163,7 @@ const AdminTools = ({
                   </div>
                 }
               >
-                <div className="space-y-2 sm:space-y-3 md:space-y-4">{renderManagerSection()}</div>
+                <div className="space-y-2 sm:space-y-3">{renderManagerSection()}</div>
               </CollapsibleSection>
             </>
           );
@@ -190,7 +190,7 @@ const AdminTools = ({
         }
       >
         {availableYears.length > 0 && (
-          <div className="mb-2 sm:mb-3 md:mb-4">
+          <div className="mb-2 sm:mb-3">
             <select
               value={selectedKeeperYear || ''}
               onChange={e => setSelectedKeeperYear(Number(e.target.value))}
@@ -202,7 +202,7 @@ const AdminTools = ({
             </select>
           </div>
         )}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2 sm:mb-3 md:mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2 sm:mb-3">
           <select
             value={newTrade.from}
             onChange={e => setNewTrade({ ...newTrade, from: e.target.value })}
@@ -276,7 +276,7 @@ const AdminTools = ({
           </div>
         }
       >
-        <div className="space-y-2 sm:space-y-3 md:space-y-4">
+        <div className="space-y-2 sm:space-y-3">
           <div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Season Selection</h4>
@@ -315,7 +315,7 @@ const AdminTools = ({
           </div>
         }
       >
-        <div className="space-y-2 sm:space-y-3 md:space-y-4">
+        <div className="space-y-2 sm:space-y-3">
           <textarea
             value={rulesContent}
             onChange={e => setRulesContent(e.target.value)}
