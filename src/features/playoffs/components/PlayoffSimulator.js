@@ -194,7 +194,7 @@ const ProjectedBracket = ({ seeds }) => {
   const seed5 = getSeed(5);
   const seed6 = getSeed(6);
 
-  const MatchupBox = ({ topSeed, bottomSeed, topPlaceholder, bottomPlaceholder }) => {
+  const MatchupBox = ({ topSeed, bottomSeed, topPlaceholder, bottomPlaceholder, style = {} }) => {
     const topName = topSeed ? topSeed.managerName : (topPlaceholder || 'TBD');
     const topSeedLabel = topSeed ? `Seed ${topSeed.seed}` : topPlaceholder ? topPlaceholder : '';
     const bottomName = bottomSeed ? bottomSeed.managerName : (bottomPlaceholder || 'TBD');
@@ -204,7 +204,10 @@ const ProjectedBracket = ({ seeds }) => {
     const bottomMuted = !bottomSeed;
 
     return (
-    <div className="rounded-md border border-white/12 bg-slate-950/40 px-3 py-2 space-y-1 min-w-[180px] min-h-[120px] flex flex-col justify-between">
+    <div
+      className="rounded-md border border-white/12 bg-slate-950/40 px-3 py-2 space-y-1 min-w-[180px] min-h-[120px] flex flex-col justify-between"
+      style={style}
+    >
       <div className="space-y-1">
         <div className="rounded border border-white/12 bg-slate-900/50 px-2 py-1 text-[12px] flex justify-between items-center">
           <span className={`font-semibold truncate ${topMuted ? 'text-slate-400' : 'text-slate-50'}`}>{topName}</span>
@@ -226,32 +229,60 @@ const ProjectedBracket = ({ seeds }) => {
           <GitBranch className="w-4 h-4 text-emerald-300" />
           <span>Projected Bracket</span>
         </h3>
-        <p className="text-[11px] text-slate-300">Seeds 1-2 bye; 3v6, 4v5</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="space-y-2">
-          <p className="text-[11px] text-slate-400 font-semibold">Round 1</p>
-          <div className="space-y-2">
-            <MatchupBox topSeed={seed1} bottomSeed={null} bottomPlaceholder="Bye" />
-            <MatchupBox topSeed={seed4} bottomSeed={seed5} />
-            <MatchupBox topSeed={seed2} bottomSeed={null} bottomPlaceholder="Bye" />
-            <MatchupBox topSeed={seed6} bottomSeed={seed3} />
-          </div>
-        </div>
+      <div
+        className="grid gap-3"
+        style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gridTemplateRows: 'repeat(8, minmax(0, 1fr))' }}
+      >
+        {/* Round 1 */}
+        <MatchupBox
+          topSeed={seed1}
+          bottomSeed={null}
+          bottomPlaceholder="Bye"
+          style={{ gridColumn: 1, gridRow: '1 / span 2' }}
+        />
+        <MatchupBox
+          topSeed={seed4}
+          bottomSeed={seed5}
+          style={{ gridColumn: 1, gridRow: '3 / span 2' }}
+        />
+        <MatchupBox
+          topSeed={seed2}
+          bottomSeed={null}
+          bottomPlaceholder="Bye"
+          style={{ gridColumn: 1, gridRow: '6 / span 2' }}
+        />
+        <MatchupBox
+          topSeed={seed6}
+          bottomSeed={seed3}
+          style={{ gridColumn: 1, gridRow: '8 / span 2' }}
+        />
 
-        <div className="space-y-2">
-          <p className="text-[11px] text-slate-400 font-semibold">Semifinals</p>
-          <div className="space-y-2">
-            <MatchupBox topSeed={seed1} bottomSeed={null} topPlaceholder="Seed 1" bottomPlaceholder="Winner 4/5" />
-            <MatchupBox topSeed={seed2} bottomSeed={null} topPlaceholder="Seed 2" bottomPlaceholder="Winner 3/6" />
-          </div>
-        </div>
+        {/* Semifinals */}
+        <MatchupBox
+          topSeed={seed1}
+          bottomSeed={null}
+          topPlaceholder="Seed 1"
+          bottomPlaceholder="Winner 4/5"
+          style={{ gridColumn: 2, gridRow: '2 / span 3' }}
+        />
+        <MatchupBox
+          topSeed={seed2}
+          bottomSeed={null}
+          topPlaceholder="Seed 2"
+          bottomPlaceholder="Winner 3/6"
+          style={{ gridColumn: 2, gridRow: '6 / span 3' }}
+        />
 
-        <div className="space-y-2">
-          <p className="text-[11px] text-slate-400 font-semibold">Final</p>
-          <MatchupBox topSeed={null} bottomSeed={null} topPlaceholder="Winner Semis" bottomPlaceholder="Winner Semis" />
-        </div>
+        {/* Final */}
+        <MatchupBox
+          topSeed={null}
+          bottomSeed={null}
+          topPlaceholder="Winner Semis"
+          bottomPlaceholder="Winner Semis"
+          style={{ gridColumn: 3, gridRow: '4 / span 3' }}
+        />
       </div>
     </div>
   );
