@@ -98,19 +98,16 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
   };
 
   return (
-    <div className="card-secondary space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-slate-200">Week {matchup.week}</span>
-          {matchup.unmapped && (
-            <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
-              Outside current standings
-            </span>
-          )}
+    <div className="card-secondary space-y-2">
+      {matchup.unmapped && (
+        <div className="flex justify-end">
+          <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
+            Outside current standings
+          </span>
         </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {renderTeamInput('home')}
         {renderTeamInput('away')}
       </div>
@@ -505,25 +502,31 @@ const PlayoffSimulator = () => {
           <Flame className="w-4 h-4 text-amber-300" />
           <span>How it works</span>
         </h3>
-        <ul className="mt-2 space-y-1 text-sm text-slate-200 list-disc list-inside">
+        <ul className="mt-1.5 space-y-1 text-[13px] text-slate-200 list-disc list-inside">
           <li>Each matchup starts with both teams' season PPG; adjust scores to explore scenarios.</li>
           <li>Standings update immediately with each score you add.</li>
           <li>Seeds 1-5 are by record; seed 6 goes to the PF leader among ranks 6-10.</li>
         </ul>
         {unmappedCount > 0 && (
-          <p className="text-[11px] text-amber-200 mt-2">
+          <p className="text-[11px] text-amber-200 mt-1.5">
             {unmappedCount} matchup(s) are missing a standings mapping and are excluded from calculations.
           </p>
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-        <div className="space-y-3 sm:space-y-4">
-          <div className="card-primary space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-3">
+        <div className="space-y-2 sm:space-y-3">
+          <div className="card-primary space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-slate-300">
-                {simulationLabel} ({gamesRemaining} games remaining)
-              </p>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <div>
+                  <h3 className="text-sm sm:text-lg font-bold text-slate-50">Matchups</h3>
+                  <p className="text-[11px] text-slate-300">
+                    {simulationLabel} ({gamesRemaining} games remaining)
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={handleReset}
@@ -538,21 +541,21 @@ const PlayoffSimulator = () => {
                 <p className="text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {upcomingWeeks.map((week) => {
                   const weekMatchups = simulatableMatchups.filter((m) => m.week === week.week);
                   return (
                     <div
                       key={week.week}
-                      className="rounded-lg border border-white/10 bg-slate-950/60 p-3 space-y-3"
+                      className="rounded-lg border border-white/10 bg-slate-950/60 p-3 space-y-2"
                     >
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm sm:text-lg font-bold text-slate-50">Week {week.week}</h3>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-50">Week {week.week}</h3>
                         <p className="text-[11px] text-slate-300">
                           {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups counted
                         </p>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {weekMatchups.map((matchup) => (
                           <MatchupCard
                             key={matchup.key}
@@ -570,7 +573,7 @@ const PlayoffSimulator = () => {
           </div>
         </div>
 
-        <div className="space-y-3 sm:space-y-4">
+        <div className="space-y-2 sm:space-y-3">
           <ProjectedStandingsTable
             standings={projectedStandings}
             playoffIds={playoffSeeds.playoffIds}
