@@ -8,7 +8,7 @@ import { Pie } from 'react-chartjs-2';
 import { getChartColors, mergeChartOptions } from './chartConfig';
 import ChartWrapper from './ChartWrapper';
 
-export const PieChart = ({ data, title, subtitle, className = '' }) => {
+export const PieChart = ({ data, title, subtitle, className = '', showLegend = true }) => {
   const colors = getChartColors();
 
   const chartData = {
@@ -27,6 +27,7 @@ export const PieChart = ({ data, title, subtitle, className = '' }) => {
   const options = mergeChartOptions({
     plugins: {
       legend: {
+        display: showLegend,
         position: 'right',
         labels: {
           padding: 16,

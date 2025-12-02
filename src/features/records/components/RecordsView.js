@@ -181,6 +181,7 @@ const RecordsView = ({
                 title="Championships"
                 subtitle="1st place finishes"
                 className="max-h-[250px]"
+                showLegend={false}
               />
               <PieChart
                 data={{
@@ -188,7 +189,7 @@ const RecordsView = ({
                   values: medalRankings.slice(0, 6).map(m => m.totalMedals)
                 }}
                 title="All Medals"
-                subtitle="Total playoff finishes"
+                subtitle="Total top 3 finishes"
                 className="max-h-[250px]"
               />
             </div>
@@ -271,9 +272,9 @@ const RecordsView = ({
                 values: winPctRankings.filter(m => m.active).map(m => (m.winPct * 100) - 50),
                 label: 'Win %',
                 conditionalColor: true,
-                baseline: 50
+                baseline: 0
               }}
-              title="Win % vs 50% Baseline"
+              title="Win %"
               subtitle="All active managers (green = above .500, red = below .500)"
               horizontal={false}
               className="max-h-[280px]"
