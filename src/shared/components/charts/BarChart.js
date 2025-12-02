@@ -57,32 +57,33 @@ export const BarChart = ({ data, title, subtitle, className = '', horizontal = f
     },
     scales: {
       [axisKey]: {
-        beginAtZero: data.minValue === undefined ? true : false,
+        beginAtZero: data.minValue === undefined && data.baseline === undefined ? true : false,
         min: data.minValue,
         ticks: {
-          precision: 1
+          precision: 1,
+          // If baseline is set, adjust tick labels to show actual percentages
+          callback: data.baseline !== undefined ? function(value) {
+            return (value + data.baseline).toFixed(1) + '%';
+          } : undefined
+        },
+        grid: {
+          color: (context) => {
+            // Highlight the zero line when using baseline (which represents the baseline value)
+            if (data.baseline !== undefined && context.tick.value === 0) {
+              return 'rgba(226, 232, 240, 0.5)'; // Highlighted baseline at zero
+            }
+            return 'rgba(148, 163, 184, 0.15)'; // Normal grid
+          },
+          lineWidth: (context) => {
+            if (data.baseline !== undefined && context.tick.value === 0) {
+              return 2; // Thicker baseline at zero
+            }
+            return 1;
+          }
         }
       }
     }
   };
-
-  // Add baseline grid line if specified
-  if (data.baseline !== undefined) {
-    baseOptions.scales[axisKey].grid = {
-      color: (context) => {
-        if (context.tick.value === data.baseline) {
-          return 'rgba(226, 232, 240, 0.5)'; // Highlighted baseline
-        }
-        return 'rgba(148, 163, 184, 0.15)'; // Normal grid
-      },
-      lineWidth: (context) => {
-        if (context.tick.value === data.baseline) {
-          return 2; // Thicker baseline
-        }
-        return 1;
-      }
-    };
-  }
 
   const options = mergeChartOptions(baseOptions);
 

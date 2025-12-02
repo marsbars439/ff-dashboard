@@ -268,7 +268,7 @@ const RecordsView = ({
             <BarChart
               data={{
                 labels: winPctRankings.filter(m => m.active).map(m => m.name.split(' ').slice(-1)[0]),
-                values: winPctRankings.filter(m => m.active).map(m => m.winPct * 100),
+                values: winPctRankings.filter(m => m.active).map(m => (m.winPct * 100) - 50),
                 label: 'Win %',
                 conditionalColor: true,
                 baseline: 50
