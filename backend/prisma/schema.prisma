@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model keeper_trade_locks {
+  season_year Int       @id @default(autoincrement())
+  locked      Int       @default(0)
+  locked_at   DateTime?
+  updated_at  DateTime? @default(now())
+}
+
+model keepers {
+  id                   Int       @id @default(autoincrement())
+  year                 Int
+  roster_id            Int
+  player_id            String
+  player_name          String?
+  position             String?
+  team                 String?
+  trade_from_roster_id Int?
+  trade_amount         Float?
+  trade_note           String?
+  created_at           DateTime? @default(now())
+
+  @@unique([year, roster_id, player_id], map: "sqlite_autoindex_keepers_1")
+  @@index([year, player_id], map: "idx_keepers_year_player")
+}
+
+model league_rules {
+  id            Int       @id @default(autoincrement())
+  rules_content String
+  version       Int?      @default(1)
+  active        Boolean?  @default(true)
+  created_at    DateTime? @default(now())
+  updated_at    DateTime? @default(now())
+}
+
+model league_settings {
+  id          Int       @id @default(autoincrement())
+  year        Int       @unique(map: "sqlite_autoindex_league_settings_1")
+  league_id   String?
+  last_sync   DateTime?
+  sync_status String?
+  created_at  DateTime? @default(now())
+  updated_at  DateTime? @default(now())
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model manager_credentials {
+  manager_id    String?   @id
+  passcode_hash String
+  created_at    DateTime? @default(now())
+  updated_at    DateTime? @default(now())
+  managers      managers? @relation(fields: [manager_id], references: [name_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@ignore
+}
+
+model manager_emails {
+  id         Int       @id @default(autoincrement())
+  manager_id Int
+  email      String    @unique(map: "idx_manager_emails_unique_email_nocase")
+  is_primary Int       @default(0)
+  created_at DateTime? @default(now())
+  updated_at DateTime? @default(now())
+  managers   managers  @relation(fields: [manager_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([manager_id], map: "idx_manager_emails_manager_id")
+}
+
+model managers {
+  id                  Int                  @id @default(autoincrement())
+  name_id             String               @unique(map: "sqlite_autoindex_managers_1")
+  full_name           String
+  sleeper_username    String?
+  active              Boolean?             @default(true)
+  created_at          DateTime?            @default(now())
+  updated_at          DateTime?            @default(now())
+  sleeper_user_id     String?
+  email               String?
+  passcode            String?
+  manager_credentials manager_credentials? @ignore
+  manager_emails      manager_emails[]
+  team_seasons        team_seasons[]
+
+  @@index([active], map: "idx_managers_active")
+  @@index([name_id], map: "idx_managers_name_id")
+}
+
+model manual_trades {
+  id             Int     @id @default(autoincrement())
+  year           Int?
+  from_roster_id Int?
+  to_roster_id   Int?
+  amount         Float?
+  description    String?
+}
+
+model previews {
+  id         Int       @id @default(autoincrement())
+  summary    String
+  created_at DateTime? @default(now())
+}
+
+model ros_rankings {
+  id           Int       @id @default(autoincrement())
+  player_name  String
+  team         String?
+  position     String?
+  proj_pts     Float?
+  sos_season   Float?
+  sos_playoffs Float?
+  updated_at   DateTime? @default(now())
+}
+
+model rule_change_proposals {
+  id                Int                 @id @default(autoincrement())
+  season_year       Int
+  title             String
+  description       String
+  proposed_by       String
+  status            String              @default("pending")
+  options           String
+  display_order     Int
+  created_at        DateTime?           @default(now())
+  updated_at        DateTime?           @default(now())
+  rule_change_votes rule_change_votes[]
+  rule_votes        rule_votes[]
+
+  @@index([season_year], map: "idx_rule_change_proposals_season")
+}
+
+model rule_change_votes {
+  id                    Int                   @id @default(autoincrement())
+  proposal_id           Int
+  voter_id              String
+  option                String
+  created_at            DateTime?             @default(now())
+  updated_at            DateTime?             @default(now())
+  rule_change_proposals rule_change_proposals @relation(fields: [proposal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([proposal_id, voter_id], map: "sqlite_autoindex_rule_change_votes_1")
+  @@index([voter_id], map: "idx_rule_change_votes_voter")
+  @@index([proposal_id], map: "idx_rule_change_votes_proposal")
+}
+
+model rule_change_voting_locks {
+  season_year Int       @id @default(autoincrement())
+  locked      Int       @default(0)
+  locked_at   DateTime?
+  updated_at  DateTime? @default(now())
+}
+
+model rule_votes {
+  id                    Int                   @id @default(autoincrement())
+  proposal_id           Int
+  manager_id            String
+  vote                  String
+  created_at            DateTime?             @default(now())
+  updated_at            DateTime?             @default(now())
+  rule_change_proposals rule_change_proposals @relation(fields: [proposal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([proposal_id, manager_id], map: "sqlite_autoindex_rule_votes_1")
+}
+
+model summaries {
+  id         Int       @id @default(autoincrement())
+  summary    String
+  created_at DateTime? @default(now())
+}
+
+model team_seasons {
+  id                  Int       @id @default(autoincrement())
+  year                Int
+  name_id             String
+  team_name           String?
+  wins                Int
+  losses              Int
+  points_for          Float?    @default(0)
+  points_against      Float?    @default(0)
+  regular_season_rank Int?
+  playoff_finish      Int?
+  dues                Float?    @default(200)
+  payout              Float?    @default(0)
+  high_game           Float?
+  created_at          DateTime? @default(now())
+  updated_at          DateTime? @default(now())
+  dues_chumpion       Float?    @default(0)
+  managers            managers  @relation(fields: [name_id], references: [name_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([year, name_id], map: "sqlite_autoindex_team_seasons_1")
+  @@index([regular_season_rank], map: "idx_team_seasons_regular_season_rank")
+  @@index([playoff_finish], map: "idx_team_seasons_playoff_finish")
+  @@index([name_id], map: "idx_team_seasons_name_id")
+  @@index([year], map: "idx_team_seasons_year")
+}

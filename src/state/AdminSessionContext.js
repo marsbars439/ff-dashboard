@@ -3,7 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 const AdminSessionContext = createContext(null);
 
 const ADMIN_AUTH_STORAGE_KEY = 'ff-dashboard-admin-authorized';
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
 
 const readStoredAdminSession = () => {
   if (typeof window === 'undefined') {

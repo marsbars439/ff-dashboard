@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(npm start)",
+      "Bash(timeout 10 npm start)",
+      "Bash(timeout 15 npm start)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(nul)",
+      "Bash(timeout //T 2 //NOBREAK)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(powershell -Command \"Get-Content server.js | Select-Object -First 250 | Select-String -Pattern ''createRulesRouter'' -Context 2,2\")",
+      "Bash(tasklist:*)",
+      "Bash(node -e:*)",
+      "Bash(dir /s /b *.db)",
+      "Bash(dir:*)",
+      "Bash(npx prisma:*)",
+      "Bash(python:*)",
+      "Bash(powershell -Command \"Get-Content backend\\server.js | Select-Object -Last 50\")",
+      "Bash(powershell -Command:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(node test-db.js:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)",
+      "Bash(git restore:*)",
+      "Bash(node server.js:*)",
+      "Bash(echo:*)",
+      "Bash(cat:*)",
+      "Bash(set REACT_APP_API_BASE_URL=http://localhost:3001/api:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

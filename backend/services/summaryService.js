@@ -1,7 +1,17 @@
 const OpenAI = require('openai');
 
-// Initialize OpenAI client using API key from environment variables
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Lazy-load OpenAI client to avoid errors when API key is not configured
+let client = null;
+function getClient() {
+  if (!client) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey || apiKey === 'your_api_key_here' || apiKey === 'sk-placeholder-key-not-configured') {
+      throw new Error('OpenAI API key is not configured. AI summary features are disabled.');
+    }
+    client = new OpenAI({ apiKey });
+  }
+  return client;
+}
 
 /**
  * Build a text prompt highlighting key fantasy football insights.
@@ -745,7 +755,7 @@ function buildSummaryPrompt(data) {
 async function generateSummary(data) {
   try {
     const prompt = buildSummaryPrompt(data && data.data ? data.data : data);
-    const response = await client.chat.completions.create({
+    const response = await getClient().chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [{ role: 'user', content: prompt }]
     });

@@ -1,5 +1,7 @@
 const axios = require('axios');
+const logger = require('../utils/logger');
 const gameStatusService = require('./gameStatusService');
+const espnService = require('./espnService');
 
 const SLEEPER_BASE_URL = 'https://api.sleeper.app/v1';
 const GAME_COMPLETION_BUFFER_MS = 4.5 * 60 * 60 * 1000;
@@ -128,7 +130,7 @@ class SleeperService {
       };
       return players;
     } catch (error) {
-      console.error('❌ Error fetching Sleeper players:', error.message);
+      logger.error('Error fetching Sleeper players', { error: error.message });
       throw error;
     }
   }
@@ -575,7 +577,50 @@ class SleeperService {
 
         const playersMap = await this.getPlayersMap();
         const statsByPlayer = await this.getWeeklyPlayerStats(season, week);
-        const scheduleByTeam = await this.getWeeklySchedule(season, week);
+
+        // Fetch ESPN game data for NFL schedule, kickoff times, and status
+        const espnScoreboard = await espnService.getWeekGames(season, week);
+        const espnGamesByTeam = espnService.parseGames(espnScoreboard);
+
+        // Build ESPN ID to Sleeper ID mapping
+        const espnIdToSleeperId = new Map();
+        const sleeperPlayersByName = new Map(); // Fallback: match by name
+
+        Object.entries(playersMap).forEach(([sleeperId, player]) => {
+          if (player.espn_id) {
+            espnIdToSleeperId.set(parseInt(player.espn_id), sleeperId);
+          }
+
+          // Build name-based lookup as fallback (normalize names)
+          if (player.full_name) {
+            const normalizedName = player.full_name.toLowerCase().replace(/[^a-z]/g, '');
+            sleeperPlayersByName.set(normalizedName, sleeperId);
+          }
+        });
+
+        // Fetch ESPN player stats for all games this week
+        const espnPlayerStatsByGame = new Map();
+        const uniqueGameIds = new Set(
+          Array.from(espnGamesByTeam.values()).map(game => game.gameId)
+        );
+
+        console.log(`📊 Fetching ESPN stats for ${uniqueGameIds.size} games`);
+
+        for (const gameId of uniqueGameIds) {
+          try {
+            const summary = await espnService.getGameSummary(gameId);
+            if (summary && summary.boxscore) {
+              const { playerStatsById, playerStatsByName } = espnService.parsePlayerStats(summary.boxscore);
+              espnPlayerStatsByGame.set(gameId, { playerStatsById, playerStatsByName });
+              console.log(`✅ Fetched stats for game ${gameId}: ${playerStatsById.size} players`);
+            } else {
+              console.log(`⚠️  No boxscore data for game ${gameId}`);
+            }
+          } catch (error) {
+            console.warn(`❌ Failed to fetch ESPN stats for game ${gameId}:`, error.message);
+          }
+        }
+
         const scoreboardByTeam = await gameStatusService.getWeekGameStatuses(
           season,
           Number.isFinite(parsedWeek) ? parsedWeek : null
@@ -659,6 +704,7 @@ class SleeperService {
                   '';
                 const team = typeof rawTeam === 'string' ? rawTeam.toUpperCase() : '';
                 const scoreboardEntry = team ? scoreboardByTeam[team] || null : null;
+                const espnGame = team ? espnGamesByTeam.get(team) || null : null;
 
                 const rawPoints = starterPoints[idx];
                 const parsedPoints =
@@ -670,14 +716,10 @@ class SleeperService {
                 const pointsValue = Number.isFinite(parsedPoints) ? parsedPoints : null;
 
                 const statsEntry = statsByPlayer[playerId] || null;
-                const scheduleEntry = team ? scheduleByTeam[team] || null : null;
 
                 const rawStatusPieces = [];
                 if (statsEntry && (statsEntry.status || statsEntry.game_status)) {
                   rawStatusPieces.push(statsEntry.status || statsEntry.game_status);
-                }
-                if (scheduleEntry && (scheduleEntry.status || scheduleEntry.raw_status)) {
-                  rawStatusPieces.push(scheduleEntry.status || scheduleEntry.raw_status);
                 }
                 if (scoreboardEntry?.rawStatusText) {
                   rawStatusPieces.push(scoreboardEntry.rawStatusText);
@@ -689,9 +731,6 @@ class SleeperService {
 
                 const normalizedStatsStatus = statsEntry?.status
                   ? this.normalizeGameStatus(statsEntry.status)
-                  : null;
-                const normalizedScheduleStatus = scheduleEntry?.status
-                  ? this.normalizeGameStatus(scheduleEntry.status)
                   : null;
                 const normalizedScoreboardStatus = scoreboardEntry?.status
                   ? this.normalizeGameStatus(scoreboardEntry.status)
@@ -712,12 +751,13 @@ class SleeperService {
                   return null;
                 };
 
+                // Prioritize ESPN data for kickoff time (most reliable)
                 const parsedStart = pickFirstTimestamp(
+                  espnGame?.date,
+                  scoreboardEntry?.startTime,
                   statsEntry?.game_start,
                   statsEntry?.game_start_time,
-                  statsEntry?.game_start_ms,
-                  scheduleEntry?.start_time,
-                  scoreboardEntry?.startTime
+                  statsEntry?.game_start_ms
                 );
 
                 const scoreboardOpponent =
@@ -736,10 +776,7 @@ class SleeperService {
                     statsEntry.opponent
                       ? statsEntry.opponent.toUpperCase()
                       : null) ||
-                  deriveOpponentFromGameId(statsEntry?.game_id, team) ||
-                  (scheduleEntry && scheduleEntry.opponent
-                    ? scheduleEntry.opponent.toUpperCase()
-                    : null);
+                  deriveOpponentFromGameId(statsEntry?.game_id, team);
 
                 const scoreboardHomeAway =
                   scoreboardEntry && team
@@ -751,7 +788,6 @@ class SleeperService {
                     : null;
 
                 const homeAway =
-                  scheduleEntry?.home_away ||
                   scoreboardHomeAway ||
                   (opponent && team ? (opponent === team ? 'home' : 'away') : null);
 
@@ -764,16 +800,35 @@ class SleeperService {
                 const normalizedByeWeek =
                   byeWeek != null ? Number.parseInt(byeWeek, 10) : null;
 
+                // ESPN game status signals (most reliable)
+                const espnIsFinished = espnGame?.status === 'STATUS_FINAL';
+                const espnIsLive = espnGame?.status === 'STATUS_IN_PROGRESS';
+                const espnIsScheduled = espnGame?.status === 'STATUS_SCHEDULED';
+
+                // Additional check: game might be finished but ESPN hasn't updated status yet
+                // Look for "Final" in the status detail or clock showing 0:00 in OT
+                const espnStatusDetail = (espnGame?.statusDetail || '').toLowerCase();
+                const espnClock = (espnGame?.clock || '').toLowerCase();
+                const espnPeriod = espnGame?.period || 0;
+                const espnLooksFinished =
+                  espnStatusDetail.includes('final') ||
+                  (espnClock === '0:00' && espnPeriod > 4) || // OT ended
+                  (espnClock === 'final');
+
                 const scoreboardActivityKey = scoreboardEntry?.activityKey || null;
                 const scoreboardHasFinishedSignal =
+                  espnIsFinished ||
+                  espnLooksFinished ||
                   scoreboardEntry?.isFinal ||
                   scoreboardActivityKey === 'finished' ||
                   normalizedScoreboardStatus === 'final';
                 const scoreboardHasLiveSignal =
+                  espnIsLive ||
                   scoreboardEntry?.isInProgress ||
                   scoreboardActivityKey === 'live' ||
                   normalizedScoreboardStatus === 'in_progress';
                 const scoreboardHasUpcomingSignal =
+                  espnIsScheduled ||
                   scoreboardEntry?.isPre ||
                   scoreboardActivityKey === 'upcoming' ||
                   normalizedScoreboardStatus === 'pre';
@@ -786,9 +841,7 @@ class SleeperService {
                 const isByeWeek =
                   normalizedStatus === 'bye' ||
                   normalizedStatsStatus === 'bye' ||
-                  normalizedScheduleStatus === 'bye' ||
                   normalizedScoreboardStatus === 'bye' ||
-                  (scheduleEntry && scheduleEntry.status === 'bye') ||
                   (normalizedByeWeek != null &&
                     weekForComparison != null &&
                     normalizedByeWeek === weekForComparison);
@@ -816,7 +869,6 @@ class SleeperService {
                   const statusCandidates = [
                     normalizedStatus,
                     normalizedStatsStatus,
-                    normalizedScheduleStatus,
                     normalizedScoreboardStatus
                   ].filter(Boolean);
 
@@ -893,7 +945,7 @@ class SleeperService {
                     return 'inactive';
                   }
 
-                  if (!team && !statsEntry && !scheduleEntry) {
+                  if (!team && !statsEntry) {
                     return 'inactive';
                   }
 
@@ -904,6 +956,144 @@ class SleeperService {
                   scoreboardEntry?.detail ||
                   scoreboardEntry?.rawStatusText ||
                   (typeof rawStatus === 'string' ? rawStatus : null);
+
+                let activityKey = determineActivityKey();
+
+                // Post-process: Handle edge cases where status should be 'finished'
+                const hasKickoff = Number.isFinite(parsedStart);
+                const kickoffLikelyFinished = hasKickoff && now - parsedStart >= GAME_COMPLETION_BUFFER_MS;
+
+                if (activityKey === 'live') {
+                  const liveDetailRegex = /\b(q[1-4]|1st|2nd|3rd|4th|ot)\b/;
+                  const rawStatusTextCombined = [
+                    rawStatus,
+                    scoreboardEntry?.rawStatusText,
+                    scoreboardEntry?.detail
+                  ]
+                    .filter(Boolean)
+                    .map(value => value.toString().toLowerCase())
+                    .join(' ');
+                  const hasLiveDetail =
+                    liveDetailRegex.test(rawStatusTextCombined) ||
+                    rawStatusTextCombined.includes('half') ||
+                    rawStatusTextCombined.includes('quarter');
+                  const hasAnyLiveIndicators =
+                    hasLiveDetail ||
+                    scoreboardHasLiveSignal ||
+                    scoreboardActivityKey === 'live';
+
+                  if (!hasAnyLiveIndicators) {
+                    if (kickoffLikelyFinished) {
+                      activityKey = 'finished';
+                    } else if (!hasKickoff && pointsValue !== null) {
+                      activityKey = 'finished';
+                    } else if (hasKickoff && parsedStart <= now && !scoreboardHasUpcomingSignal) {
+                      const timeSinceKickoff = now - parsedStart;
+                      const minGameDuration = 3 * 60 * 60 * 1000; // 3 hours
+                      if (timeSinceKickoff >= minGameDuration) {
+                        activityKey = 'finished';
+                      }
+                    }
+                  }
+                }
+
+                // Don't try to guess finished status for players with 0 points and no kickoff data
+                // Without reliable kickoff/status information from Sleeper, this is too error-prone
+                // Better to show "Not Started" for an upcoming game than "Finished" for a game that hasn't happened
+
+                // Get ESPN player stats if available
+                const gameId = espnGame?.gameId || null;
+                const espnId = player?.espn_id ? parseInt(player.espn_id) : null;
+                let espnPlayerStats = null;
+
+                if (gameId && espnPlayerStatsByGame.has(gameId)) {
+                  const { playerStatsById, playerStatsByName } = espnPlayerStatsByGame.get(gameId);
+
+                  // Try matching by ESPN ID first
+                  if (espnId) {
+                    espnPlayerStats = playerStatsById.get(espnId) || null;
+                  }
+
+                  // Fallback: Try fuzzy name matching with position verification
+                  if (!espnPlayerStats && name) {
+                    // Helper to normalize names (remove suffixes, special chars)
+                    const normalizeForMatching = (str) => {
+                      return str
+                        .toLowerCase()
+                        .replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '') // Remove suffixes
+                        .replace(/[^a-z]/g, '') // Remove non-alpha
+                        .trim();
+                    };
+
+                    const sleeperNormalized = normalizeForMatching(name);
+
+                    // Try exact normalized match first
+                    let candidate = playerStatsByName.get(sleeperNormalized);
+
+                    // If no exact match, try fuzzy matching with all players in the game
+                    if (!candidate) {
+                      let bestMatch = null;
+                      let bestScore = 0;
+
+                      for (const espnPlayer of playerStatsById.values()) {
+                        const espnNormalized = normalizeForMatching(espnPlayer.name || '');
+
+                        // Calculate similarity score
+                        let score = 0;
+
+                        // Check if normalized names match
+                        if (sleeperNormalized === espnNormalized) {
+                          score = 100;
+                        } else if (sleeperNormalized.includes(espnNormalized) || espnNormalized.includes(sleeperNormalized)) {
+                          // Partial match (handles nicknames like "AJ" vs "A.J.")
+                          score = 80;
+                        } else {
+                          // Calculate Levenshtein-like similarity
+                          const maxLen = Math.max(sleeperNormalized.length, espnNormalized.length);
+                          const minLen = Math.min(sleeperNormalized.length, espnNormalized.length);
+                          if (maxLen > 0 && minLen / maxLen > 0.7) {
+                            // Names are similar length
+                            let matches = 0;
+                            for (let i = 0; i < minLen; i++) {
+                              if (sleeperNormalized[i] === espnNormalized[i]) {
+                                matches++;
+                              }
+                            }
+                            score = (matches / maxLen) * 70;
+                          }
+                        }
+
+                        // Position bonus (if positions match, add confidence)
+                        if (score > 50 && position && espnPlayer.position) {
+                          if (position.toUpperCase() === espnPlayer.position.toUpperCase()) {
+                            score += 20;
+                          }
+                        }
+
+                        if (score > bestScore && score >= 70) {
+                          bestScore = score;
+                          bestMatch = espnPlayer;
+                        }
+                      }
+
+                      if (bestMatch) {
+                        candidate = bestMatch;
+                        console.log(`✅ Fuzzy matched ${name} to ${bestMatch.name} (score: ${bestScore.toFixed(0)}, pos: ${position}/${bestMatch.position})`);
+                      }
+                    } else {
+                      console.log(`✅ Exact name match: ${name} → ${candidate.name}`);
+                    }
+
+                    espnPlayerStats = candidate;
+                  }
+
+                  if (!espnPlayerStats && name) {
+                    // Only log if it's not a team defense (those don't have individual stats in box scores)
+                    if (position !== 'DEF') {
+                      console.log(`⚠️  No ESPN stats found for ${name} (Pos: ${position}, Game: ${gameId})`);
+                    }
+                  }
+                }
 
                 return {
                   slot: idx,
@@ -923,17 +1113,18 @@ class SleeperService {
                   practice_status: practiceStatus,
                   game_id:
                     statsEntry?.game_id ||
-                    scheduleEntry?.game_id ||
                     scoreboardEntry?.gameId ||
                     null,
-                  activity_key: determineActivityKey(),
+                  activity_key: activityKey,
                   stats_available: !!statsEntry,
+                  stats: statsEntry || null,
                   scoreboard_status: scoreboardEntry?.status || null,
                   scoreboard_activity_key: scoreboardActivityKey || null,
                   scoreboard_detail:
+                    espnGame?.statusDetail ||
                     scoreboardEntry?.detail ||
                     (scoreboardHasFinishedSignal ? 'FINAL' : null),
-                  scoreboard_start: scoreboardEntry?.startTime || null,
+                  scoreboard_start: espnGame?.date || scoreboardEntry?.startTime || null,
                   scoreboard_last_updated: scoreboardEntry?.lastUpdated || null,
                   scoreboard_home_team: scoreboardEntry?.homeTeam || null,
                   scoreboard_home_score:
@@ -946,7 +1137,18 @@ class SleeperService {
                       ? scoreboardEntry.awayScore
                       : null,
                   scoreboard_quarter: scoreboardEntry?.quarter || null,
-                  scoreboard_clock: scoreboardEntry?.clock || null
+                  scoreboard_clock: scoreboardEntry?.clock || null,
+                  // ESPN traditional stats
+                  espn_stats: espnPlayerStats ? {
+                    stat_line: espnPlayerStats.statLine || null,
+                    passing: espnPlayerStats.passing || null,
+                    rushing: espnPlayerStats.rushing || null,
+                    receiving: espnPlayerStats.receiving || null,
+                    fumbles: espnPlayerStats.fumbles || null,
+                    kicking: espnPlayerStats.kicking || null,
+                    defensive: espnPlayerStats.defensive || null,
+                    detailed_stats: espnPlayerStats.stats || null
+                  } : null
                 };
               })
               .filter(Boolean);

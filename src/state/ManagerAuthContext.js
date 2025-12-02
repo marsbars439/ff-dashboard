@@ -8,7 +8,7 @@ import React, {
   useState
 } from 'react';
 
-const DEFAULT_API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const DEFAULT_API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
 const DEFAULT_STORAGE_KEY = 'ff-dashboard-manager-auth';
 
 const INITIAL_MANAGER_AUTH_STATE = {

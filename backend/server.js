@@ -1,10 +1,14 @@
 const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const multer = require('multer');
 const XLSX = require('xlsx');
 const path = require('path');
 const crypto = require('crypto');
+const morgan = require('morgan');
+const logger = require('./utils/logger');
 const sleeperService = require('./services/sleeperService');
 const summaryService = require('./services/summaryService');
 const weeklySummaryService = require('./services/weeklySummaryService');
@@ -16,7 +20,13 @@ const { createSummariesRouter } = require('./routes/summaries');
 const { createCloudflareAccessService } = require('./services/cloudflareAccess');
 const { createRateLimiters } = require('./services/rateLimit');
 const { scheduleBackgroundJobs } = require('./services/backgroundJobs');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { validateEnv } = require('./utils/validateEnv');
+const WebSocketService = require('./services/websocket');
 require('dotenv').config();
+
+// Validate environment variables on startup
+validateEnv();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -58,9 +68,9 @@ const trustProxySetting = resolveTrustProxySetting();
 app.set('trust proxy', trustProxySetting);
 
 if (trustProxySetting) {
-  console.log(`Express trust proxy configuration enabled: ${trustProxySetting}`);
+  logger.info('Express trust proxy configuration enabled', { trustProxySetting });
 } else {
-  console.warn(
+  logger.warn(
     'Express trust proxy configuration disabled; forwarded headers from proxies will be ignored.'
   );
 }
@@ -175,9 +185,9 @@ const allowedCorsOrigins =
 const normalizedAllowedCorsOrigins = new Set(allowedCorsOrigins.map(normalizeOrigin));
 
 if (allowedCorsOrigins.length) {
-  console.log(`CORS allowed origins: ${allowedCorsOrigins.join(', ')}`);
+  logger.info('CORS allowed origins configured', { origins: allowedCorsOrigins });
 } else {
-  console.log('CORS allowed origins: reflecting request origin');
+  logger.info('CORS allowed origins: reflecting request origin');
 }
 
 const corsOptions = {
@@ -203,6 +213,47 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Security middleware
+const helmet = require('helmet');
+const slowDown = require('express-slow-down');
+
+// Apply security headers with Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'wss:', 'ws:'],
+      fontSrc: ["'self'", 'data:'],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  noSniff: true,
+  xssFilter: true,
+  hidePoweredBy: true
+}));
+
+// Slow down repeated requests to prevent abuse
+const speedLimiter = slowDown({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  delayAfter: 50, // Allow 50 requests per window without delay
+  delayMs: () => 500 // Add 500ms delay per request after threshold
+});
+
+app.use('/api/', speedLimiter);
+
+// HTTP request logging
+app.use(morgan('combined', { stream: logger.stream }));
+
 // Database connection
 const dbPath = path.join(__dirname, 'data', 'fantasy_football.db');
 const db = new sqlite3.Database(dbPath);
@@ -216,7 +267,11 @@ const ensureColumnExists = (tableName, columnName, definition) => {
     `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`,
     err => {
       if (err && !/duplicate column name/i.test(err.message)) {
-        console.error(`Error adding ${columnName} column to ${tableName}:`, err.message);
+        logger.error('Error adding column to table', {
+          tableName,
+          columnName,
+          error: err.message
+        });
       }
     }
   );
@@ -238,7 +293,7 @@ const assignInitialProposalDisplayOrder = () => {
      WHERE display_order IS NULL OR display_order = 0`,
     err => {
       if (err && !/no such column/i.test(err.message)) {
-        console.error('Error initializing proposal display order:', err.message);
+        logger.error('Error initializing proposal display order', { error: err.message });
       }
     }
   );
@@ -367,7 +422,7 @@ db.serialize(() => {
     `ALTER TABLE keepers ADD COLUMN trade_from_roster_id INTEGER`,
     err => {
       if (err && !err.message.includes('duplicate column name')) {
-        console.error('Error adding trade_from_roster_id column:', err.message);
+        logger.error('Error adding trade_from_roster_id column', { error: err.message });
       }
     }
   );
@@ -376,7 +431,7 @@ db.serialize(() => {
     `ALTER TABLE keepers ADD COLUMN trade_amount REAL`,
     err => {
       if (err && !err.message.includes('duplicate column name')) {
-        console.error('Error adding trade_amount column:', err.message);
+        logger.error('Error adding trade_amount column', { error: err.message });
       }
     }
   );
@@ -385,7 +440,7 @@ db.serialize(() => {
     `ALTER TABLE keepers ADD COLUMN trade_note TEXT`,
     err => {
       if (err && !err.message.includes('duplicate column name')) {
-        console.error('Error adding trade_note column:', err.message);
+        logger.error('Error adding trade_note column', { error: err.message });
       }
     }
   );
@@ -395,7 +450,7 @@ db.serialize(() => {
     `ALTER TABLE keepers ADD COLUMN player_id TEXT`,
     err => {
       if (err && !err.message.includes('duplicate column name')) {
-        console.error('Error adding player_id column:', err.message);
+        logger.error('Error adding player_id column', { error: err.message });
       }
     }
   );
@@ -458,7 +513,9 @@ db.serialize(() => {
     err => {
       if (err) {
         if (!err.message.includes('duplicate column name')) {
-          console.error('Error adding display_order column to rule_change_proposals:', err.message);
+          logger.error('Error adding display_order column to rule_change_proposals', {
+            error: err.message
+          });
         }
       } else {
         assignInitialProposalDisplayOrder();
@@ -807,7 +864,7 @@ const isKeeperTradeLocked = async (seasonYear) => {
     const lockRow = await getKeeperTradeLockRow(seasonYear);
     return Boolean(lockRow?.locked);
   } catch (error) {
-    console.error('Error checking keeper trade lock:', error);
+    logger.error('Error checking keeper trade lock', { error: error.message });
     return false;
   }
 };
@@ -952,7 +1009,7 @@ const verifyPasscodeHash = (passcode, storedHash) => {
 
     return crypto.timingSafeEqual(derived, storedBuffer);
   } catch (error) {
-    console.error('Failed to verify manager passcode hash:', error);
+    logger.error('Failed to verify manager passcode hash', { error: error.message });
     return false;
   }
 };
@@ -990,7 +1047,7 @@ const requireManagerAuth = async (req, res) => {
 
     return managerRow;
   } catch (error) {
-    console.error('Error verifying manager authentication:', error);
+    logger.error('Error verifying manager authentication', { error: error.message });
     res.status(500).json({ error: 'Failed to verify manager authentication' });
     return null;
   }
@@ -1029,7 +1086,7 @@ const refreshRosRankings = async () => {
     const { players = [], failed = [] } = await fantasyProsService.scrapeRosRankings();
 
     if (!players.length) {
-      console.warn('No ROS rankings retrieved.');
+      logger.warn('No ROS rankings retrieved', { failedCount: failed.length });
       const error = new Error('No ROS rankings retrieved.');
       error.failed = failed;
       throw error;
@@ -1043,22 +1100,25 @@ const refreshRosRankings = async () => {
       stmt.run(p.player_name, p.team, p.position, p.proj_pts, p.sos_season, p.sos_playoffs);
     });
     stmt.finalize();
-    console.log(`Updated ROS rankings: ${players.length} players`);
+    logger.info('Updated ROS rankings', { playerCount: players.length });
 
     const lastUpdatedRow = await getAsync('SELECT MAX(updated_at) AS last_updated FROM ros_rankings');
     const lastUpdated = normalizeSqliteTimestamp(lastUpdatedRow?.last_updated) || new Date().toISOString();
 
     if (failed.length) {
-      console.warn(`Failed to fetch rankings for: ${failed.join(', ')}`);
+      logger.warn('Failed to fetch rankings for some positions', {
+        failedPositions: failed,
+        failedCount: failed.length
+      });
     }
 
     return { updated: players.length, failed, lastUpdated };
   } catch (err) {
     const failureDetails = Array.isArray(err?.failed) ? err.failed : [];
-    console.error('Failed to refresh ROS rankings:', err.message);
-    if (failureDetails.length) {
-      console.error(`Failure details: ${failureDetails.join(', ')}`);
-    }
+    logger.error('Failed to refresh ROS rankings', {
+      error: err.message,
+      failureDetails: failureDetails.length > 0 ? failureDetails : undefined
+    });
     err.failed = failureDetails;
     throw err;
   }
@@ -1217,14 +1277,14 @@ const syncCurrentSeasonFromSleeper = async () => {
   );
 
   if (!seasonSettings || !seasonSettings.year) {
-    console.warn('Skipping scheduled Sleeper sync: no season configuration found.');
+    logger.warn('Skipping scheduled Sleeper sync: no season configuration found');
     return null;
   }
 
   if (!seasonSettings.league_id) {
-    console.warn(
-      `Skipping scheduled Sleeper sync for ${seasonSettings.year}: missing league ID configuration.`
-    );
+    logger.warn('Skipping scheduled Sleeper sync: missing league ID configuration', {
+      year: seasonSettings.year
+    });
     return null;
   }
 
@@ -1291,7 +1351,51 @@ app.use('/api', rulesRouter);
 app.use('/api', sleeperRouter);
 app.use('/api', summariesRouter);
 
-// Routes
+// Database middleware - attach helpers to req.db for controllers
+app.use((req, res, next) => {
+  req.db = {
+    runAsync,
+    getAsync,
+    allAsync,
+    db
+  };
+  req.services = {
+    sleeperService,
+    refreshRosRankings
+  };
+  next();
+});
+
+// Controller-based routes (new architecture)
+const { createStatsRouter } = require('./routes/stats');
+const statsRouter = createStatsRouter();
+app.use('/api', statsRouter);
+
+const seasonsRouter = require('./routes/seasons');
+app.use('/api/seasons', seasonsRouter);
+
+const managersRouter = require('./routes/managers');
+app.use('/api/managers', managersRouter);
+
+const rankingsRouter = require('./routes/rankings');
+app.use('/api', rankingsRouter);
+
+const tradesRouter = require('./routes/trades');
+app.use('/api', tradesRouter);
+
+const settingsRouter = require('./routes/settings');
+app.use('/api', settingsRouter);
+
+const uploadRouter = require('./routes/upload');
+app.use('/api', uploadRouter);
+
+const sleeperIdsRouter = require('./routes/sleeperIds');
+app.use('/api', sleeperIdsRouter);
+
+const keepersRouter = require('./routes/keepers');
+app.use('/api/keepers', keepersRouter);
+
+// Routes (old monolithic implementation - will be removed after testing)
 
 app.get('/api/managers', async (req, res) => {
   try {
@@ -1571,7 +1675,7 @@ app.put('/api/keepers/lock', async (req, res) => {
       updatedAt: updatedRow?.updated_at || null
     });
   } catch (error) {
-    console.error('Error updating keeper trade lock:', error);
+    logger.error('Error updating keeper trade lock', { error: error.message, year: numericYear });
     res.status(500).json({ error: 'Failed to update preseason lock' });
   }
 });
@@ -2140,7 +2244,7 @@ app.get('/api/stats', (_req, res) => {
       });
     })
     .catch((error) => {
-      console.error('Error fetching league stats:', error);
+      logger.error('Error fetching league stats', { error: error.message });
       res.status(500).json({ error: 'Failed to fetch stats' });
     });
 });
@@ -2164,7 +2268,7 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
     // Clear existing data (optional - comment out if you want to append)
     db.run('DELETE FROM team_seasons', (err) => {
       if (err) {
-        console.error('Error clearing data:', err);
+        logger.error('Error clearing data', { error: err.message });
       }
     });
 
@@ -2197,7 +2301,7 @@ app.post('/api/upload-excel', upload.single('file'), (req, res) => {
 
       db.run(insertQuery, values, function(err) {
         if (err) {
-          console.error('Error inserting row:', err, row);
+          logger.error('Error inserting row', { error: err.message, row });
         } else {
           insertedCount++;
         }
@@ -2226,22 +2330,181 @@ scheduleBackgroundJobs({
   refreshCachedPreview
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+// Error handling middleware (must be last)
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// Create HTTP server for Socket.IO
+const httpServer = createServer(app);
+
+// Initialize Socket.IO with CORS settings
+const io = new Server(httpServer, {
+  cors: corsOptions,
+  transports: ['websocket', 'polling']
 });
+
+// WebSocket authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  const managerId = socket.handshake.auth.managerId;
+
+  if (!token) {
+    logger.warn('WebSocket connection attempt without token', {
+      socketId: socket.id,
+      handshake: socket.handshake.address
+    });
+    return next(new Error('Authentication required'));
+  }
+
+  // Validate token (admin or manager)
+  const isAdmin = isAdminTokenValid(token);
+  const isManager = managerId && isManagerTokenValid(managerId, token);
+
+  if (isAdmin || isManager) {
+    socket.managerId = managerId;
+    socket.isAdmin = isAdmin;
+    logger.debug('WebSocket authenticated', {
+      socketId: socket.id,
+      managerId,
+      isAdmin
+    });
+    next();
+  } else {
+    logger.warn('WebSocket connection attempt with invalid token', {
+      socketId: socket.id,
+      managerId,
+      hasToken: !!token
+    });
+    next(new Error('Invalid token'));
+  }
+});
+
+// WebSocket event handlers
+io.on('connection', (socket) => {
+  logger.info('WebSocket client connected', {
+    socketId: socket.id,
+    managerId: socket.managerId,
+    isAdmin: socket.isAdmin
+  });
+
+  // Subscribe to active week updates
+  socket.on('subscribe:activeWeek', (year) => {
+    socket.join(`activeWeek:${year}`);
+    logger.debug('Client subscribed to active week', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  socket.on('unsubscribe:activeWeek', (year) => {
+    socket.leave(`activeWeek:${year}`);
+    logger.debug('Client unsubscribed from active week', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  // Subscribe to rule voting updates
+  socket.on('subscribe:rules', (year) => {
+    socket.join(`rules:${year}`);
+    logger.debug('Client subscribed to rules', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  socket.on('unsubscribe:rules', (year) => {
+    socket.leave(`rules:${year}`);
+    logger.debug('Client unsubscribed from rules', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  // Subscribe to season updates
+  socket.on('subscribe:seasons', (year) => {
+    socket.join(`seasons:${year}`);
+    logger.debug('Client subscribed to seasons', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  socket.on('unsubscribe:seasons', (year) => {
+    socket.leave(`seasons:${year}`);
+    logger.debug('Client unsubscribed from seasons', {
+      socketId: socket.id,
+      year
+    });
+  });
+
+  socket.on('disconnect', (reason) => {
+    logger.info('WebSocket client disconnected', {
+      socketId: socket.id,
+      managerId: socket.managerId,
+      reason
+    });
+  });
+
+  socket.on('error', (error) => {
+    logger.error('WebSocket error', {
+      socketId: socket.id,
+      error: error.message
+    });
+  });
+});
+
+// Create WebSocket service instance and make it available to controllers
+const wsService = new WebSocketService(io);
+app.set('io', io);
+app.set('wsService', wsService);
+
+// Async server startup to ensure database is initialized before accepting requests
+let server;
+async function startServer() {
+  try {
+    // Database schema is already initialized synchronously above, but we ensure it's complete
+    // before starting the HTTP server to prevent race conditions with early requests
+    logger.info('Starting server...');
+
+    server = httpServer.listen(PORT, () => {
+      logger.info('Server started with WebSocket support', {
+        port: PORT,
+        env: process.env.NODE_ENV || 'development'
+      });
+    });
+  } catch (error) {
+    logger.error('Failed to start server', { error: error.message });
+    process.exit(1);
+  }
+}
+
+startServer();
 
 module.exports = app;
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {
-  console.log('Shutting down gracefully...');
+  logger.info('Shutting down gracefully...');
+
+  // Close WebSocket connections
+  if (io) {
+    io.close(() => {
+      logger.info('WebSocket connections closed');
+    });
+  }
+
+  // Close database
   db.close((err) => {
     if (err) {
-      console.error(err.message);
+      logger.error('Error closing database', { error: err.message });
     }
-    console.log('Database connection closed.');
+    logger.info('Database connection closed');
+
+    // Close HTTP server
     if (server && server.listening) {
       server.close(() => {
+        logger.info('Server closed');
         process.exit(0);
       });
     } else {
