@@ -127,8 +127,8 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, ch
       </h3>
       <p className="text-[11px] text-slate-300">Includes your simulated results</p>
     </div>
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-[11px] sm:text-sm">
+    <div className="w-full">
+      <table className="w-full text-[11px] sm:text-sm table-auto">
         <thead className="text-slate-300 border-b border-white/10">
           <tr>
             <th className="text-left py-2 pr-3 font-semibold">Rank</th>
@@ -184,7 +184,7 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, ch
                 <td className="py-2 pr-3 text-slate-100">{team.pointsFor.toFixed(1)}</td>
                 <td className="py-2 pr-3 text-slate-100">{team.pointsAgainst.toFixed(1)}</td>
                 <td className="py-2 text-slate-200">
-                  {changeBits.length > 0 ? changeBits.join(', ') : '—'}
+                  {changeBits.length > 0 ? changeBits.join(', ') : '-'}
                 </td>
               </tr>
             );
@@ -486,6 +486,12 @@ const PlayoffSimulator = () => {
   const gamesRemaining = simulatableMatchups.length;
   const unmappedCount = simulatableMatchups.length - mappableMatchups.length;
   const simulationStartWeek = Math.min(lastCompletedWeek + 1, regularSeasonWeeks);
+  const simulationEndWeek = upcomingWeeks.length > 0
+    ? Math.max(...upcomingWeeks.map((w) => Number(w.week) || simulationStartWeek))
+    : simulationStartWeek;
+  const simulationLabel = simulationStartWeek === simulationEndWeek
+    ? `Simulating week ${simulationStartWeek}`
+    : `Simulating weeks ${simulationStartWeek}-${simulationEndWeek}`;
 
   return (
     <DashboardSection
@@ -511,50 +517,54 @@ const PlayoffSimulator = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 sm:gap-4">
-        <div className="xl:col-span-2 space-y-3 sm:space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-slate-300">
-              Simulating weeks {simulationStartWeek}-{regularSeasonWeeks} ({gamesRemaining} games remaining)
-            </p>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-400/40 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/60"
-            >
-              <RefreshCcw className="w-4 h-4" />
-              Reset picks
-            </button>
-          </div>
-          {upcomingWeeks.length === 0 ? (
-            <div className="card-primary">
-              <p className="text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="card-primary space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-slate-300">
+                {simulationLabel} ({gamesRemaining} games remaining)
+              </p>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-400/40 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/60"
+              >
+                <RefreshCcw className="w-4 h-4" />
+                Reset picks
+              </button>
             </div>
-          ) : (
-            upcomingWeeks.map((week) => {
-              const weekMatchups = simulatableMatchups.filter((m) => m.week === week.week);
-              return (
-                <div key={week.week} className="card-primary space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm sm:text-lg font-bold text-slate-50">Week {week.week}</h3>
-                    <p className="text-[11px] text-slate-300">
-                      {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups counted
-                    </p>
-                  </div>
-                  <div className="space-y-3">
-                    {weekMatchups.map((matchup) => (
-                      <MatchupCard
-                        key={matchup.key}
-                        matchup={matchup}
-                        prediction={predictions[matchup.key]}
-                        onScoreChange={handleScoreChange}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })
-          )}
+            {upcomingWeeks.length === 0 ? (
+              <div className="card-secondary">
+                <p className="text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {upcomingWeeks.map((week) => {
+                  const weekMatchups = simulatableMatchups.filter((m) => m.week === week.week);
+                  return (
+                    <div key={week.week} className="card-secondary space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm sm:text-lg font-bold text-slate-50">Week {week.week}</h3>
+                        <p className="text-[11px] text-slate-300">
+                          {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups counted
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        {weekMatchups.map((matchup) => (
+                          <MatchupCard
+                            key={matchup.key}
+                            matchup={matchup}
+                            prediction={predictions[matchup.key]}
+                            onScoreChange={handleScoreChange}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-3 sm:space-y-4">
