@@ -107,7 +107,7 @@ const RecordsView = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4 md:gap-6">
         <div className="card-primary text-white">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 md:gap-4 mb-2 sm:mb-4 md:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 md:gap-4 mb-1.5 sm:mb-3 md:mb-4">
             <div>
               <h3 className="text-sm sm:text-lg md:text-xl font-bold flex items-center space-x-2">
                 <Award className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
@@ -171,7 +171,7 @@ const RecordsView = ({
         </div>
 
         <div className="card-primary">
-          <h3 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 mb-2 sm:mb-4 md:mb-6 flex items-center space-x-2">
+          <h3 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 mb-1.5 sm:mb-3 md:mb-4 flex items-center space-x-2">
             <Target className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
             <span>Chumpion Count Rankings</span>
           </h3>
@@ -277,12 +277,12 @@ const RecordsView = ({
       </div>
 
       <div className="card-primary">
-        <h3 className="text-sm sm:text-lg md:text-xl font-bold text-slate-50 mb-2 sm:mb-4 md:mb-6 flex items-center space-x-2">
+        <h3 className="text-sm sm:text-lg md:text-xl font-bold text-slate-50 mb-1.5 sm:mb-3 md:mb-4 flex items-center space-x-2">
           <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
           <span>Individual Manager Lookup</span>
         </h3>
 
-        <div className="mb-2 sm:mb-4 md:mb-6">
+        <div className="mb-1.5 sm:mb-3 md:mb-4">
           <div className="relative">
             <select
               value={selectedManager}
@@ -304,7 +304,7 @@ const RecordsView = ({
 
         {selectedManager && allRecords[selectedManager] && (
           <div className="card-secondary">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-4 md:mb-6 space-y-2 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1.5 sm:mb-3 md:mb-4 space-y-2 sm:space-y-0">
               <h4 className="text-base sm:text-xl md:text-2xl font-bold text-gray-900">
                 {allRecords[selectedManager].name}
               </h4>
@@ -315,7 +315,7 @@ const RecordsView = ({
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-3 md:gap-4">
               <div className="card-tertiary">
                 <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600 mb-0.5 sm:mb-1">Franchise Record</p>
                 <p className="text-base sm:text-xl md:text-2xl font-bold text-gray-900">
