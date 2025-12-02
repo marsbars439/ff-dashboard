@@ -54,11 +54,11 @@ class ErrorBoundary extends React.Component {
 
       // Default fallback UI
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full">
+        <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--ff-color-bg)' }}>
+          <div className="max-w-md w-full card-primary">
+            <div className="flex items-center justify-center w-16 h-16 mx-auto bg-red-500/20 rounded-full border-2 border-red-500/50">
               <svg
-                className="w-6 h-6 text-red-600"
+                className="w-8 h-8 text-red-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -71,39 +71,48 @@ class ErrorBoundary extends React.Component {
                 />
               </svg>
             </div>
-            <h2 className="mt-4 text-xl font-semibold text-gray-900 text-center">
+            <h2 className="mt-6 text-2xl font-bold text-center" style={{ color: 'var(--ff-color-text-strong)' }}>
               {this.props.title || 'Something went wrong'}
             </h2>
-            <p className="mt-2 text-sm text-gray-600 text-center">
-              {this.props.message || 'An unexpected error occurred. Please try again.'}
+            <p className="mt-3 text-base text-center" style={{ color: 'var(--ff-color-text-muted)' }}>
+              {this.props.message || 'An unexpected error occurred. Please try refreshing the page or returning to the home screen.'}
             </p>
 
             {process.env.NODE_ENV !== 'production' && this.state.error && (
-              <details className="mt-4 p-4 bg-gray-50 rounded border border-gray-200">
-                <summary className="cursor-pointer text-sm font-medium text-gray-700">
-                  Error Details
+              <details className="mt-6 p-4 rounded border" style={{ background: 'var(--ff-color-surface-muted)', borderColor: 'var(--ff-color-border)' }}>
+                <summary className="cursor-pointer text-sm font-semibold" style={{ color: 'var(--ff-color-text)' }}>
+                  Error Details (Development Only)
                 </summary>
-                <pre className="mt-2 text-xs text-red-600 overflow-auto">
+                <pre className="mt-3 text-xs text-red-400 overflow-auto max-h-64 p-2 rounded" style={{ background: 'rgba(0, 0, 0, 0.3)' }}>
                   {this.state.error.toString()}
                   {this.state.errorInfo?.componentStack}
                 </pre>
               </details>
             )}
 
-            <div className="mt-6 flex gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={this.handleReset}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md"
               >
                 Try Again
               </button>
               <button
                 onClick={() => window.location.href = '/'}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors"
+                className="flex-1 px-6 py-3 rounded-lg font-semibold transition-colors shadow-md"
+                style={{
+                  background: 'var(--ff-color-surface-muted)',
+                  color: 'var(--ff-color-text)',
+                  border: '1px solid var(--ff-color-border)'
+                }}
               >
                 Go Home
               </button>
             </div>
+
+            <p className="mt-4 text-xs text-center" style={{ color: 'var(--ff-color-text-subtle)' }}>
+              If this problem persists, please contact support.
+            </p>
           </div>
         </div>
       );

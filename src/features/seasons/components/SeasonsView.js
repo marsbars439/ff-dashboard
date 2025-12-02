@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CalendarRange, ChevronDown } from 'lucide-react';
 import PlayoffBracket from '../../../components/PlayoffBracket';
 import DashboardSection from '../../../components/DashboardSection';
+import { SkeletonTable, SkeletonCard, SkeletonMatchup } from '../../../shared/components';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../../../utils/date';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
@@ -1308,13 +1309,21 @@ export function SeasonsView({ teamSeasons, loading, error }) {
             ) : (
               <>
                 {isActiveWeek && activeWeekLoading && (
-                  <p className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">
-                    Loading starting lineups from Sleeper...
-                  </p>
+                  <div>
+                    <p className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">
+                      Loading starting lineups from Sleeper...
+                    </p>
+                    <div className="space-y-2 sm:space-y-3">
+                      {Array.from({ length: 5 }).map((_, idx) => (
+                        <SkeletonMatchup key={`skeleton-week-matchup-${idx}`} />
+                      ))}
+                    </div>
+                  </div>
                 )}
                 {isActiveWeek && activeWeekError && (
                   <p className="text-[10px] sm:text-xs text-red-600 mb-1 sm:mb-2">{activeWeekError}</p>
                 )}
+                {!activeWeekLoading && (
                 <div className="space-y-2 sm:space-y-3">
                   {week.matchups.map((m, idx) => {
                     const homePoints = normalizePoints(m.home?.points);
@@ -1358,6 +1367,7 @@ export function SeasonsView({ teamSeasons, loading, error }) {
                     );
                   })}
                 </div>
+                )}
               </>
             )}
           </div>
@@ -1368,12 +1378,24 @@ export function SeasonsView({ teamSeasons, loading, error }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-24 w-24 sm:h-32 sm:w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-sm sm:text-base">Loading The League Dashboard...</p>
+      <DashboardSection
+        title="Season Overview"
+        description="View standings, matchups, and playoff results for the selected season."
+        icon={CalendarRange}
+        bodyClassName="space-y-2 sm:space-y-4"
+      >
+        <div className={`${surfaceCard} p-2.5 sm:p-4 space-y-2 sm:space-y-4`}>
+          <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
+            <div className="h-6 sm:h-8 w-24 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <SkeletonCard key={`skeleton-winner-${idx}`} />
+            ))}
+          </div>
+          <SkeletonTable rows={10} columns={5} />
         </div>
-      </div>
+      </DashboardSection>
     );
   }
 

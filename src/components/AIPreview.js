@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API } from '../utils/constants';
+import { SkeletonText } from '../shared/components';
 
 const AIPreview = () => {
   const [summary, setSummary] = useState('');
@@ -7,32 +8,56 @@ const AIPreview = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchSummary = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(`${API.BASE_URL}/preview`);
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
+    // Delay AI preview fetch to prioritize critical content (progressive loading)
+    const timeout = setTimeout(() => {
+      const fetchSummary = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await fetch(`${API.BASE_URL}/preview`);
+          if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+          }
+          const result = await response.json();
+          setSummary(result.summary || '');
+        } catch (err) {
+          setError(err.message || 'An error occurred');
+        } finally {
+          setLoading(false);
         }
-        const result = await response.json();
-        setSummary(result.summary || '');
-      } catch (err) {
-        setError(err.message || 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
 
-    fetchSummary();
+      fetchSummary();
+    }, 500); // 500ms delay for progressive loading (slightly later than summary)
+
+    return () => clearTimeout(timeout);
   }, []);
 
   if (loading) {
-    return <p>Loading preview...</p>;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-start space-x-2">
+          <div className="h-2 w-2 mt-2 rounded-full bg-gray-300 flex-shrink-0" />
+          <SkeletonText lines={1} />
+        </div>
+        <div className="flex items-start space-x-2">
+          <div className="h-2 w-2 mt-2 rounded-full bg-gray-300 flex-shrink-0" />
+          <SkeletonText lines={1} />
+        </div>
+        <div className="flex items-start space-x-2">
+          <div className="h-2 w-2 mt-2 rounded-full bg-gray-300 flex-shrink-0" />
+          <SkeletonText lines={1} />
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <p className="text-red-500">Error: {error}</p>;
+    return (
+      <p className="text-sm" style={{ color: 'var(--ff-color-text-muted)' }}>
+        AI preview temporarily unavailable
+      </p>
+    );
   }
 
   if (!summary) {

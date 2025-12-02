@@ -3,6 +3,7 @@ import { CalendarDays, ChevronDown } from 'lucide-react';
 import AISummary from '../../../components/AISummary';
 import AIPreview from '../../../components/AIPreview';
 import DashboardSection from '../../../components/DashboardSection';
+import { SkeletonMatchup, SkeletonCard } from '../../../shared/components';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../../../utils/date';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
@@ -841,7 +842,14 @@ export function WeekView({ teamSeasons }) {
         </h3>
 
         {activeWeekLoading && (
-          <p className="text-xs text-slate-300">Loading starting lineups from Sleeper...</p>
+          <div>
+            <p className="text-xs text-slate-300 mb-1.5 sm:mb-3">Loading starting lineups from Sleeper...</p>
+            <div className="space-y-1.5 sm:space-y-2.5">
+              {Array.from({ length: 5 }).map((_, idx) => (
+                <SkeletonMatchup key={`skeleton-matchup-${idx}`} />
+              ))}
+            </div>
+          </div>
         )}
 
         {activeWeekError && (
