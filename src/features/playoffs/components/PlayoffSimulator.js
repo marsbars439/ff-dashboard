@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Sparkles, RefreshCcw, Flame, BarChart3 } from 'lucide-react';
+import { Sparkles, RefreshCcw, Flame, BarChart3, GitBranch } from 'lucide-react';
 import DashboardSection from '../../../components/DashboardSection';
 import { ErrorMessage, SkeletonCard } from '../../../shared/components';
 import { useManagers } from '../../../hooks/useManagers';
@@ -187,6 +187,74 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, ch
     </div>
   </div>
 );
+
+const ProjectedBracket = ({ seeds }) => {
+  const getSeed = (n) => seeds.find((s) => s.seed === n) || null;
+  const seed1 = getSeed(1);
+  const seed2 = getSeed(2);
+  const seed3 = getSeed(3);
+  const seed4 = getSeed(4);
+  const seed5 = getSeed(5);
+  const seed6 = getSeed(6);
+
+  const renderSeed = (seed, label) => {
+    if (!seed) return (
+      <div className="rounded-md border border-white/10 bg-slate-950/40 px-2.5 py-2 text-[12px] text-slate-400">
+        {label || 'TBD'}
+      </div>
+    );
+    return (
+      <div className="rounded-md border border-white/15 bg-slate-950/50 px-3 py-2 text-[12px] flex justify-between items-center">
+        <span className="text-slate-50 font-semibold truncate">{seed.managerName}</span>
+        <span className="text-[11px] text-slate-300 ml-2 whitespace-nowrap">
+          {label || `Seed ${seed.seed}`}
+        </span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="card-primary space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm sm:text-lg font-bold text-slate-50 flex items-center gap-2">
+          <GitBranch className="w-4 h-4 text-emerald-300" />
+          <span>Projected Bracket</span>
+        </h3>
+        <p className="text-[11px] text-slate-300">Seeds 1-2 bye; 3v6 and 4v5</p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="rounded-lg border border-white/10 bg-slate-950/40 px-3 py-2 space-y-2">
+          <p className="text-[11px] text-slate-300 font-semibold">Byes</p>
+          <div className="space-y-1.5">
+            {renderSeed(seed1, 'Seed 1 Bye')}
+            {renderSeed(seed2, 'Seed 2 Bye')}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-white/10 bg-slate-950/40 px-3 py-2 space-y-2">
+          <p className="text-[11px] text-slate-300 font-semibold">Round 1</p>
+          <div className="space-y-1.5">
+            <div className="space-y-1">
+              <p className="text-[11px] text-slate-400">Seed 3 vs Seed 6</p>
+              <div className="space-y-1">
+                {renderSeed(seed3)}
+                {renderSeed(seed6)}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[11px] text-slate-400">Seed 4 vs Seed 5</p>
+              <div className="space-y-1">
+                {renderSeed(seed4)}
+                {renderSeed(seed5)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const PlayoffSimulator = () => {
   const { managers, loading: managersLoading, error: managersError } = useManagers();
@@ -510,62 +578,60 @@ const PlayoffSimulator = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-3">
-        <div className="space-y-2 sm:space-y-3">
-          <div className="card-primary space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-300" />
-                <div>
-                  <h3 className="text-sm sm:text-lg font-bold text-slate-50">Matchups</h3>
-                  <p className="text-[11px] text-slate-300">
-                    {simulationLabel} ({gamesRemaining} games remaining)
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleReset}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-400/40 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/60"
-              >
-                <RefreshCcw className="w-4 h-4" />
-                Reset picks
-              </button>
+      <div className="card-primary space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            <div>
+              <h3 className="text-sm sm:text-lg font-bold text-slate-50">Matchups</h3>
+              <p className="text-[11px] text-slate-300">
+                {simulationLabel} ({gamesRemaining} games remaining)
+              </p>
             </div>
-            {upcomingWeeks.length === 0 ? (
-              <div className="rounded-lg border border-white/10 bg-slate-950/60 p-3">
-                <p className="text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {upcomingWeeks.map((week) => {
-                  const weekMatchups = simulatableMatchups.filter((m) => m.week === week.week);
-                  return (
-                    <div key={week.week} className="space-y-1.5">
-                      <div className="flex items-center justify-between px-1">
-                        <h3 className="text-sm sm:text-base font-bold text-slate-50">Week {week.week}</h3>
-                        <p className="text-[11px] text-slate-300">
-                          {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups counted
-                        </p>
-                      </div>
-                      <div className="space-y-1.5">
-                        {weekMatchups.map((matchup) => (
-                          <MatchupCard
-                            key={matchup.key}
-                            matchup={matchup}
-                            prediction={predictions[matchup.key]}
-                            onScoreChange={handleScoreChange}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-400/40 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/60"
+          >
+            <RefreshCcw className="w-4 h-4" />
+            Reset picks
+          </button>
         </div>
+        {upcomingWeeks.length === 0 ? (
+          <div className="rounded-lg border border-white/10 bg-slate-950/60 p-3">
+            <p className="text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {upcomingWeeks.map((week) => {
+              const weekMatchups = simulatableMatchups.filter((m) => m.week === week.week);
+              return (
+                <div key={week.week} className="space-y-1">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-sm sm:text-base font-bold text-slate-50">Week {week.week}</h3>
+                    <p className="text-[11px] text-slate-300">
+                      {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups counted
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {weekMatchups.map((matchup) => (
+                      <MatchupCard
+                        key={matchup.key}
+                        matchup={matchup}
+                        prediction={predictions[matchup.key]}
+                        onScoreChange={handleScoreChange}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-3">
         <div className="space-y-2 sm:space-y-3">
           <ProjectedStandingsTable
             standings={projectedStandings}
@@ -574,6 +640,9 @@ const PlayoffSimulator = () => {
             byeIds={byeIds}
             chumpionId={chumpionId}
           />
+        </div>
+        <div className="space-y-2 sm:space-y-3">
+          <ProjectedBracket seeds={playoffSeeds.seeds} />
         </div>
       </div>
     </DashboardSection>
