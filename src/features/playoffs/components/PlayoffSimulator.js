@@ -58,7 +58,8 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
     const isWinner = isHome ? homeLeads : awayLeads;
 
     return (
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-50 truncate">
               {team.managerName || 'TBD'}
