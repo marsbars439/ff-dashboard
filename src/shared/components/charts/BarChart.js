@@ -11,11 +11,12 @@ import ChartWrapper from './ChartWrapper';
 export const BarChart = ({ data, title, subtitle, className = '', horizontal = false }) => {
   const colors = getChartColors();
 
-  // Support conditional coloring based on positive/negative values
+  // Support conditional coloring based on positive/negative values or baseline
   const getBackgroundColors = () => {
     if (data.conditionalColor) {
+      const baseline = data.baseline !== undefined ? data.baseline : 0;
       return data.values.map(value =>
-        value >= 0 ? colors.success : colors.danger
+        value >= baseline ? colors.success : colors.danger
       );
     }
     return colors.barBg;
@@ -23,8 +24,9 @@ export const BarChart = ({ data, title, subtitle, className = '', horizontal = f
 
   const getBorderColors = () => {
     if (data.conditionalColor) {
+      const baseline = data.baseline !== undefined ? data.baseline : 0;
       return data.values.map(value =>
-        value >= 0 ? colors.success : colors.danger
+        value >= baseline ? colors.success : colors.danger
       );
     }
     return colors.bar;
@@ -45,7 +47,8 @@ export const BarChart = ({ data, title, subtitle, className = '', horizontal = f
     ]
   };
 
-  const options = mergeChartOptions({
+  const axisKey = horizontal ? 'x' : 'y';
+  const baseOptions = {
     indexAxis: horizontal ? 'y' : 'x',
     plugins: {
       legend: {
@@ -53,7 +56,7 @@ export const BarChart = ({ data, title, subtitle, className = '', horizontal = f
       }
     },
     scales: {
-      [horizontal ? 'x' : 'y']: {
+      [axisKey]: {
         beginAtZero: data.minValue === undefined ? true : false,
         min: data.minValue,
         ticks: {
@@ -61,7 +64,27 @@ export const BarChart = ({ data, title, subtitle, className = '', horizontal = f
         }
       }
     }
-  });
+  };
+
+  // Add baseline grid line if specified
+  if (data.baseline !== undefined) {
+    baseOptions.scales[axisKey].grid = {
+      color: (context) => {
+        if (context.tick.value === data.baseline) {
+          return 'rgba(226, 232, 240, 0.5)'; // Highlighted baseline
+        }
+        return 'rgba(148, 163, 184, 0.15)'; // Normal grid
+      },
+      lineWidth: (context) => {
+        if (context.tick.value === data.baseline) {
+          return 2; // Thicker baseline
+        }
+        return 1;
+      }
+    };
+  }
+
+  const options = mergeChartOptions(baseOptions);
 
   return (
     <ChartWrapper title={title} subtitle={subtitle} className={className}>

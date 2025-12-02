@@ -268,9 +268,10 @@ const RecordsView = ({
             <BarChart
               data={{
                 labels: winPctRankings.filter(m => m.active).map(m => m.name.split(' ').slice(-1)[0]),
-                values: winPctRankings.filter(m => m.active).map(m => (m.winPct * 100) - 50),
+                values: winPctRankings.filter(m => m.active).map(m => m.winPct * 100),
                 label: 'Win %',
-                conditionalColor: true
+                conditionalColor: true,
+                baseline: 50
               }}
               title="Win % vs 50% Baseline"
               subtitle="All active managers (green = above .500, red = below .500)"
