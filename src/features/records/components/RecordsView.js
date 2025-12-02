@@ -272,7 +272,8 @@ const RecordsView = ({
                 values: winPctRankings.filter(m => m.active).map(m => (m.winPct * 100) - 50),
                 label: 'Win %',
                 conditionalColor: true,
-                baseline: 0
+                baseline: 0,
+                axisOffset: 50
               }}
               title="Win %"
               subtitle="All active managers (green = above .500, red = below .500)"

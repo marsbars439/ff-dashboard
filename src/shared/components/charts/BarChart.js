@@ -61,9 +61,9 @@ export const BarChart = ({ data, title, subtitle, className = '', horizontal = f
         min: data.minValue,
         ticks: {
           precision: 1,
-          // If baseline is set, adjust tick labels to show actual percentages
-          callback: data.baseline !== undefined ? function(value) {
-            return (value + data.baseline).toFixed(1) + '%';
+          // If axisOffset is set, adjust tick labels to show actual values
+          callback: data.axisOffset !== undefined ? function(value) {
+            return (value + data.axisOffset).toFixed(1) + '%';
           } : undefined
         },
         grid: {
