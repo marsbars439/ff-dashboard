@@ -195,7 +195,7 @@ const ProjectedBracket = ({ seeds }) => {
   const seed6 = getSeed(6);
 
   const MatchupBox = ({ topSeed, bottomSeed, label }) => (
-    <div className="rounded-md border border-white/12 bg-slate-950/40 px-3 py-2 space-y-1 min-w-[180px]">
+    <div className="rounded-md border border-white/12 bg-slate-950/40 px-3 py-2 space-y-1 min-w-[180px] min-h-[120px] flex flex-col justify-between">
       <p className="text-[11px] text-slate-300 font-semibold">{label}</p>
       <div className="space-y-1">
         <div className="rounded border border-white/12 bg-slate-900/50 px-2 py-1 text-[12px] flex justify-between items-center">
@@ -220,17 +220,28 @@ const ProjectedBracket = ({ seeds }) => {
         <p className="text-[11px] text-slate-300">Seeds 1-2 bye; 3v6, 4v5</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-3 justify-center items-center">
-        <div className="flex flex-col gap-3 items-center">
-          <MatchupBox topSeed={seed1} bottomSeed={seed3} label="Round 1: Seed 1 / Seed 3 vs Seed 6" />
-          <MatchupBox topSeed={seed4} bottomSeed={seed2} label="Round 1: Seed 4 vs Seed 5 / Seed 2" />
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <p className="text-[11px] text-slate-400 font-semibold">Round 1</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <MatchupBox topSeed={seed1} bottomSeed={null} label="Seed 1 (bye)" />
+            <MatchupBox topSeed={seed4} bottomSeed={seed5} label="Seed 4 vs Seed 5" />
+            <MatchupBox topSeed={seed2} bottomSeed={null} label="Seed 2 (bye)" />
+            <MatchupBox topSeed={seed6} bottomSeed={seed3} label="Seed 6 vs Seed 3" />
+          </div>
         </div>
-        <div className="flex flex-col gap-3 items-center">
-          <MatchupBox topSeed={seed1} bottomSeed={null} label="Semifinal: Seed 1 vs Winner 3/6" />
-          <MatchupBox topSeed={seed2} bottomSeed={null} label="Semifinal: Seed 2 vs Winner 4/5" />
+
+        <div className="space-y-2">
+          <p className="text-[11px] text-slate-400 font-semibold">Semifinals</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 justify-items-center">
+            <MatchupBox topSeed={seed1} bottomSeed={null} label="Seed 1 vs Winner 4/5" />
+            <MatchupBox topSeed={seed2} bottomSeed={null} label="Seed 2 vs Winner 3/6" />
+          </div>
         </div>
-        <div className="flex flex-col gap-3 items-center">
-          <MatchupBox topSeed={null} bottomSeed={null} label="Final" />
+
+        <div className="space-y-2">
+          <p className="text-[11px] text-slate-400 font-semibold">Final</p>
+          <MatchupBox topSeed={null} bottomSeed={null} label="Championship" />
         </div>
       </div>
     </div>
