@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Sparkles, RefreshCcw, Flame, BarChart3, GitBranch } from 'lucide-react';
 import DashboardSection from '../../../components/DashboardSection';
 import { ErrorMessage, SkeletonCard } from '../../../shared/components';
@@ -59,48 +59,43 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
 
     return (
       <div className="flex flex-col gap-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-50 truncate">
+        <div className="flex items-start justify-between gap-1.5">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs sm:text-sm font-semibold text-slate-50 truncate">
               {team.managerName || 'TBD'}
             </p>
             {team.teamName && (
-              <p className="text-[11px] text-slate-400 truncate">{team.teamName}</p>
-            )}
-            {matchup.unmapped && (
-              <p className="text-[11px] text-amber-300 mt-1">Not mapped to standings</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">{team.teamName}</p>
             )}
           </div>
           {isWinner && (
-            <span className="text-[11px] font-semibold text-emerald-300 flex-shrink-0">Win</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-300 flex-shrink-0">Win</span>
           )}
         </div>
-        <div className="mt-1 flex items-center gap-2">
-          <input
-            type="number"
-            min="0"
-            step="0.1"
-            value={value}
-            placeholder={currentPoints !== null ? currentPoints.toFixed(1) : 'Points'}
-            onChange={(e) => onScoreChange(matchup.key, isHome ? 'homeScore' : 'awayScore', e.target.value)}
-            className="w-full rounded-md border border-white/15 bg-slate-950/40 px-2.5 py-1.5 text-sm text-slate-50 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-          />
-        </div>
+        <input
+          type="number"
+          min="0"
+          step="0.1"
+          value={value}
+          placeholder={currentPoints !== null ? currentPoints.toFixed(1) : 'Points'}
+          onChange={(e) => onScoreChange(matchup.key, isHome ? 'homeScore' : 'awayScore', e.target.value)}
+          className="w-full rounded-md border border-white/15 bg-slate-950/40 px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs sm:text-sm text-slate-50 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+        />
       </div>
     );
   };
 
   return (
-    <div className="rounded-md border border-white/12 bg-transparent p-2 space-y-1.5">
+    <div className="rounded-md border border-white/12 bg-transparent p-1.5 sm:p-2 space-y-1">
       {matchup.unmapped && (
-        <div className="flex justify-end">
-          <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
-            Outside current standings
+        <div className="flex justify-end mb-1">
+          <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-100">
+            Not in standings
           </span>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
         {renderTeamInput('home')}
         {renderTeamInput('away')}
       </div>
@@ -109,24 +104,24 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
 };
 
 const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, chumpionId }) => (
-  <div className="card-primary space-y-3">
-    <div className="flex items-center justify-between gap-2">
-      <h3 className="text-sm sm:text-lg font-bold text-slate-50 flex items-center gap-2">
-        <BarChart3 className="w-4 h-4 text-blue-300" />
+  <div className="card-primary space-y-2 sm:space-y-3">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+      <h3 className="text-base sm:text-lg font-bold text-slate-50 flex items-center gap-2">
+        <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-300" />
         <span>Projected Standings</span>
       </h3>
-      <p className="text-[11px] text-slate-300">Includes your simulated results</p>
+      <p className="text-[10px] sm:text-[11px] text-slate-300">Includes simulated results</p>
     </div>
-    <div className="w-full">
-      <table className="w-full text-[11px] sm:text-sm table-auto">
+    <div className="w-full overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0">
+      <table className="w-full text-[10px] sm:text-xs md:text-sm table-auto">
         <thead className="text-slate-300 border-b border-white/10">
           <tr>
-            <th className="text-left py-2 pr-3 font-semibold">Rank</th>
-            <th className="text-left py-2 pr-3 font-semibold">Manager</th>
-            <th className="text-left py-2 pr-3 font-semibold">Record</th>
-            <th className="text-left py-2 pr-3 font-semibold">PF</th>
-            <th className="text-left py-2 pr-3 font-semibold">PA</th>
-            <th className="text-left py-2 font-semibold">Change</th>
+            <th className="text-left py-1.5 sm:py-2 pr-2 sm:pr-3 font-semibold">Rank</th>
+            <th className="text-left py-1.5 sm:py-2 pr-2 sm:pr-3 font-semibold">Manager</th>
+            <th className="text-left py-1.5 sm:py-2 pr-2 sm:pr-3 font-semibold">Record</th>
+            <th className="text-left py-1.5 sm:py-2 pr-2 sm:pr-3 font-semibold">PF</th>
+            <th className="text-left py-1.5 sm:py-2 pr-2 sm:pr-3 font-semibold hidden sm:table-cell">PA</th>
+            <th className="text-left py-1.5 sm:py-2 font-semibold hidden md:table-cell">Change</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/10">
@@ -146,34 +141,34 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, ch
                 key={team.id}
                 className={`${inPlayoffs ? 'bg-emerald-500/5' : ''} ${isWildcard ? 'bg-amber-500/10' : ''}`}
               >
-                <td className="py-2 pr-3 text-slate-50 font-semibold">{team.rank}</td>
-                <td className="py-2 pr-3">
-                  <div className="flex items-center gap-2">
+                <td className="py-1.5 sm:py-2 pr-2 sm:pr-3 text-slate-50 font-semibold">{team.rank}</td>
+                <td className="py-1.5 sm:py-2 pr-2 sm:pr-3">
+                  <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
                     <span className="text-slate-50 font-semibold truncate">{team.managerName}</span>
                     {hasBye && (
-                      <span className="rounded-full border border-emerald-400/60 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100">
+                      <span className="rounded-full border border-emerald-400/60 bg-emerald-500/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-emerald-100">
                         Bye
                       </span>
                     )}
                     {isWildcard && (
-                      <span className="rounded-full border border-amber-400/60 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
-                        PF Wildcard
+                      <span className="rounded-full border border-amber-400/60 bg-amber-500/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-100">
+                        Wildcard
                       </span>
                     )}
                     {isChumpion && (
-                      <span className="rounded-full border border-red-400/60 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-200">
-                        Chumpion
+                      <span className="rounded-full border border-red-400/60 bg-red-500/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-red-200">
+                        Chump
                       </span>
                     )}
                   </div>
                   {team.teamName && (
-                    <p className="text-[11px] text-slate-400 truncate">{team.teamName}</p>
+                    <p className="text-[9px] sm:text-[11px] text-slate-400 truncate">{team.teamName}</p>
                   )}
                 </td>
-                <td className="py-2 pr-3 text-slate-100">{formatRecord(team)}</td>
-                <td className="py-2 pr-3 text-slate-100">{team.pointsFor.toFixed(1)}</td>
-                <td className="py-2 pr-3 text-slate-100">{team.pointsAgainst.toFixed(1)}</td>
-                <td className="py-2 text-slate-200">
+                <td className="py-1.5 sm:py-2 pr-2 sm:pr-3 text-slate-100 whitespace-nowrap">{formatRecord(team)}</td>
+                <td className="py-1.5 sm:py-2 pr-2 sm:pr-3 text-slate-100">{team.pointsFor.toFixed(1)}</td>
+                <td className="py-1.5 sm:py-2 pr-2 sm:pr-3 text-slate-100 hidden sm:table-cell">{team.pointsAgainst.toFixed(1)}</td>
+                <td className="py-1.5 sm:py-2 text-slate-200 hidden md:table-cell">
                   {changeBits.length > 0 ? changeBits.join(', ') : '-'}
                 </td>
               </tr>
@@ -194,7 +189,7 @@ const ProjectedBracket = ({ seeds }) => {
   const seed5 = getSeed(5);
   const seed6 = getSeed(6);
 
-  const MatchupBox = ({ topSeed, bottomSeed, topPlaceholder, bottomPlaceholder, style = {} }) => {
+  const MatchupBox = ({ topSeed, bottomSeed, topPlaceholder, bottomPlaceholder }) => {
     const topName = topSeed ? topSeed.managerName : (topPlaceholder || 'TBD');
     const topSeedLabel = topSeed ? `Seed ${topSeed.seed}` : topPlaceholder ? topPlaceholder : '';
     const bottomName = bottomSeed ? bottomSeed.managerName : (bottomPlaceholder || 'TBD');
@@ -204,85 +199,85 @@ const ProjectedBracket = ({ seeds }) => {
     const bottomMuted = !bottomSeed;
 
     return (
-    <div
-      className="rounded-md border border-white/12 bg-slate-950/40 px-3 py-2 space-y-1 min-w-[180px] flex flex-col"
-      style={style}
-    >
-      <div className="space-y-1">
-        <div className="rounded border border-white/12 bg-slate-900/50 px-2 py-1 text-[12px] flex justify-between items-center">
-          <span className={`font-semibold truncate ${topMuted ? 'text-slate-400' : 'text-slate-50'}`}>{topName}</span>
-          <span className="text-[11px] text-slate-300 ml-2 whitespace-nowrap">{topSeedLabel}</span>
-        </div>
-        <div className="rounded border border-white/12 bg-slate-900/50 px-2 py-1 text-[12px] flex justify-between items-center">
-          <span className={`font-semibold truncate ${bottomMuted ? 'text-slate-400' : 'text-slate-50'}`}>{bottomName}</span>
-          <span className="text-[11px] text-slate-300 ml-2 whitespace-nowrap">{bottomSeedLabel}</span>
+      <div className="rounded-md border border-white/12 bg-slate-950/40 px-2 sm:px-3 py-1.5 sm:py-2 space-y-1">
+        <div className="space-y-1">
+          <div className="rounded border border-white/12 bg-slate-900/50 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs flex justify-between items-center gap-1">
+            <span className={`font-semibold truncate ${topMuted ? 'text-slate-400' : 'text-slate-50'}`}>{topName}</span>
+            <span className="text-[9px] sm:text-[10px] text-slate-300 whitespace-nowrap flex-shrink-0">{topSeedLabel}</span>
+          </div>
+          <div className="rounded border border-white/12 bg-slate-900/50 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs flex justify-between items-center gap-1">
+            <span className={`font-semibold truncate ${bottomMuted ? 'text-slate-400' : 'text-slate-50'}`}>{bottomName}</span>
+            <span className="text-[9px] sm:text-[10px] text-slate-300 whitespace-nowrap flex-shrink-0">{bottomSeedLabel}</span>
+          </div>
         </div>
       </div>
-    </div>
     );
   };
 
   return (
-    <div className="card-primary space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm sm:text-lg font-bold text-slate-50 flex items-center gap-2">
-          <GitBranch className="w-4 h-4 text-emerald-300" />
-          <span>Projected Bracket</span>
-        </h3>
+    <div className="card-primary space-y-2 sm:space-y-3">
+      <h3 className="text-base sm:text-lg font-bold text-slate-50 flex items-center gap-2">
+        <GitBranch className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-300" />
+        <span>Projected Bracket</span>
+      </h3>
+
+      {/* Mobile: Stacked view */}
+      <div className="space-y-2 lg:hidden">
+        <div>
+          <p className="text-xs font-semibold text-slate-300 mb-1.5">First Round</p>
+          <div className="space-y-1.5">
+            <MatchupBox topSeed={seed1} bottomSeed={null} bottomPlaceholder="Bye" />
+            <MatchupBox topSeed={seed4} bottomSeed={seed5} />
+            <MatchupBox topSeed={seed2} bottomSeed={null} bottomPlaceholder="Bye" />
+            <MatchupBox topSeed={seed6} bottomSeed={seed3} />
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-slate-300 mb-1.5">Semifinals</p>
+          <div className="space-y-1.5">
+            <MatchupBox topSeed={seed1} bottomSeed={null} topPlaceholder="Seed 1" bottomPlaceholder="Winner 4/5" />
+            <MatchupBox topSeed={seed2} bottomSeed={null} topPlaceholder="Seed 2" bottomPlaceholder="Winner 3/6" />
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-slate-300 mb-1.5">Championship</p>
+          <MatchupBox topSeed={null} bottomSeed={null} topPlaceholder="Winner Semis" bottomPlaceholder="Winner Semis" />
+        </div>
       </div>
 
-      <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gridTemplateRows: 'repeat(8, minmax(0, 1fr))' }}
-      >
-        {/* Round 1 */}
-        <MatchupBox
-          topSeed={seed1}
-          bottomSeed={null}
-          bottomPlaceholder="Bye"
-          style={{ gridColumn: 1, gridRow: '1 / span 2' }}
-        />
-        <MatchupBox
-          topSeed={seed4}
-          bottomSeed={seed5}
-          style={{ gridColumn: 1, gridRow: '3 / span 2' }}
-        />
-        <MatchupBox
-          topSeed={seed2}
-          bottomSeed={null}
-          bottomPlaceholder="Bye"
-          style={{ gridColumn: 1, gridRow: '6 / span 2' }}
-        />
-        <MatchupBox
-          topSeed={seed6}
-          bottomSeed={seed3}
-          style={{ gridColumn: 1, gridRow: '8 / span 2' }}
-        />
+      {/* Desktop: Grid view */}
+      <div className="hidden lg:block">
+        <div
+          className="grid gap-2"
+          style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gridTemplateRows: 'repeat(8, minmax(0, 1fr))' }}
+        >
+          {/* Round 1 */}
+          <div style={{ gridColumn: 1, gridRow: '1 / span 2' }}>
+            <MatchupBox topSeed={seed1} bottomSeed={null} bottomPlaceholder="Bye" />
+          </div>
+          <div style={{ gridColumn: 1, gridRow: '3 / span 2' }}>
+            <MatchupBox topSeed={seed4} bottomSeed={seed5} />
+          </div>
+          <div style={{ gridColumn: 1, gridRow: '6 / span 2' }}>
+            <MatchupBox topSeed={seed2} bottomSeed={null} bottomPlaceholder="Bye" />
+          </div>
+          <div style={{ gridColumn: 1, gridRow: '8 / span 2' }}>
+            <MatchupBox topSeed={seed6} bottomSeed={seed3} />
+          </div>
 
-        {/* Semifinals */}
-        <MatchupBox
-          topSeed={seed1}
-          bottomSeed={null}
-          topPlaceholder="Seed 1"
-          bottomPlaceholder="Winner 4/5"
-          style={{ gridColumn: 2, gridRow: '2 / span 3' }}
-        />
-        <MatchupBox
-          topSeed={seed2}
-          bottomSeed={null}
-          topPlaceholder="Seed 2"
-          bottomPlaceholder="Winner 3/6"
-          style={{ gridColumn: 2, gridRow: '6 / span 3' }}
-        />
+          {/* Semifinals */}
+          <div style={{ gridColumn: 2, gridRow: '2 / span 3' }}>
+            <MatchupBox topSeed={seed1} bottomSeed={null} topPlaceholder="Seed 1" bottomPlaceholder="Winner 4/5" />
+          </div>
+          <div style={{ gridColumn: 2, gridRow: '6 / span 3' }}>
+            <MatchupBox topSeed={seed2} bottomSeed={null} topPlaceholder="Seed 2" bottomPlaceholder="Winner 3/6" />
+          </div>
 
-        {/* Final */}
-        <MatchupBox
-          topSeed={null}
-          bottomSeed={null}
-          topPlaceholder="Winner Semis"
-          bottomPlaceholder="Winner Semis"
-          style={{ gridColumn: 3, gridRow: '4 / span 3' }}
-        />
+          {/* Final */}
+          <div style={{ gridColumn: 3, gridRow: '4 / span 3' }}>
+            <MatchupBox topSeed={null} bottomSeed={null} topPlaceholder="Winner Semis" bottomPlaceholder="Winner Semis" />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -522,18 +517,20 @@ const PlayoffSimulator = () => {
   const loading = managersLoading || seasonsLoading || matchupsLoading;
   const error = managersError || seasonsError || matchupsError;
 
-  const buildDefaultPredictions = () => {
-    const defaults = {};
-    simulatableMatchups.forEach((matchup) => {
-      const homeAvg = matchup.home.id ? teamAverages[matchup.home.id] : null;
-      const awayAvg = matchup.away.id ? teamAverages[matchup.away.id] : null;
-      defaults[matchup.key] = {
-        homeScore: homeAvg !== null ? Number(homeAvg.toFixed(1)) : '',
-        awayScore: awayAvg !== null ? Number(awayAvg.toFixed(1)) : ''
-      };
-    });
-    return defaults;
-  };
+  const buildDefaultPredictions = useMemo(() => {
+    return () => {
+      const defaults = {};
+      simulatableMatchups.forEach((matchup) => {
+        const homeAvg = matchup.home.id ? teamAverages[matchup.home.id] : null;
+        const awayAvg = matchup.away.id ? teamAverages[matchup.away.id] : null;
+        defaults[matchup.key] = {
+          homeScore: homeAvg !== null ? Number(homeAvg.toFixed(1)) : '',
+          awayScore: awayAvg !== null ? Number(awayAvg.toFixed(1)) : ''
+        };
+      });
+      return defaults;
+    };
+  }, [simulatableMatchups, teamAverages]);
 
   const handleScoreChange = (key, side, value) => {
     setPredictions((prev) => ({
@@ -550,7 +547,7 @@ const PlayoffSimulator = () => {
   useEffect(() => {
     if (simulatableMatchups.length === 0) return;
     setPredictions(buildDefaultPredictions());
-  }, [simulatableMatchups, teamAverages]);
+  }, [simulatableMatchups, teamAverages, buildDefaultPredictions]);
 
   if (loading) {
     return (
@@ -591,32 +588,32 @@ const PlayoffSimulator = () => {
       title="Playoff Simulator"
       description="Select winners and scores for current and future weeks to see playoff projections update instantly."
       icon={Sparkles}
-      bodyClassName="space-y-3 sm:space-y-4"
+      bodyClassName="space-y-2 sm:space-y-4"
     >
-      <div className="card-primary">
-        <h3 className="text-sm sm:text-lg font-bold text-slate-50 flex items-center gap-2">
-          <Flame className="w-4 h-4 text-amber-300" />
+      <div className="card-primary space-y-2">
+        <h3 className="text-base sm:text-lg font-bold text-slate-50 flex items-center gap-2">
+          <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
           <span>How it works</span>
         </h3>
-        <ul className="mt-1.5 space-y-1 text-[13px] text-slate-200 list-disc list-inside">
+        <ul className="space-y-0.5 sm:space-y-1 text-xs sm:text-[13px] text-slate-200 list-disc list-inside">
           <li>Each matchup starts with both teams' season PPG; adjust scores to explore scenarios.</li>
           <li>Standings update immediately with each score you add.</li>
           <li>Seeds 1-5 are by record; seed 6 goes to the PF leader among ranks 6-10.</li>
         </ul>
         {unmappedCount > 0 && (
-          <p className="text-[11px] text-amber-200 mt-1.5">
+          <p className="text-[10px] sm:text-[11px] text-amber-200">
             {unmappedCount} matchup(s) are missing a standings mapping and are excluded from calculations.
           </p>
         )}
       </div>
 
-      <div className="card-primary space-y-2">
-        <div className="flex items-center justify-between gap-3">
+      <div className="card-primary space-y-2 sm:space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-300" />
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
             <div>
-              <h3 className="text-sm sm:text-lg font-bold text-slate-50">Matchups</h3>
-              <p className="text-[11px] text-slate-300">
+              <h3 className="text-base sm:text-lg font-bold text-slate-50">Matchups</h3>
+              <p className="text-[10px] sm:text-[11px] text-slate-300">
                 {simulationLabel} ({gamesRemaining} games remaining)
               </p>
             </div>
@@ -624,41 +621,36 @@ const PlayoffSimulator = () => {
           <button
             type="button"
             onClick={handleReset}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-400/40 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/60"
+            className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg border border-slate-400/40 bg-slate-900/60 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/60"
           >
-            <RefreshCcw className="w-4 h-4" />
-            Reset picks
+            <RefreshCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>Reset picks</span>
           </button>
         </div>
         {upcomingWeeks.length === 0 ? (
-          <div className="rounded-lg border border-white/10 bg-slate-950/60 p-3">
-            <p className="text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
+          <div className="rounded-lg border border-white/10 bg-slate-950/60 p-2.5 sm:p-3">
+            <p className="text-xs sm:text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
           </div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="space-y-2 sm:space-y-3">
             {upcomingWeeks.map((week) => {
               const weekMatchups = simulatableMatchups.filter((m) => m.week === week.week);
               return (
-                <div key={week.week} className="space-y-1">
-                  <div className="flex items-center justify-between px-1">
+                <div key={week.week} className="space-y-1.5">
+                  <div className="flex items-center justify-between px-0.5 sm:px-1">
                     <h3 className="text-sm sm:text-base font-bold text-slate-50">Week {week.week}</h3>
-                    <p className="text-[11px] text-slate-300">
-                      {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups counted
+                    <p className="text-[10px] sm:text-[11px] text-slate-300">
+                      {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 justify-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2">
                     {weekMatchups.map((matchup) => (
-                      <div
+                      <MatchupCard
                         key={matchup.key}
-                        className="w-full sm:max-w-[48%] lg:max-w-[32%]"
-                        style={{ minWidth: '220px' }}
-                      >
-                        <MatchupCard
-                          matchup={matchup}
-                          prediction={predictions[matchup.key]}
-                          onScoreChange={handleScoreChange}
-                        />
-                      </div>
+                        matchup={matchup}
+                        prediction={predictions[matchup.key]}
+                        onScoreChange={handleScoreChange}
+                      />
                     ))}
                   </div>
                 </div>
@@ -668,19 +660,15 @@ const PlayoffSimulator = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-3">
-        <div className="space-y-2 sm:space-y-3">
-          <ProjectedStandingsTable
-            standings={projectedStandings}
-            playoffIds={playoffSeeds.playoffIds}
-            wildcardId={playoffSeeds.wildcardId}
-            byeIds={byeIds}
-            chumpionId={chumpionId}
-          />
-        </div>
-        <div className="space-y-2 sm:space-y-3">
-          <ProjectedBracket seeds={playoffSeeds.seeds} />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
+        <ProjectedStandingsTable
+          standings={projectedStandings}
+          playoffIds={playoffSeeds.playoffIds}
+          wildcardId={playoffSeeds.wildcardId}
+          byeIds={byeIds}
+          chumpionId={chumpionId}
+        />
+        <ProjectedBracket seeds={playoffSeeds.seeds} />
       </div>
     </DashboardSection>
   );
