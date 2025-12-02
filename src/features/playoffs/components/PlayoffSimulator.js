@@ -86,9 +86,6 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
             className="w-full rounded-md border border-white/15 bg-slate-950/40 px-2.5 py-1.5 text-sm text-slate-50 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
           />
         </div>
-        {currentPoints !== null && (
-          <p className="mt-1 text-[11px] text-slate-400">Current: {currentPoints.toFixed(1)}</p>
-        )}
       </div>
     );
   };
@@ -197,12 +194,19 @@ const ProjectedBracket = ({ seeds }) => {
   const seed5 = getSeed(5);
   const seed6 = getSeed(6);
 
-  const SeedCard = ({ seed, label }) => (
-    <div className="rounded-md border border-white/12 bg-slate-950/40 px-3 py-2 text-[12px] flex justify-between items-center min-w-[160px]">
-      <span className="text-slate-50 font-semibold truncate">{seed ? seed.managerName : 'TBD'}</span>
-      <span className="text-[11px] text-slate-300 ml-2 whitespace-nowrap">
-        {label}
-      </span>
+  const MatchupBox = ({ topSeed, bottomSeed, label }) => (
+    <div className="rounded-md border border-white/12 bg-slate-950/40 px-3 py-2 space-y-1 min-w-[180px]">
+      <p className="text-[11px] text-slate-300 font-semibold">{label}</p>
+      <div className="space-y-1">
+        <div className="rounded border border-white/12 bg-slate-900/50 px-2 py-1 text-[12px] flex justify-between items-center">
+          <span className="text-slate-50 font-semibold truncate">{topSeed ? topSeed.managerName : 'TBD'}</span>
+          <span className="text-[11px] text-slate-300 ml-2 whitespace-nowrap">{topSeed ? `Seed ${topSeed.seed}` : ''}</span>
+        </div>
+        <div className="rounded border border-white/12 bg-slate-900/50 px-2 py-1 text-[12px] flex justify-between items-center">
+          <span className="text-slate-50 font-semibold truncate">{bottomSeed ? bottomSeed.managerName : 'TBD'}</span>
+          <span className="text-[11px] text-slate-300 ml-2 whitespace-nowrap">{bottomSeed ? `Seed ${bottomSeed.seed}` : ''}</span>
+        </div>
+      </div>
     </div>
   );
 
@@ -216,27 +220,17 @@ const ProjectedBracket = ({ seeds }) => {
         <p className="text-[11px] text-slate-300">Seeds 1-2 bye; 3v6, 4v5</p>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap gap-2">
-          <div className="space-y-1.5">
-            <p className="text-[11px] text-slate-400 font-semibold">Round 1</p>
-            <SeedCard seed={seed3} label="Seed 3" />
-            <SeedCard seed={seed6} label="Seed 6" />
-            <SeedCard seed={seed4} label="Seed 4" />
-            <SeedCard seed={seed5} label="Seed 5" />
-          </div>
-          <div className="space-y-1.5">
-            <p className="text-[11px] text-slate-400 font-semibold">Semifinals</p>
-            <SeedCard seed={seed1} label="Seed 1 (bye)" />
-            <SeedCard seed={null} label="Winner 3/6" />
-            <SeedCard seed={seed2} label="Seed 2 (bye)" />
-            <SeedCard seed={null} label="Winner 4/5" />
-          </div>
-          <div className="space-y-1.5">
-            <p className="text-[11px] text-slate-400 font-semibold">Final</p>
-            <SeedCard seed={null} label="Winner Semis" />
-            <SeedCard seed={null} label="Winner Semis" />
-          </div>
+      <div className="flex flex-col lg:flex-row gap-3 justify-center items-center">
+        <div className="flex flex-col gap-3 items-center">
+          <MatchupBox topSeed={seed1} bottomSeed={seed3} label="Round 1: Seed 1 / Seed 3 vs Seed 6" />
+          <MatchupBox topSeed={seed4} bottomSeed={seed2} label="Round 1: Seed 4 vs Seed 5 / Seed 2" />
+        </div>
+        <div className="flex flex-col gap-3 items-center">
+          <MatchupBox topSeed={seed1} bottomSeed={null} label="Semifinal: Seed 1 vs Winner 3/6" />
+          <MatchupBox topSeed={seed2} bottomSeed={null} label="Semifinal: Seed 2 vs Winner 4/5" />
+        </div>
+        <div className="flex flex-col gap-3 items-center">
+          <MatchupBox topSeed={null} bottomSeed={null} label="Final" />
         </div>
       </div>
     </div>
@@ -601,14 +595,19 @@ const PlayoffSimulator = () => {
                       {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups counted
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                  <div className="flex flex-wrap gap-1.5 justify-center">
                     {weekMatchups.map((matchup) => (
-                      <MatchupCard
+                      <div
                         key={matchup.key}
-                        matchup={matchup}
-                        prediction={predictions[matchup.key]}
-                        onScoreChange={handleScoreChange}
-                      />
+                        className="w-full sm:max-w-[48%] lg:max-w-[32%]"
+                        style={{ minWidth: '220px' }}
+                      >
+                        <MatchupCard
+                          matchup={matchup}
+                          prediction={predictions[matchup.key]}
+                          onScoreChange={handleScoreChange}
+                        />
+                      </div>
                     ))}
                   </div>
                 </div>
