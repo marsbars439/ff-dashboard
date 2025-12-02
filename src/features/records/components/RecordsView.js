@@ -175,8 +175,8 @@ const RecordsView = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <PieChart
                 data={{
-                  labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
-                  values: medalRankings.slice(0, 6).map(m => m.championships)
+                  labels: medalRankings.filter(m => m.championships > 0).map(m => m.name.split(' ').slice(-1)[0]),
+                  values: medalRankings.filter(m => m.championships > 0).map(m => m.championships)
                 }}
                 title="Championships"
                 subtitle="1st place finishes"
@@ -185,8 +185,8 @@ const RecordsView = ({
               />
               <PieChart
                 data={{
-                  labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
-                  values: medalRankings.slice(0, 6).map(m => m.totalMedals)
+                  labels: medalRankings.filter(m => m.totalMedals > 0).map(m => m.name.split(' ').slice(-1)[0]),
+                  values: medalRankings.filter(m => m.totalMedals > 0).map(m => m.totalMedals)
                 }}
                 title="All Medals"
                 subtitle="Total top 3 finishes"
