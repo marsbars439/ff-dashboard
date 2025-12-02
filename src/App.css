@@ -31,10 +31,10 @@
   --ff-container-lg: 64rem;
   --ff-container-xl: 80rem;
   --ff-container-xxl: 90rem;
-  --ff-shell-padding: clamp(1rem, 3vw, 2.5rem);
-  --ff-section-gap: clamp(1.25rem, 4vw, 2.75rem);
-  --ff-section-padding-x: clamp(1rem, 4vw, 2.75rem);
-  --ff-section-padding-y: clamp(1rem, 3vw, 2.25rem);
+  --ff-shell-padding: clamp(0.5rem, 2vw, 1rem);
+  --ff-section-gap: clamp(1rem, 3vw, 1.5rem);
+  --ff-section-padding-x: clamp(0.75rem, 2vw, 1.25rem);
+  --ff-section-padding-y: clamp(0.75rem, 2vw, 1.25rem);
   --ff-radius-lg: 1.25rem;
   --ff-shadow-sm: 0 10px 30px rgba(2, 6, 23, 0.45);
   --ff-shadow-md: 0 15px 40px rgba(2, 6, 23, 0.55);
