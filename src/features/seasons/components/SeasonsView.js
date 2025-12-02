@@ -1376,6 +1376,9 @@ export function SeasonsView({ teamSeasons, loading, error }) {
     );
   };
 
+  // Define surface card styles early for use in loading states
+  const surfaceCard = 'card-primary';
+
   if (loading) {
     return (
       <DashboardSection
@@ -1412,7 +1415,6 @@ export function SeasonsView({ teamSeasons, loading, error }) {
     );
   }
 
-  const surfaceCard = 'card-primary';
   const subCard = 'card-secondary';
   const champion = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 1);
   const runnerUp = teamSeasons.find(s => s.year === selectedSeasonYear && s.playoff_finish === 2);
