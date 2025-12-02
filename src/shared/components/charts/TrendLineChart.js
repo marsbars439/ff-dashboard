@@ -5,13 +5,11 @@
 
 import React from 'react';
 import { Line } from 'react-chartjs-2';
-import { useTheme } from '../../../context/ThemeContext';
 import { getChartColors, mergeChartOptions } from './chartConfig';
 import ChartWrapper from './ChartWrapper';
 
 export const TrendLineChart = ({ data, title, subtitle, className = '' }) => {
-  const { isDark } = useTheme();
-  const colors = getChartColors(isDark);
+  const colors = getChartColors();
 
   const chartData = {
     labels: data.labels,
@@ -27,7 +25,7 @@ export const TrendLineChart = ({ data, title, subtitle, className = '' }) => {
         pointRadius: 4,
         pointHoverRadius: 6,
         pointBackgroundColor: colors.line,
-        pointBorderColor: isDark ? '#0f172a' : '#ffffff',
+        pointBorderColor: '#0f172a',
         pointBorderWidth: 2
       }
     ]
@@ -47,7 +45,7 @@ export const TrendLineChart = ({ data, title, subtitle, className = '' }) => {
         }
       }
     }
-  }, isDark);
+  });
 
   return (
     <ChartWrapper title={title} subtitle={subtitle} className={className}>

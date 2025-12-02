@@ -5,13 +5,11 @@
 
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
-import { useTheme } from '../../../context/ThemeContext';
 import { getChartColors, mergeChartOptions } from './chartConfig';
 import ChartWrapper from './ChartWrapper';
 
 export const BarChart = ({ data, title, subtitle, className = '', horizontal = false }) => {
-  const { isDark } = useTheme();
-  const colors = getChartColors(isDark);
+  const colors = getChartColors();
 
   const chartData = {
     labels: data.labels,
@@ -43,7 +41,7 @@ export const BarChart = ({ data, title, subtitle, className = '', horizontal = f
         }
       }
     }
-  }, isDark);
+  });
 
   return (
     <ChartWrapper title={title} subtitle={subtitle} className={className}>

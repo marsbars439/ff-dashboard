@@ -5,13 +5,11 @@
 
 import React from 'react';
 import { Pie } from 'react-chartjs-2';
-import { useTheme } from '../../../context/ThemeContext';
 import { getChartColors, mergeChartOptions } from './chartConfig';
 import ChartWrapper from './ChartWrapper';
 
 export const PieChart = ({ data, title, subtitle, className = '' }) => {
-  const { isDark } = useTheme();
-  const colors = getChartColors(isDark);
+  const colors = getChartColors();
 
   const chartData = {
     labels: data.labels,
@@ -19,7 +17,7 @@ export const PieChart = ({ data, title, subtitle, className = '' }) => {
       {
         data: data.values,
         backgroundColor: colors.pie,
-        borderColor: isDark ? '#0f172a' : '#ffffff',
+        borderColor: '#0f172a',
         borderWidth: 2,
         hoverOffset: 8
       }
@@ -38,7 +36,7 @@ export const PieChart = ({ data, title, subtitle, className = '' }) => {
       }
     },
     scales: undefined // Remove scales for pie chart
-  }, isDark);
+  });
 
   return (
     <ChartWrapper title={title} subtitle={subtitle} className={className}>
