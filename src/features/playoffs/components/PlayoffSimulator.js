@@ -58,12 +58,7 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
     const isWinner = isHome ? homeLeads : awayLeads;
 
     return (
-      <div
-        className={`border rounded-lg p-3 bg-slate-900/60 ${
-          isWinner ? 'border-emerald-400/60 shadow-inner' : 'border-white/10'
-        }`}
-      >
-        <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-50 truncate">
               {team.managerName || 'TBD'}
@@ -76,10 +71,10 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
             )}
           </div>
           {isWinner && (
-            <span className="text-[11px] font-semibold text-emerald-300">Win</span>
+            <span className="text-[11px] font-semibold text-emerald-300 flex-shrink-0">Win</span>
           )}
         </div>
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-1 flex items-center gap-2">
           <input
             type="number"
             min="0"
@@ -87,7 +82,7 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
             value={value}
             placeholder={currentPoints !== null ? currentPoints.toFixed(1) : 'Points'}
             onChange={(e) => onScoreChange(matchup.key, isHome ? 'homeScore' : 'awayScore', e.target.value)}
-            className="w-full rounded-md border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-50 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            className="w-full rounded-md border border-white/15 bg-slate-950/40 px-2.5 py-1.5 text-sm text-slate-50 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
           />
         </div>
         {currentPoints !== null && (
@@ -98,7 +93,7 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
   };
 
   return (
-    <div className="rounded-lg border border-white/15 bg-transparent p-2.5 space-y-2">
+    <div className="rounded-md border border-white/12 bg-transparent p-2 space-y-1.5">
       {matchup.unmapped && (
         <div className="flex justify-end">
           <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
@@ -107,7 +102,7 @@ const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {renderTeamInput('home')}
         {renderTeamInput('away')}
       </div>
@@ -541,18 +536,18 @@ const PlayoffSimulator = () => {
                 <p className="text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {upcomingWeeks.map((week) => {
                   const weekMatchups = simulatableMatchups.filter((m) => m.week === week.week);
                   return (
-                    <div key={week.week} className="space-y-2">
-                      <div className="flex items-center justify-between">
+                    <div key={week.week} className="space-y-1.5">
+                      <div className="flex items-center justify-between px-1">
                         <h3 className="text-sm sm:text-base font-bold text-slate-50">Week {week.week}</h3>
                         <p className="text-[11px] text-slate-300">
                           {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups counted
                         </p>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
                         {weekMatchups.map((matchup) => (
                           <MatchupCard
                             key={matchup.key}
