@@ -10,6 +10,7 @@ import { useKeeperTools } from '../state/KeeperToolsContext';
 const RecordsView = lazy(() => import('../features/records'));
 const SeasonsView = lazy(() => import('../features/seasons'));
 const WeekView = lazy(() => import('../features/week'));
+const PlayoffSimulator = lazy(() => import('../features/playoffs'));
 const KeeperTools = lazy(() => import('../features/keepers'));
 const RulesSection = lazy(() => import('../features/rules'));
 const AdminTools = lazy(() => import('../features/admin'));
@@ -22,11 +23,12 @@ const API_BASE_URL = hasCorrectApiPath
   ? envUrl
   : (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
 
-const VALID_TABS = new Set(['records', 'week', 'seasons', 'preseason', 'rules', 'admin', 'analytics']);
+const VALID_TABS = new Set(['records', 'week', 'seasons', 'playoffs', 'preseason', 'rules', 'admin', 'analytics']);
 const DASHBOARD_TABS = [
   { id: 'records', label: 'Hall of Records' },
   { id: 'week', label: 'Week', isDynamic: true },
   { id: 'seasons', label: 'Seasons' },
+  { id: 'playoffs', label: 'Playoff Simulator' },
   { id: 'preseason', label: 'Preseason' },
   { id: 'rules', label: 'Rules' },
   {
@@ -501,6 +503,12 @@ const FantasyFootballApp = () => {
     </Suspense>
   );
 
+  const renderPlayoffSimulatorSection = () => (
+    <Suspense fallback={<LoadingSpinner message="Loading Playoff Simulator..." />}>
+      <PlayoffSimulator />
+    </Suspense>
+  );
+
   const renderRulesSection = () => (
     <Suspense fallback={<LoadingSpinner message="Loading Rules..." />}>
       <RulesSection rulesContent={rulesContent} />
@@ -533,6 +541,7 @@ const FantasyFootballApp = () => {
     records: renderRecordsSection,
     week: renderWeekSection,
     seasons: renderSeasonsSection,
+    playoffs: renderPlayoffSimulatorSection,
     preseason: renderPreseasonSection,
     rules: renderRulesSection,
     admin: renderAdminSection,
