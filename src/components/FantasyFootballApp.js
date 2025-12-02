@@ -26,16 +26,16 @@ const API_BASE_URL = hasCorrectApiPath
 const VALID_TABS = new Set(['records', 'week', 'seasons', 'playoffs', 'preseason', 'rules', 'admin', 'analytics']);
 const DASHBOARD_TABS = [
   { id: 'records', label: 'Hall of Records' },
-  { id: 'week', label: 'Week', isDynamic: true },
-  { id: 'seasons', label: 'Seasons' },
-  { id: 'playoffs', label: 'Playoff Simulator' },
-  { id: 'preseason', label: 'Preseason' },
   { id: 'rules', label: 'Rules' },
   {
     id: 'admin',
     label: 'Admin',
     isActive: (currentTab) => currentTab === 'admin' || currentTab === 'analytics'
-  }
+  },
+  { id: 'preseason', label: 'Preseason' },
+  { id: 'seasons', label: 'Seasons' },
+  { id: 'week', label: 'Week', isDynamic: true },
+  { id: 'playoffs', label: 'Playoff Simulator' }
 ];
 
 const FantasyFootballApp = () => {
