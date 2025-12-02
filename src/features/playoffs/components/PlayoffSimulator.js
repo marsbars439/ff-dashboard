@@ -634,14 +634,41 @@ const PlayoffSimulator = () => {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2">
                     {weekMatchups.map((matchup, idx) => {
-                      const isLastOdd = weekMatchups.length % 2 === 1 && idx === weekMatchups.length - 1;
+                      const totalCount = weekMatchups.length;
+                      const isLastRowSm = totalCount % 2 === 1 && idx === totalCount - 1;
+                      const remainderLg = totalCount % 3;
+                      const isLastRowLg = remainderLg !== 0 && idx >= totalCount - remainderLg;
+
+                      // Build className based on conditions
+                      const classNames = [];
+
+                      // Handle 2-column layout (sm breakpoint)
+                      if (isLastRowSm) {
+                        classNames.push('sm:col-start-1', 'sm:col-span-2', 'sm:justify-self-center', 'sm:max-w-[calc(50%-0.25rem)]');
+                      }
+
+                      // Handle 3-column layout (lg breakpoint)
+                      if (isLastRowLg) {
+                        if (remainderLg === 1) {
+                          // 1 item in last row: span middle column
+                          classNames.push('lg:col-start-2', 'lg:col-span-1', 'lg:justify-self-center', 'lg:max-w-[calc(33.333%-0.375rem)]');
+                        } else if (remainderLg === 2) {
+                          // 2 items in last row: center both
+                          if (idx === totalCount - 2) {
+                            classNames.push('lg:col-start-1', 'lg:col-span-2', 'lg:justify-self-center', 'lg:max-w-[calc(50%-0.25rem)]');
+                          } else {
+                            classNames.push('lg:col-span-1', 'lg:justify-self-center', 'lg:max-w-[calc(33.333%-0.375rem)]');
+                          }
+                        }
+                      }
+
                       return (
                         <MatchupCard
                           key={matchup.key}
                           matchup={matchup}
                           prediction={predictions[matchup.key]}
                           onScoreChange={handleScoreChange}
-                          className={isLastOdd ? 'sm:col-start-1 sm:col-span-2 sm:justify-self-center sm:max-w-[calc(50%-0.25rem)] lg:col-start-auto lg:col-span-1 lg:justify-self-stretch lg:max-w-none' : ''}
+                          className={classNames.join(' ')}
                         />
                       );
                     })}
