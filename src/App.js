@@ -6,8 +6,11 @@ import './App.css';
 
 const MainLayout = ({ children }) => (
   <div className="App theme-dark">
+    <a href="#main-content" className="skip-to-content">
+      Skip to main content
+    </a>
     <div className="app-shell">
-      <div className="layout-container">
+      <div className="layout-container" id="main-content" role="main">
         {children}
       </div>
     </div>

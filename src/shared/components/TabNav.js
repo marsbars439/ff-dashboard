@@ -15,7 +15,7 @@ import React from 'react';
 export default function TabNav({ tabs, activeTab, onTabChange }) {
   return (
     <div className="tab-navigation">
-      <div className="tab-buttons">
+      <div className="tab-buttons" role="tablist" aria-label="Dashboard navigation">
         {tabs.map(tab => {
           const isActive = tab.isActive
             ? tab.isActive(activeTab)
@@ -27,7 +27,9 @@ export default function TabNav({ tabs, activeTab, onTabChange }) {
               className={`tab-button ${isActive ? 'active' : ''}`}
               onClick={() => onTabChange(tab.id)}
               aria-selected={isActive}
+              aria-controls={`${tab.id}-panel`}
               role="tab"
+              tabIndex={isActive ? 0 : -1}
             >
               {tab.label}
             </button>

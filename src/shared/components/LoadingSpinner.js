@@ -12,9 +12,10 @@ import React from 'react';
  */
 export default function LoadingSpinner({ message = 'Loading...' }) {
   return (
-    <div className="loading-spinner">
-      <div className="spinner-icon"></div>
+    <div className="loading-spinner" role="status" aria-live="polite">
+      <div className="spinner-icon" aria-hidden="true"></div>
       {message && <p className="loading-message">{message}</p>}
+      <span className="sr-only">{message}</span>
     </div>
   );
 }
