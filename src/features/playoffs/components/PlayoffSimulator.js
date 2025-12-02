@@ -632,16 +632,19 @@ const PlayoffSimulator = () => {
                       {weekMatchups.filter((m) => !m.unmapped).length} of {weekMatchups.length} matchups
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2 justify-items-center">
-                    {weekMatchups.map((matchup, idx) => (
-                      <MatchupCard
-                        key={matchup.key}
-                        matchup={matchup}
-                        prediction={predictions[matchup.key]}
-                        onScoreChange={handleScoreChange}
-                        className={weekMatchups.length % 2 === 1 && idx === weekMatchups.length - 1 ? 'sm:col-span-2 sm:max-w-[calc(50%-0.25rem)] lg:col-span-1 lg:max-w-none' : ''}
-                      />
-                    ))}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2">
+                    {weekMatchups.map((matchup, idx) => {
+                      const isLastOdd = weekMatchups.length % 2 === 1 && idx === weekMatchups.length - 1;
+                      return (
+                        <MatchupCard
+                          key={matchup.key}
+                          matchup={matchup}
+                          prediction={predictions[matchup.key]}
+                          onScoreChange={handleScoreChange}
+                          className={isLastOdd ? 'sm:col-start-1 sm:col-span-2 sm:justify-self-center sm:max-w-[calc(50%-0.25rem)] lg:col-start-auto lg:col-span-1 lg:justify-self-stretch lg:max-w-none' : ''}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               );
