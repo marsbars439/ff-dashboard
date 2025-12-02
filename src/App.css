@@ -566,12 +566,29 @@ body {
 .chart-container {
   position: relative;
   width: 100%;
-  min-height: 250px;
-  padding: 1rem 0;
+  min-height: 180px;
+  padding: 0.5rem 0;
 }
 
 .chart-container canvas {
-  max-height: 400px;
+  max-height: 250px;
+}
+
+/* Smaller chart containers when inside section cards */
+.max-h-\[250px\] .chart-container {
+  min-height: 150px;
+}
+
+.max-h-\[250px\] .chart-container canvas {
+  max-height: 200px;
+}
+
+.max-h-\[300px\] .chart-container {
+  min-height: 180px;
+}
+
+.max-h-\[300px\] .chart-container canvas {
+  max-height: 250px;
 }
 
 /* ========================================================================

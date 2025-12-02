@@ -117,7 +117,7 @@ const RecordsView = ({
             </div>
           </div>
 
-          <div className="space-y-1.5 sm:space-y-2.5">
+          <div className="space-y-1.5 sm:space-y-2.5 mb-3">
             {medalRankings.map((manager, index) => (
               <div
                 key={manager.name}
@@ -169,6 +169,19 @@ const RecordsView = ({
               </div>
             ))}
           </div>
+
+          {/* Championship Distribution Chart */}
+          <div className="pt-2 border-t border-white/10">
+            <PieChart
+              data={{
+                labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
+                values: medalRankings.slice(0, 6).map(m => m.championships)
+              }}
+              title="Championship Distribution"
+              subtitle="Visual breakdown of titles (Top 6)"
+              className="max-h-[300px]"
+            />
+          </div>
         </div>
 
         <div className="card-primary">
@@ -177,7 +190,7 @@ const RecordsView = ({
             <span>Chumpion Count Rankings</span>
           </h3>
 
-          <div className="space-y-1.5 sm:space-y-2.5">
+          <div className="space-y-1.5 sm:space-y-2.5 mb-3">
             {chumpionRankings.map((manager, index) => (
               <div key={manager.name} className="card-tertiary">
                 <div className="flex items-center justify-between mb-1 sm:mb-1.5">
@@ -200,6 +213,19 @@ const RecordsView = ({
               </div>
             ))}
           </div>
+
+          {/* Medal Distribution Chart */}
+          <div className="pt-2 border-t border-gray-200">
+            <PieChart
+              data={{
+                labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
+                values: medalRankings.slice(0, 6).map(m => m.totalMedals)
+              }}
+              title="All Medal Distribution"
+              subtitle="Total playoff finishes (Top 6)"
+              className="max-h-[300px]"
+            />
+          </div>
         </div>
       </div>
 
@@ -210,7 +236,7 @@ const RecordsView = ({
             <span>Win Percentage Rankings</span>
           </h3>
 
-          <div className="space-y-0.5 sm:space-y-1.5">
+          <div className="space-y-0.5 sm:space-y-1.5 mb-3">
             {winPctRankings.map((manager, index) => (
               <div
                 key={manager.name}
@@ -238,6 +264,21 @@ const RecordsView = ({
               </div>
             ))}
           </div>
+
+          {/* Win Percentage Chart */}
+          <div className="pt-2 border-t border-gray-200">
+            <BarChart
+              data={{
+                labels: winPctRankings.filter(m => m.active).slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
+                values: winPctRankings.filter(m => m.active).slice(0, 6).map(m => (m.winPct * 100)),
+                label: 'Win %'
+              }}
+              title="Win % Comparison"
+              subtitle="Top 6 active managers"
+              horizontal={true}
+              className="max-h-[250px]"
+            />
+          </div>
         </div>
 
         <div className="card-primary">
@@ -246,7 +287,7 @@ const RecordsView = ({
             <span>Points Per Game Rankings</span>
           </h3>
 
-          <div className="space-y-0.5 sm:space-y-1.5">
+          <div className="space-y-0.5 sm:space-y-1.5 mb-3">
             {ppgRankings.map((manager, index) => (
               <div
                 key={`${manager.name}-${index}`}
@@ -274,50 +315,22 @@ const RecordsView = ({
               </div>
             ))}
           </div>
+
+          {/* Points Per Game Chart */}
+          <div className="pt-2 border-t border-gray-200">
+            <BarChart
+              data={{
+                labels: ppgRankings.filter(m => m.active).slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
+                values: ppgRankings.filter(m => m.active).slice(0, 6).map(m => m.pointsPerGame),
+                label: 'PPG'
+              }}
+              title="PPG Comparison"
+              subtitle="Top 6 active managers"
+              horizontal={true}
+              className="max-h-[250px]"
+            />
+          </div>
         </div>
-      </div>
-
-      {/* Data Visualization Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
-        <BarChart
-          data={{
-            labels: winPctRankings.filter(m => m.active).slice(0, 8).map(m => m.name.split(' ').slice(-1)[0]),
-            values: winPctRankings.filter(m => m.active).slice(0, 8).map(m => (m.winPct * 100)),
-            label: 'Win %'
-          }}
-          title="Win Percentage Leaders"
-          subtitle="Top 8 active managers by win percentage"
-          horizontal={true}
-        />
-        <BarChart
-          data={{
-            labels: ppgRankings.filter(m => m.active).slice(0, 8).map(m => m.name.split(' ').slice(-1)[0]),
-            values: ppgRankings.filter(m => m.active).slice(0, 8).map(m => m.pointsPerGame),
-            label: 'PPG'
-          }}
-          title="Points Per Game Leaders"
-          subtitle="Top 8 active managers by scoring average"
-          horizontal={true}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
-        <PieChart
-          data={{
-            labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
-            values: medalRankings.slice(0, 6).map(m => m.championships)
-          }}
-          title="Championship Distribution"
-          subtitle="Total championships by manager (Top 6)"
-        />
-        <PieChart
-          data={{
-            labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
-            values: medalRankings.slice(0, 6).map(m => m.totalMedals)
-          }}
-          title="Medal Distribution"
-          subtitle="All playoff finishes by manager (Top 6)"
-        />
       </div>
 
       <div className="card-primary">

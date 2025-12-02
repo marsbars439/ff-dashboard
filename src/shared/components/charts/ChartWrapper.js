@@ -7,16 +7,16 @@ import React from 'react';
 
 export const ChartWrapper = ({ title, subtitle, children, className = '' }) => {
   return (
-    <div className={`card-secondary ${className}`}>
+    <div className={className}>
       {(title || subtitle) && (
-        <div className="mb-4">
+        <div className="mb-2">
           {title && (
-            <h3 className="text-base sm:text-lg md:text-xl font-bold" style={{ color: 'var(--ff-color-text-strong)' }}>
+            <h4 className="text-xs sm:text-sm font-semibold" style={{ color: 'var(--ff-color-text-strong)' }}>
               {title}
-            </h3>
+            </h4>
           )}
           {subtitle && (
-            <p className="text-xs sm:text-sm mt-1" style={{ color: 'var(--ff-color-text-muted)' }}>
+            <p className="text-[10px] sm:text-xs mt-0.5" style={{ color: 'var(--ff-color-text-muted)' }}>
               {subtitle}
             </p>
           )}
