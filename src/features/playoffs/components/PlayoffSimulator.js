@@ -1,14 +1,11 @@
-import React, { useMemo, useState } from 'react';
-import { Sparkles, RefreshCcw, Flame, ShieldCheck, BarChart3 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Sparkles, RefreshCcw, Flame, BarChart3 } from 'lucide-react';
 import DashboardSection from '../../../components/DashboardSection';
 import { ErrorMessage, SkeletonCard } from '../../../shared/components';
 import { useManagers } from '../../../hooks/useManagers';
 import { useTeamSeasons } from '../../../hooks/useTeamSeasons';
 import { useSeasonMatchups } from '../hooks/useSeasonMatchups';
 import { FANTASY } from '../../../utils/constants';
-
-const DEFAULT_WIN_SCORE = 122;
-const DEFAULT_LOSS_SCORE = 106;
 
 const normalizePoints = (value) => {
   if (value === '' || value === null || value === undefined) {
@@ -22,8 +19,6 @@ const formatRecord = (team) => {
   const ties = team.ties || 0;
   return `${team.wins}-${team.losses}${ties ? `-${ties}` : ''}`;
 };
-
-const formatWinPct = (winPct) => `${(winPct * 100).toFixed(1)}%`;
 
 const formatDelta = (delta) => {
   if (!delta) return '';
@@ -47,7 +42,7 @@ const resolveManagerId = (team, managerNameToId) => {
   return managerNameToId.get(managerName) || null;
 };
 
-const MatchupCard = ({ matchup, prediction, onScoreChange, onQuickPick }) => {
+const MatchupCard = ({ matchup, prediction, onScoreChange }) => {
   const homeScoreValue = prediction?.homeScore ?? '';
   const awayScoreValue = prediction?.awayScore ?? '';
   const parsedHome = normalizePoints(homeScoreValue);
@@ -113,22 +108,6 @@ const MatchupCard = ({ matchup, prediction, onScoreChange, onQuickPick }) => {
             </span>
           )}
         </div>
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => onQuickPick(matchup, 'home')}
-            className="rounded-md border border-emerald-400/40 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-          >
-            Home wins
-          </button>
-          <button
-            type="button"
-            onClick={() => onQuickPick(matchup, 'away')}
-            className="rounded-md border border-blue-400/40 bg-blue-500/10 px-2 py-1 text-[11px] font-semibold text-blue-100 hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-          >
-            Away wins
-          </button>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -139,62 +118,7 @@ const MatchupCard = ({ matchup, prediction, onScoreChange, onQuickPick }) => {
   );
 };
 
-const PlayoffSeedsCard = ({ seeds }) => {
-  const wildcardSeed = seeds.find((seed) => seed.isWildcard);
-  return (
-    <div className="card-primary space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm sm:text-lg font-bold text-slate-50 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-300" />
-            <span>Projected Playoff Teams</span>
-          </h3>
-          <p className="text-[11px] text-slate-300">
-            Top 5 by record + highest Points For from ranks 6-10.
-          </p>
-        </div>
-      </div>
-
-      {seeds.length === 0 ? (
-        <p className="text-sm text-slate-300">Add score predictions to see projected seeds.</p>
-      ) : (
-        <div className="space-y-2">
-          {seeds.map((seed) => (
-            <div
-              key={seed.id}
-              className={`card-tertiary ${seed.isWildcard ? 'border-amber-400/60 bg-amber-500/10' : 'border-emerald-400/40 bg-emerald-500/10'}`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-300">
-                    {seed.isWildcard ? 'PF Wildcard' : `Seed ${seed.seed}`}
-                  </p>
-                  <p className="text-sm font-semibold text-slate-50 truncate">{seed.managerName}</p>
-                  {seed.teamName && (
-                    <p className="text-[11px] text-slate-300 truncate">{seed.teamName}</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-50">
-                    {formatRecord(seed)} • {formatWinPct(seed.winPct)}
-                  </p>
-                  <p className="text-[11px] text-slate-300">PF {seed.pointsFor.toFixed(1)}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-          {wildcardSeed && (
-            <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100">
-              PF wildcard currently favors {wildcardSeed.managerName} with {wildcardSeed.pointsFor.toFixed(1)} PF.
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId }) => (
+const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, chumpionId }) => (
   <div className="card-primary space-y-3">
     <div className="flex items-center justify-between gap-2">
       <h3 className="text-sm sm:text-lg font-bold text-slate-50 flex items-center gap-2">
@@ -210,7 +134,6 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId }) => (
             <th className="text-left py-2 pr-3 font-semibold">Rank</th>
             <th className="text-left py-2 pr-3 font-semibold">Manager</th>
             <th className="text-left py-2 pr-3 font-semibold">Record</th>
-            <th className="text-left py-2 pr-3 font-semibold">Win %</th>
             <th className="text-left py-2 pr-3 font-semibold">PF</th>
             <th className="text-left py-2 pr-3 font-semibold">PA</th>
             <th className="text-left py-2 font-semibold">Change</th>
@@ -220,6 +143,8 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId }) => (
           {standings.map((team) => {
             const inPlayoffs = playoffIds.has(team.id);
             const isWildcard = wildcardId && team.id === wildcardId;
+            const hasBye = byeIds?.has?.(team.id);
+            const isChumpion = chumpionId && team.id === chumpionId;
             const changeBits = [];
             if (team.deltaWins) changeBits.push(`${formatDelta(team.deltaWins)} W`);
             if (team.deltaLosses) changeBits.push(`${formatDelta(team.deltaLosses)} L`);
@@ -235,9 +160,19 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId }) => (
                 <td className="py-2 pr-3">
                   <div className="flex items-center gap-2">
                     <span className="text-slate-50 font-semibold truncate">{team.managerName}</span>
+                    {hasBye && (
+                      <span className="rounded-full border border-emerald-400/60 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100">
+                        Bye
+                      </span>
+                    )}
                     {isWildcard && (
                       <span className="rounded-full border border-amber-400/60 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
                         PF Wildcard
+                      </span>
+                    )}
+                    {isChumpion && (
+                      <span className="rounded-full border border-red-400/60 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-200">
+                        Chumpion
                       </span>
                     )}
                   </div>
@@ -246,7 +181,6 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId }) => (
                   )}
                 </td>
                 <td className="py-2 pr-3 text-slate-100">{formatRecord(team)}</td>
-                <td className="py-2 pr-3 text-slate-100">{formatWinPct(team.winPct)}</td>
                 <td className="py-2 pr-3 text-slate-100">{team.pointsFor.toFixed(1)}</td>
                 <td className="py-2 pr-3 text-slate-100">{team.pointsAgainst.toFixed(1)}</td>
                 <td className="py-2 text-slate-200">
@@ -468,6 +402,30 @@ const PlayoffSimulator = () => {
     };
   }, [projectedStandings]);
 
+  const byeIds = useMemo(() => {
+    const ids = new Set();
+    playoffSeeds.seeds.forEach((seed) => {
+      if (seed.seed === 1 || seed.seed === 2) {
+        ids.add(seed.id);
+      }
+    });
+    return ids;
+  }, [playoffSeeds]);
+
+  const chumpionId = useMemo(
+    () => (projectedStandings.length > 0 ? projectedStandings[projectedStandings.length - 1].id : null),
+    [projectedStandings]
+  );
+
+  const teamAverages = useMemo(() => {
+    return baseEntries.reduce((acc, team) => {
+      const games = team.games || 0;
+      const ppg = games > 0 ? team.pointsFor / games : null;
+      acc[team.id] = Number.isFinite(ppg) ? ppg : null;
+      return acc;
+    }, {});
+  }, [baseEntries]);
+
   const loading = managersLoading || seasonsLoading || matchupsLoading;
   const error = managersError || seasonsError || matchupsError;
 
@@ -481,18 +439,26 @@ const PlayoffSimulator = () => {
     }));
   };
 
-  const handleQuickPick = (matchup, winner) => {
-    setPredictions((prev) => ({
-      ...prev,
-      [matchup.key]: {
-        ...(prev[matchup.key] || {}),
-        homeScore: winner === 'home' ? DEFAULT_WIN_SCORE : DEFAULT_LOSS_SCORE,
-        awayScore: winner === 'away' ? DEFAULT_WIN_SCORE : DEFAULT_LOSS_SCORE
-      }
-    }));
-  };
-
   const handleReset = () => setPredictions({});
+
+  useEffect(() => {
+    if (simulatableMatchups.length === 0) return;
+
+    setPredictions((prev) => {
+      const next = { ...prev };
+      simulatableMatchups.forEach((matchup) => {
+        if (!next[matchup.key]) {
+          const homeAvg = matchup.home.id ? teamAverages[matchup.home.id] : null;
+          const awayAvg = matchup.away.id ? teamAverages[matchup.away.id] : null;
+          next[matchup.key] = {
+            homeScore: homeAvg !== null ? Number(homeAvg.toFixed(1)) : '',
+            awayScore: awayAvg !== null ? Number(awayAvg.toFixed(1)) : ''
+          };
+        }
+      });
+      return next;
+    });
+  }, [simulatableMatchups, teamAverages]);
 
   if (loading) {
     return (
@@ -532,10 +498,10 @@ const PlayoffSimulator = () => {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-col">
           <p className="text-xs text-slate-300">
-            Simulating weeks {simulationStartWeek}–{regularSeasonWeeks} ({gamesRemaining} games remaining)
+            Simulating weeks {simulationStartWeek}-{regularSeasonWeeks} ({gamesRemaining} games remaining)
           </p>
           <p className="text-[11px] text-slate-400">
-            Playoff rule: top 5 by record + highest Points For from ranks 6–10.
+            Playoff rule: top 5 by record + highest Points For from ranks 6-10.
           </p>
           {unmappedCount > 0 && (
             <p className="text-[11px] text-amber-200">
@@ -579,7 +545,6 @@ const PlayoffSimulator = () => {
                         matchup={matchup}
                         prediction={predictions[matchup.key]}
                         onScoreChange={handleScoreChange}
-                        onQuickPick={handleQuickPick}
                       />
                     ))}
                   </div>
@@ -596,13 +561,11 @@ const PlayoffSimulator = () => {
               <span>How it works</span>
             </h3>
             <ul className="mt-2 space-y-1 text-sm text-slate-200 list-disc list-inside">
-              <li>Enter scores for remaining matchups or use quick-pick buttons.</li>
+              <li>Each matchup starts with both teams' season PPG; adjust scores to explore scenarios.</li>
               <li>Standings update immediately with each score you add.</li>
               <li>Seeds 1-5 are by record; seed 6 goes to the PF leader among ranks 6-10.</li>
             </ul>
           </div>
-
-          <PlayoffSeedsCard seeds={playoffSeeds.seeds} />
         </div>
       </div>
 
@@ -610,9 +573,12 @@ const PlayoffSimulator = () => {
         standings={projectedStandings}
         playoffIds={playoffSeeds.playoffIds}
         wildcardId={playoffSeeds.wildcardId}
+        byeIds={byeIds}
+        chumpionId={chumpionId}
       />
     </DashboardSection>
   );
 };
 
 export default PlayoffSimulator;
+
