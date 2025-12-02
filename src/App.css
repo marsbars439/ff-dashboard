@@ -94,8 +94,8 @@ body {
 
 .section-padding {
   padding: var(--ff-section-padding-y) var(--ff-section-padding-x);
-  margin: clamp(1rem, 2vw, 1.5rem);
-  max-width: calc(100vw - 2 * clamp(1rem, 2vw, 1.5rem));
+  margin: 0;
+  max-width: 100vw;
   box-sizing: border-box;
 }
 

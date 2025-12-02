@@ -141,6 +141,9 @@ export const getDefaultChartOptions = () => {
 export const mergeChartOptions = (customOptions = {}) => {
   const defaults = getDefaultChartOptions();
 
+  // Check if scales is explicitly set (including undefined for pie charts)
+  const hasScalesProperty = Object.prototype.hasOwnProperty.call(customOptions, 'scales');
+
   return {
     ...defaults,
     ...customOptions,
@@ -148,6 +151,10 @@ export const mergeChartOptions = (customOptions = {}) => {
       ...defaults.plugins,
       ...customOptions.plugins
     },
-    scales: customOptions.scales || defaults.scales
+    // If scales is explicitly undefined (pie chart), don't include it
+    // Otherwise use custom scales or fall back to defaults
+    ...(hasScalesProperty && customOptions.scales === undefined
+      ? {}
+      : { scales: customOptions.scales || defaults.scales })
   };
 };

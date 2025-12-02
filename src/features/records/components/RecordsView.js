@@ -195,6 +195,7 @@ const RecordsView = ({
                 title="All Medals"
                 subtitle="Total top 3 finishes"
                 className="max-h-[250px]"
+                showLegend={false}
               />
             </div>
           </div>

@@ -69,11 +69,11 @@ const AIPreview = () => {
     .filter(line => line);
 
   return (
-    <ul className="space-y-2 text-gray-700">
+    <ul className="space-y-1.5 sm:space-y-2 text-gray-700">
       {lines.map((line, idx) => (
         <li key={idx} className="flex items-start">
-          <span className="h-2 w-2 mt-2 mr-2 rounded-full bg-indigo-500 flex-shrink-0" />
-          <span>{line.replace(/^[-*]\s*/, '')}</span>
+          <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 mt-1.5 sm:mt-2 mr-1.5 sm:mr-2 rounded-full bg-indigo-500 flex-shrink-0" />
+          <span className="text-xs sm:text-sm">{line.replace(/^[-*]\s*/, '')}</span>
         </li>
       ))}
     </ul>

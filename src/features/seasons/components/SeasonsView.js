@@ -1496,52 +1496,22 @@ export function SeasonsView({ teamSeasons, loading, error }) {
         </div>
 
         {/* Season Visualization Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
-          <BarChart
-            data={{
-              labels: teamSeasons
-                .filter(s => s.year === selectedSeasonYear)
-                .sort((a, b) => b.points_for - a.points_for)
-                .slice(0, 8)
-                .map(s => s.manager_name.split(' ').slice(-1)[0]),
-              values: teamSeasons
-                .filter(s => s.year === selectedSeasonYear)
-                .sort((a, b) => b.points_for - a.points_for)
-                .slice(0, 8)
-                .map(s => s.points_for),
-              label: 'Points For'
-            }}
-            title="Points For Leaders"
-            subtitle={`Top scorers in ${selectedSeasonYear}`}
-            horizontal={false}
-          />
-          <BarChart
-            data={{
-              labels: teamSeasons
-                .filter(s => s.year === selectedSeasonYear)
-                .sort((a, b) => {
-                  const pctA = a.wins / (a.wins + a.losses || 1);
-                  const pctB = b.wins / (b.wins + b.losses || 1);
-                  return pctB - pctA;
-                })
-                .slice(0, 8)
-                .map(s => s.manager_name.split(' ').slice(-1)[0]),
-              values: teamSeasons
-                .filter(s => s.year === selectedSeasonYear)
-                .sort((a, b) => {
-                  const pctA = a.wins / (a.wins + a.losses || 1);
-                  const pctB = b.wins / (b.wins + b.losses || 1);
-                  return pctB - pctA;
-                })
-                .slice(0, 8)
-                .map(s => (s.wins / (s.wins + s.losses || 1)) * 100),
-              label: 'Win %'
-            }}
-            title="Win Percentage"
-            subtitle={`Best records in ${selectedSeasonYear}`}
-            horizontal={false}
-          />
-        </div>
+        <BarChart
+          data={{
+            labels: teamSeasons
+              .filter(s => s.year === selectedSeasonYear)
+              .sort((a, b) => b.points_for - a.points_for)
+              .map(s => s.manager_name.split(' ').slice(-1)[0]),
+            values: teamSeasons
+              .filter(s => s.year === selectedSeasonYear)
+              .sort((a, b) => b.points_for - a.points_for)
+              .map(s => s.points_for),
+            label: 'Points For'
+          }}
+          title="PF Rankings"
+          subtitle={`Points For in ${selectedSeasonYear}`}
+          horizontal={false}
+        />
 
         {topWeeklyScores.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
