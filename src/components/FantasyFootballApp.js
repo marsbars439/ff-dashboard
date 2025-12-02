@@ -23,7 +23,14 @@ const API_BASE_URL = hasCorrectApiPath
   ? envUrl
   : (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
 
-const VALID_TABS = new Set(['records', 'week', 'seasons', 'playoffs', 'preseason', 'rules', 'admin', 'analytics']);
+const DEFAULT_TAB = 'records';
+const VALID_TABS = new Set(['records', 'week', 'season', 'playoffs', 'preseason', 'rules', 'admin', 'analytics']);
+const TAB_ALIASES = { seasons: 'season' };
+const normalizeTab = (tab) => {
+  const safeTab = typeof tab === 'string' ? tab.toLowerCase() : '';
+  const aliased = TAB_ALIASES[safeTab] || safeTab;
+  return aliased || DEFAULT_TAB;
+};
 const DASHBOARD_TABS = [
   { id: 'records', label: 'Hall of Records' },
   { id: 'rules', label: 'Rules' },
@@ -33,7 +40,7 @@ const DASHBOARD_TABS = [
     isActive: (currentTab) => currentTab === 'admin' || currentTab === 'analytics'
   },
   { id: 'preseason', label: 'Preseason' },
-  { id: 'seasons', label: 'Seasons' },
+  { id: 'season', label: 'Season' },
   { id: 'week', label: 'Week', isDynamic: true },
   { id: 'playoffs', label: 'Playoff Simulator' }
 ];
@@ -45,16 +52,17 @@ const FantasyFootballApp = () => {
 
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === 'undefined') {
-      return 'records';
+      return DEFAULT_TAB;
     }
 
-    const path = location.pathname.replace(/^\//, '') || 'records';
-    const urlTab = VALID_TABS.has(path) ? path : 'records';
+    const path = location.pathname.replace(/^\//, '') || DEFAULT_TAB;
+    const normalizedPath = normalizeTab(path);
+    const urlTab = VALID_TABS.has(normalizedPath) ? normalizedPath : DEFAULT_TAB;
     const storedAdminAuthorized = Boolean(adminSession?.token);
 
     // Check if URL tab requires admin access
     if (!storedAdminAuthorized && (urlTab === 'admin' || urlTab === 'analytics')) {
-      return 'records';
+      return DEFAULT_TAB;
     }
 
     return urlTab;
@@ -70,7 +78,8 @@ const FantasyFootballApp = () => {
   const { selectedKeeperYear, setSelectedKeeperYear } = useKeeperTools();
 
   const updateActiveTab = tab => {
-    const nextTab = VALID_TABS.has(tab) ? tab : 'records';
+    const normalizedTab = normalizeTab(tab);
+    const nextTab = VALID_TABS.has(normalizedTab) ? normalizedTab : DEFAULT_TAB;
     const enforcedTab = enforceAdminTabAccess(nextTab);
     setActiveTab(enforcedTab);
     navigate(`/${enforcedTab}`, { replace: true });
@@ -189,13 +198,16 @@ const FantasyFootballApp = () => {
 
   // Sync active tab when URL changes (browser back/forward)
   useEffect(() => {
-    const path = location.pathname.replace(/^\//, '') || 'records';
-    const urlTab = VALID_TABS.has(path) ? path : 'records';
-    if (urlTab !== activeTab) {
+    const path = location.pathname.replace(/^\//, '') || DEFAULT_TAB;
+    const normalizedPath = normalizeTab(path);
+    const urlTab = VALID_TABS.has(normalizedPath) ? normalizedPath : DEFAULT_TAB;
+    const needsNormalization = normalizedPath !== path;
+
+    if (urlTab !== activeTab || needsNormalization) {
       const enforcedTab = enforceAdminTabAccess(urlTab);
       setActiveTab(enforcedTab);
       // If enforced tab is different from URL, update URL
-      if (enforcedTab !== urlTab) {
+      if (enforcedTab !== urlTab || needsNormalization) {
         navigate(`/${enforcedTab}`, { replace: true });
       }
     }
@@ -540,7 +552,7 @@ const FantasyFootballApp = () => {
   const tabSections = {
     records: renderRecordsSection,
     week: renderWeekSection,
-    seasons: renderSeasonsSection,
+    season: renderSeasonsSection,
     playoffs: renderPlayoffSimulatorSection,
     preseason: renderPreseasonSection,
     rules: renderRulesSection,

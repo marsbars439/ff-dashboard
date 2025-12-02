@@ -13,7 +13,7 @@ const DashboardHeader = ({ tabs, activeTab, onTabChange }) => {
   const topRowTabs = ['records', 'rules', 'admin']
     .map(id => tabLookup[id])
     .filter(Boolean);
-  const bottomRowTabs = ['preseason', 'seasons', 'week', 'playoffs']
+  const bottomRowTabs = ['preseason', 'season', 'week', 'playoffs']
     .map(id => tabLookup[id])
     .filter(Boolean);
 
@@ -49,7 +49,7 @@ const DashboardHeader = ({ tabs, activeTab, onTabChange }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row justify-between items-center py-4 sm:py-6 space-y-4 sm:space-y-0">
           <div className="flex items-center space-x-3">
-            <span className="text-3xl sm:text-4xl" role="img" aria-label="football">dY?^</span>
+            <span className="text-3xl sm:text-4xl" role="img" aria-label="football">🏈</span>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-50">The League Dashboard</h1>
           </div>
           <nav className="w-full sm:w-auto flex flex-col items-center sm:items-end space-y-3" aria-label="Main navigation">
