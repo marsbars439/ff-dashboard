@@ -170,17 +170,28 @@ const RecordsView = ({
             ))}
           </div>
 
-          {/* Championship Distribution Chart */}
+          {/* Medal Distribution Charts - Side by Side */}
           <div className="pt-2 border-t border-white/10">
-            <PieChart
-              data={{
-                labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
-                values: medalRankings.slice(0, 6).map(m => m.championships)
-              }}
-              title="Championship Distribution"
-              subtitle="Visual breakdown of titles (Top 6)"
-              className="max-h-[300px]"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <PieChart
+                data={{
+                  labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
+                  values: medalRankings.slice(0, 6).map(m => m.championships)
+                }}
+                title="Championships"
+                subtitle="1st place finishes"
+                className="max-h-[250px]"
+              />
+              <PieChart
+                data={{
+                  labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
+                  values: medalRankings.slice(0, 6).map(m => m.totalMedals)
+                }}
+                title="All Medals"
+                subtitle="Total playoff finishes"
+                className="max-h-[250px]"
+              />
+            </div>
           </div>
         </div>
 
@@ -190,7 +201,7 @@ const RecordsView = ({
             <span>Chumpion Count Rankings</span>
           </h3>
 
-          <div className="space-y-1.5 sm:space-y-2.5 mb-3">
+          <div className="space-y-1.5 sm:space-y-2.5">
             {chumpionRankings.map((manager, index) => (
               <div key={manager.name} className="card-tertiary">
                 <div className="flex items-center justify-between mb-1 sm:mb-1.5">
@@ -212,19 +223,6 @@ const RecordsView = ({
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* Medal Distribution Chart */}
-          <div className="pt-2 border-t border-gray-200">
-            <PieChart
-              data={{
-                labels: medalRankings.slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
-                values: medalRankings.slice(0, 6).map(m => m.totalMedals)
-              }}
-              title="All Medal Distribution"
-              subtitle="Total playoff finishes (Top 6)"
-              className="max-h-[300px]"
-            />
           </div>
         </div>
       </div>
@@ -269,14 +267,15 @@ const RecordsView = ({
           <div className="pt-2 border-t border-gray-200">
             <BarChart
               data={{
-                labels: winPctRankings.filter(m => m.active).slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
-                values: winPctRankings.filter(m => m.active).slice(0, 6).map(m => (m.winPct * 100)),
-                label: 'Win %'
+                labels: winPctRankings.filter(m => m.active).map(m => m.name.split(' ').slice(-1)[0]),
+                values: winPctRankings.filter(m => m.active).map(m => (m.winPct * 100) - 50),
+                label: 'Win %',
+                conditionalColor: true
               }}
-              title="Win % Comparison"
-              subtitle="Top 6 active managers"
-              horizontal={true}
-              className="max-h-[250px]"
+              title="Win % vs 50% Baseline"
+              subtitle="All active managers (green = above .500, red = below .500)"
+              horizontal={false}
+              className="max-h-[280px]"
             />
           </div>
         </div>
@@ -322,7 +321,8 @@ const RecordsView = ({
               data={{
                 labels: ppgRankings.filter(m => m.active).slice(0, 6).map(m => m.name.split(' ').slice(-1)[0]),
                 values: ppgRankings.filter(m => m.active).slice(0, 6).map(m => m.pointsPerGame),
-                label: 'PPG'
+                label: 'PPG',
+                minValue: 100
               }}
               title="PPG Comparison"
               subtitle="Top 6 active managers"

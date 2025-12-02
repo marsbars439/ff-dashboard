@@ -11,14 +11,33 @@ import ChartWrapper from './ChartWrapper';
 export const BarChart = ({ data, title, subtitle, className = '', horizontal = false }) => {
   const colors = getChartColors();
 
+  // Support conditional coloring based on positive/negative values
+  const getBackgroundColors = () => {
+    if (data.conditionalColor) {
+      return data.values.map(value =>
+        value >= 0 ? colors.success : colors.danger
+      );
+    }
+    return colors.barBg;
+  };
+
+  const getBorderColors = () => {
+    if (data.conditionalColor) {
+      return data.values.map(value =>
+        value >= 0 ? colors.success : colors.danger
+      );
+    }
+    return colors.bar;
+  };
+
   const chartData = {
     labels: data.labels,
     datasets: [
       {
         label: data.label || 'Value',
         data: data.values,
-        backgroundColor: colors.barBg,
-        borderColor: colors.bar,
+        backgroundColor: getBackgroundColors(),
+        borderColor: getBorderColors(),
         borderWidth: 1,
         borderRadius: 6,
         borderSkipped: false
@@ -35,7 +54,8 @@ export const BarChart = ({ data, title, subtitle, className = '', horizontal = f
     },
     scales: {
       [horizontal ? 'x' : 'y']: {
-        beginAtZero: true,
+        beginAtZero: data.minValue === undefined ? true : false,
+        min: data.minValue,
         ticks: {
           precision: 1
         }
