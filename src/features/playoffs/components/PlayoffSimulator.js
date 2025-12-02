@@ -58,18 +58,20 @@ const MatchupCard = ({ matchup, prediction, onScoreChange, className = '' }) => 
     const isWinner = isHome ? homeLeads : awayLeads;
 
     return (
-      <div className="flex flex-col gap-1">
+      <div className={`p-1.5 sm:p-3 flex flex-col gap-1 sm:gap-1.5 ${isWinner ? 'bg-emerald-600' : ''}`}>
         <div className="flex items-start justify-between gap-1.5">
           <div className="min-w-0 flex-1">
-            <p className="text-xs sm:text-sm font-semibold text-slate-50 truncate">
+            <p className={`text-[11px] sm:text-sm font-medium truncate ${isWinner ? 'text-white' : 'text-gray-900'}`}>
               {team.managerName || 'TBD'}
             </p>
             {team.teamName && (
-              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">{team.teamName}</p>
+              <p className={`text-[10px] sm:text-xs mt-0 sm:mt-1 truncate ${isWinner ? 'text-white/80' : 'text-gray-500'}`}>
+                {team.teamName}
+              </p>
             )}
           </div>
           {isWinner && (
-            <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-300 flex-shrink-0">Win</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-white flex-shrink-0">Win</span>
           )}
         </div>
         <input
@@ -79,23 +81,27 @@ const MatchupCard = ({ matchup, prediction, onScoreChange, className = '' }) => 
           value={value}
           placeholder={currentPoints !== null ? currentPoints.toFixed(1) : 'Points'}
           onChange={(e) => onScoreChange(matchup.key, isHome ? 'homeScore' : 'awayScore', e.target.value)}
-          className="w-full rounded-md border border-slate-700/50 bg-slate-950/40 px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs sm:text-sm text-slate-50 focus:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+          className={`w-full rounded-md border px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-2 ${
+            isWinner
+              ? 'border-white/30 bg-white/10 text-white placeholder-white/60 focus:border-white/50 focus:ring-white/20'
+              : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:ring-emerald-500/30'
+          }`}
         />
       </div>
     );
   };
 
   return (
-    <div className={`rounded-md border border-slate-700/40 bg-slate-900/20 p-1.5 sm:p-2 space-y-1 w-full ${className}`}>
+    <div className={`rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm w-full ${className}`}>
       {matchup.unmapped && (
-        <div className="flex justify-end mb-1">
-          <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-100">
+        <div className="flex justify-end px-1.5 pt-1.5 sm:px-3 sm:pt-2">
+          <span className="rounded-full border border-amber-400/60 bg-amber-50 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-700">
             Not in standings
           </span>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+      <div className="grid grid-cols-2 divide-x divide-gray-200">
         {renderTeamInput('home')}
         {renderTeamInput('away')}
       </div>
