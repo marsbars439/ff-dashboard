@@ -12,6 +12,9 @@ import {
 } from 'lucide-react';
 import DashboardSection from '../../../components/DashboardSection';
 import { BarChart, PieChart } from '../../../shared/components';
+import { Line } from 'react-chartjs-2';
+import { getChartColors, mergeChartOptions } from '../../../shared/components/charts/chartConfig';
+import ChartWrapper from '../../../shared/components/charts/ChartWrapper';
 
 const RecordsView = ({
   allRecords,
@@ -25,7 +28,8 @@ const RecordsView = ({
   chumpionRankings,
   winPctRankings,
   ppgRankings,
-  getCurrentYearChumpionDues
+  getCurrentYearChumpionDues,
+  teamSeasons
 }) => {
   return (
     <DashboardSection
@@ -422,6 +426,97 @@ const RecordsView = ({
                 </p>
               </div>
             </div>
+
+            {/* Results Timeline Chart */}
+            {(() => {
+              // Filter seasons for selected manager
+              const managerSeasons = teamSeasons
+                .filter(season => season.name_id === selectedManager)
+                .sort((a, b) => a.year - b.year);
+
+              if (managerSeasons.length === 0) return null;
+
+              // Transform playoff_finish to 0-4 scale
+              const timelineData = managerSeasons.map(season => {
+                const finish = season.playoff_finish;
+                if (!finish || finish > 6) return 0; // Did not make playoffs
+                if (finish > 3 && finish <= 6) return 1; // Made playoffs, not in top 3
+                if (finish === 3) return 2; // 3rd place
+                if (finish === 2) return 3; // 2nd place
+                if (finish === 1) return 4; // 1st place
+                return 0;
+              });
+
+              const colors = getChartColors();
+
+              const chartData = {
+                labels: managerSeasons.map(s => s.year.toString()),
+                datasets: [
+                  {
+                    label: 'Season Result',
+                    data: timelineData,
+                    borderColor: colors.line,
+                    backgroundColor: colors.lineBg,
+                    borderWidth: 3,
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 8,
+                    pointHoverRadius: 10,
+                    pointBackgroundColor: timelineData.map(value => {
+                      if (value === 4) return '#eab308'; // 1st - yellow
+                      if (value === 3) return '#9ca3af'; // 2nd - silver
+                      if (value === 2) return '#d97706'; // 3rd - bronze
+                      if (value === 1) return colors.primary; // Made playoffs - blue
+                      return colors.danger; // No playoffs - red
+                    }),
+                    pointBorderColor: '#0f172a',
+                    pointBorderWidth: 2
+                  }
+                ]
+              };
+
+              const options = mergeChartOptions({
+                plugins: {
+                  legend: {
+                    display: false
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function(context) {
+                        const value = context.parsed.y;
+                        const labels = ['No Playoffs', 'Made Playoffs', '3rd Place', '2nd Place', '1st Place'];
+                        return labels[value] || 'Unknown';
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  y: {
+                    min: 0,
+                    max: 4,
+                    ticks: {
+                      stepSize: 1,
+                      callback: function(value) {
+                        const labels = ['No Playoffs', 'Made Playoffs', '3rd', '2nd', '1st'];
+                        return labels[value] || '';
+                      }
+                    }
+                  }
+                }
+              });
+
+              return (
+                <div className="mt-1.5 sm:mt-3 pt-1.5 sm:pt-3 border-t border-gray-200">
+                  <ChartWrapper
+                    title="Results Timeline"
+                    subtitle="Playoff performance by season"
+                    className="max-h-[300px]"
+                  >
+                    <Line data={chartData} options={options} />
+                  </ChartWrapper>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>

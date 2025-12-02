@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { useRecords } from '../hooks/useRecords';
+import { useTeamSeasons } from '../../../hooks/useTeamSeasons';
 import RecordsView from './RecordsView';
 import { ErrorMessage, SkeletonCard, SkeletonRankingCard } from '../../../shared/components';
 import DashboardSection from '../../../components/DashboardSection';
@@ -28,7 +29,9 @@ const RecordsContainer = () => {
     error
   } = useRecords();
 
-  if (loading) {
+  const { teamSeasons, loading: seasonsLoading } = useTeamSeasons();
+
+  if (loading || seasonsLoading) {
     return (
       <DashboardSection
         title="Hall of Records"
@@ -99,6 +102,7 @@ const RecordsContainer = () => {
       winPctRankings={winPctRankings}
       ppgRankings={ppgRankings}
       getCurrentYearChumpionDues={getCurrentYearChumpionDues}
+      teamSeasons={teamSeasons}
     />
   );
 };
