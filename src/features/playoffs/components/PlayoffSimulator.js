@@ -194,21 +194,30 @@ const ProjectedBracket = ({ seeds }) => {
   const seed5 = getSeed(5);
   const seed6 = getSeed(6);
 
-  const MatchupBox = ({ topSeed, bottomSeed, label }) => (
+  const MatchupBox = ({ topSeed, bottomSeed, topPlaceholder, bottomPlaceholder }) => {
+    const topName = topSeed ? topSeed.managerName : (topPlaceholder || 'TBD');
+    const topSeedLabel = topSeed ? `Seed ${topSeed.seed}` : topPlaceholder ? topPlaceholder : '';
+    const bottomName = bottomSeed ? bottomSeed.managerName : (bottomPlaceholder || 'TBD');
+    const bottomSeedLabel = bottomSeed ? `Seed ${bottomSeed.seed}` : bottomPlaceholder ? bottomPlaceholder : '';
+
+    const topMuted = !topSeed;
+    const bottomMuted = !bottomSeed;
+
+    return (
     <div className="rounded-md border border-white/12 bg-slate-950/40 px-3 py-2 space-y-1 min-w-[180px] min-h-[120px] flex flex-col justify-between">
-      <p className="text-[11px] text-slate-300 font-semibold">{label}</p>
       <div className="space-y-1">
         <div className="rounded border border-white/12 bg-slate-900/50 px-2 py-1 text-[12px] flex justify-between items-center">
-          <span className="text-slate-50 font-semibold truncate">{topSeed ? topSeed.managerName : 'TBD'}</span>
-          <span className="text-[11px] text-slate-300 ml-2 whitespace-nowrap">{topSeed ? `Seed ${topSeed.seed}` : ''}</span>
+          <span className={`font-semibold truncate ${topMuted ? 'text-slate-400' : 'text-slate-50'}`}>{topName}</span>
+          <span className="text-[11px] text-slate-300 ml-2 whitespace-nowrap">{topSeedLabel}</span>
         </div>
         <div className="rounded border border-white/12 bg-slate-900/50 px-2 py-1 text-[12px] flex justify-between items-center">
-          <span className="text-slate-50 font-semibold truncate">{bottomSeed ? bottomSeed.managerName : 'TBD'}</span>
-          <span className="text-[11px] text-slate-300 ml-2 whitespace-nowrap">{bottomSeed ? `Seed ${bottomSeed.seed}` : ''}</span>
+          <span className={`font-semibold truncate ${bottomMuted ? 'text-slate-400' : 'text-slate-50'}`}>{bottomName}</span>
+          <span className="text-[11px] text-slate-300 ml-2 whitespace-nowrap">{bottomSeedLabel}</span>
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="card-primary space-y-3">
@@ -220,28 +229,28 @@ const ProjectedBracket = ({ seeds }) => {
         <p className="text-[11px] text-slate-300">Seeds 1-2 bye; 3v6, 4v5</p>
       </div>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="space-y-2">
           <p className="text-[11px] text-slate-400 font-semibold">Round 1</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <MatchupBox topSeed={seed1} bottomSeed={null} label="Seed 1 (bye)" />
-            <MatchupBox topSeed={seed4} bottomSeed={seed5} label="Seed 4 vs Seed 5" />
-            <MatchupBox topSeed={seed2} bottomSeed={null} label="Seed 2 (bye)" />
-            <MatchupBox topSeed={seed6} bottomSeed={seed3} label="Seed 6 vs Seed 3" />
+          <div className="space-y-2">
+            <MatchupBox topSeed={seed1} bottomSeed={null} bottomPlaceholder="Bye" />
+            <MatchupBox topSeed={seed4} bottomSeed={seed5} />
+            <MatchupBox topSeed={seed2} bottomSeed={null} bottomPlaceholder="Bye" />
+            <MatchupBox topSeed={seed6} bottomSeed={seed3} />
           </div>
         </div>
 
         <div className="space-y-2">
           <p className="text-[11px] text-slate-400 font-semibold">Semifinals</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 justify-items-center">
-            <MatchupBox topSeed={seed1} bottomSeed={null} label="Seed 1 vs Winner 4/5" />
-            <MatchupBox topSeed={seed2} bottomSeed={null} label="Seed 2 vs Winner 3/6" />
+          <div className="space-y-2">
+            <MatchupBox topSeed={seed1} bottomSeed={null} topPlaceholder="Seed 1" bottomPlaceholder="Winner 4/5" />
+            <MatchupBox topSeed={seed2} bottomSeed={null} topPlaceholder="Seed 2" bottomPlaceholder="Winner 3/6" />
           </div>
         </div>
 
         <div className="space-y-2">
           <p className="text-[11px] text-slate-400 font-semibold">Final</p>
-          <MatchupBox topSeed={null} bottomSeed={null} label="Championship" />
+          <MatchupBox topSeed={null} bottomSeed={null} topPlaceholder="Winner Semis" bottomPlaceholder="Winner Semis" />
         </div>
       </div>
     </div>
