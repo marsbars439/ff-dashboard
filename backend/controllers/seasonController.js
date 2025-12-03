@@ -109,8 +109,12 @@ async function getActiveWeekMatchups(req, res, next) {
   try {
     const { getAsync, allAsync } = req.db;
     const year = parseInt(req.params.year, 10);
+    const requestedWeek = req.query.week ? parseInt(req.query.week, 10) : null;
+
+    let leagueSettings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
+
     if (!leagueSettings || !leagueSettings.league_id) {
-      logger.warn('League ID not found for year, returning empty active week matchups', { year });
+      logger.warn('League ID not found for year, returning empty active week matchups', { year, requestedWeek });
       const week = requestedWeek || await sleeperService.getCurrentNFLWeek() || 1;
       return res.json({
         matchups: [],
