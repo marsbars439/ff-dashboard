@@ -74,8 +74,41 @@ const FantasyFootballApp = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rulesContent, setRulesContent] = useState('');
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
 
   const { selectedKeeperYear, setSelectedKeeperYear } = useKeeperTools();
+
+  // Scroll handler to show/hide header
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 200) {
+        // Scrolling down
+        setIsHeaderVisible(false);
+      } else {
+        // Scrolling up
+        setIsHeaderVisible(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    let ticking = false;
+    const throttledScrollHandler = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', throttledScrollHandler);
+    return () => {
+      window.removeEventListener('scroll', throttledScrollHandler);
+    };
+  }, []);
 
   const updateActiveTab = tab => {
     const normalizedTab = normalizeTab(tab);
@@ -212,6 +245,37 @@ const FantasyFootballApp = () => {
       }
     }
   }, [location.pathname, activeTab, enforceAdminTabAccess, navigate]);
+
+  // Keyboard shortcuts for tab navigation
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      // Ignore shortcuts if user is typing in an input
+      const activeElement = document.activeElement;
+      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT' || activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
+
+      const keyMap = {
+        '1': 'records',
+        '2': 'rules',
+        '3': 'admin',
+        '4': 'preseason',
+        '5': 'season',
+        '6': 'week',
+      };
+
+      const targetTab = keyMap[event.key];
+      if (targetTab) {
+        event.preventDefault();
+        updateActiveTab(targetTab);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [updateActiveTab]);
 
   useEffect(() => {
     fetchData();
@@ -586,7 +650,7 @@ const FantasyFootballApp = () => {
 
   return (
     <div className="ff-dashboard section-stack">
-      <header className="layout-section">
+      <header className={`layout-section sticky-header ${!isHeaderVisible ? 'sticky-header--hidden' : ''}`}>
         <DashboardHeader
           tabs={dynamicTabs}
           activeTab={activeTab}
