@@ -65,7 +65,10 @@ def create_tables(cursor):
         player_name TEXT NOT NULL,
         team TEXT,
         position TEXT,
-        proj_pts REAL
+        proj_pts REAL,
+        sos_season INTEGER,
+        sos_playoffs INTEGER,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     """)
 
@@ -130,12 +133,14 @@ def populate_data(cursor, fake):
             fake.name(),
             fake.company_suffix().upper(), # Using this for fake team names
             random.choice(positions),
-            round(random.uniform(50, 250), 1)
+            round(random.uniform(50, 250), 1),
+            random.randint(1, 32),  # sos_season (strength of schedule rank)
+            random.randint(1, 32)   # sos_playoffs
         ))
-    
+
     cursor.executemany("""
-        INSERT INTO ros_rankings (player_name, team, position, proj_pts)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO ros_rankings (player_name, team, position, proj_pts, sos_season, sos_playoffs)
+        VALUES (?, ?, ?, ?, ?, ?)
     """, ros_players)
     print(f"Inserted {len(ros_players)} ROS player rankings.")
 
