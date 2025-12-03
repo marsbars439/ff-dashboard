@@ -186,7 +186,7 @@ body {
 .card-primary {
   background: var(--ff-color-surface-alt);
   border-radius: var(--ff-radius-lg);
-  padding: clamp(1.5rem, 3vw, 2rem);
+  padding: clamp(0.625rem, 2.5vw, 1rem);
   box-shadow: var(--ff-shadow-md);
   border: 1px solid var(--ff-color-border);
 }
