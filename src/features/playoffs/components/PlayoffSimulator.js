@@ -109,7 +109,7 @@ const MatchupCard = ({ matchup, prediction, onScoreChange, className = '' }) => 
   );
 };
 
-const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, chumpionId }) => (
+const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, chumpionId, firstPlaceId, highestPfIds }) => (
   <div className="card-primary space-y-2 sm:space-y-3">
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
       <h3 className="text-base sm:text-lg font-bold text-slate-50 flex items-center gap-2">
@@ -141,6 +141,14 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, ch
             if (team.deltaLosses) changeBits.push(`${formatDelta(team.deltaLosses)} L`);
             const pfDeltaRounded = Math.round(team.deltaPointsFor);
             if (pfDeltaRounded) changeBits.push(`${formatDelta(pfDeltaRounded)} PF`);
+            const isFirstPlace = firstPlaceId && team.id === firstPlaceId;
+            const hasHighestPf = highestPfIds?.has?.(team.id);
+            const payoutReasons = [];
+            if (isFirstPlace) payoutReasons.push('1st');
+            if (hasHighestPf) payoutReasons.push('PF');
+            const payoutAmount = payoutReasons.length * 300;
+            const payoutLabel = payoutAmount ? `+$${payoutAmount}` : '';
+            const payoutDetail = payoutReasons.length === 2 ? '1st + PF' : payoutReasons[0];
 
             return (
               <tr
@@ -164,6 +172,11 @@ const ProjectedStandingsTable = ({ standings, playoffIds, wildcardId, byeIds, ch
                     {isChumpion && (
                       <span className="rounded-full border border-red-400/60 bg-red-500/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-red-200">
                         Chump
+                      </span>
+                    )}
+                    {payoutAmount > 0 && (
+                      <span className="rounded-full border border-lime-300/60 bg-lime-500/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-lime-50">
+                        {payoutDetail ? `${payoutLabel} ${payoutDetail}` : payoutLabel}
                       </span>
                     )}
                   </div>
@@ -500,6 +513,17 @@ const PlayoffSimulator = () => {
     [projectedStandings]
   );
 
+  const firstPlaceId = useMemo(
+    () => (projectedStandings.length > 0 ? projectedStandings[0].id : null),
+    [projectedStandings]
+  );
+
+  const highestPfIds = useMemo(() => {
+    if (projectedStandings.length === 0) return new Set();
+    const topPointsFor = Math.max(...projectedStandings.map((team) => team.pointsFor));
+    return new Set(projectedStandings.filter((team) => team.pointsFor === topPointsFor).map((team) => team.id));
+  }, [projectedStandings]);
+
   const teamAverages = useMemo(() => {
     return baseEntries.reduce((acc, team) => {
       const games = team.games || 0;
@@ -663,6 +687,8 @@ const PlayoffSimulator = () => {
           wildcardId={playoffSeeds.wildcardId}
           byeIds={byeIds}
           chumpionId={chumpionId}
+          firstPlaceId={firstPlaceId}
+          highestPfIds={highestPfIds}
         />
         <ProjectedBracket seeds={playoffSeeds.seeds} />
       </div>
@@ -671,4 +697,3 @@ const PlayoffSimulator = () => {
 };
 
 export default PlayoffSimulator;
-
