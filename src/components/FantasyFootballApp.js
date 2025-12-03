@@ -254,8 +254,9 @@ const FantasyFootballApp = () => {
   useEffect(() => {
     // Save current scroll position when tab changes
     const currentTab = activeTab;
+    const positions = scrollPositions.current;
     return () => {
-      scrollPositions.current[currentTab] = window.scrollY;
+      positions[currentTab] = window.scrollY;
     };
   }, [activeTab]);
 
