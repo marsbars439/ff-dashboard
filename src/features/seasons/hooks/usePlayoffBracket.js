@@ -4,7 +4,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { api, queryKeys } from '../../../utils/queryClient';
+import { api } from '../../../utils/queryClient';
 
 export function usePlayoffBracket(year, isRegularSeasonComplete) {
   const { data, isLoading, error } = useQuery({

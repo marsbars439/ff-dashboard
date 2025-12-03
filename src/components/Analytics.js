@@ -1090,6 +1090,8 @@ const Analytics = ({ onBack }) => {
         {managerPositionStats.length > 0 && (
           <div className="mb-6">
             <div ref={rosTableRef} className="space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
                     <FilterDropdown filterKey="rosManager" align="left" widthClass="w-72">
