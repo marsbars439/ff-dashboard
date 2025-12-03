@@ -167,7 +167,7 @@ This document outlines planned UI/UX improvements to enhance the user experience
 ---
 
 ### ❌ **NOT STARTED (Lower Priority)**
-- Sprint 13: Search & Filtering
+- Sprint 13: Search & Filtering - **MOSTLY NOT NEEDED**. The only place this could be added/improved is within the analytics page of the admin tab.
 - Sprint 15: Mobile-Specific (PWA, offline, gestures)
 - Sprint 17: Data Export & Sharing
 - Sprint 18: Advanced Features & Polish

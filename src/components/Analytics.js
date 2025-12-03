@@ -229,6 +229,7 @@ const Analytics = ({ onBack }) => {
     projPts: { operator: '', value: '' }
   });
   const [excludedPositions, setExcludedPositions] = useState([]);
+  const [rosManagerFilter, setRosManagerFilter] = useState([]);
   const [activeFilterKey, setActiveFilterKey] = useState(null);
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
   const [refreshMessage, setRefreshMessage] = useState('');
@@ -633,6 +634,8 @@ const Analytics = ({ onBack }) => {
 
     players.forEach(p => {
       if (!p.manager) return;
+      if (rosManagerFilter.length > 0 && !rosManagerFilter.includes(p.manager)) return;
+
       const managerKey = p.manager;
       if (!managerMap.has(managerKey)) {
         managerMap.set(managerKey, {
@@ -754,7 +757,7 @@ const Analytics = ({ onBack }) => {
       }
       return collator.compare(a.manager, b.manager);
     });
-  }, [players]);
+  }, [players, rosManagerFilter]);
 
   const totalRosRankings = useMemo(() => {
     const metrics = [
@@ -901,6 +904,8 @@ const Analytics = ({ onBack }) => {
 
   const isFilterApplied = useCallback((key) => {
     switch (key) {
+      case 'rosManager':
+        return rosManagerFilter.length > 0;
       case 'name':
         return Boolean(filters.name.trim());
       case 'team':
@@ -1085,9 +1090,57 @@ const Analytics = ({ onBack }) => {
         {managerPositionStats.length > 0 && (
           <div className="mb-6">
             <div ref={rosTableRef} className="space-y-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-gray-900">Manager ROS Strength by Position</h3>
+                    <FilterDropdown filterKey="rosManager" align="left" widthClass="w-72">
+                      {({ close }) => (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">Filter Managers</span>
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                              onClick={() => setRosManagerFilter([])}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                            {availableManagers.map(manager => (
+                              <label key={manager} className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                  type="checkbox"
+                                  className="rounded"
+                                  checked={rosManagerFilter.includes(manager)}
+                                  onChange={() => {
+                                    setRosManagerFilter(prev => {
+                                      const current = new Set(prev);
+                                      if (current.has(manager)) {
+                                        current.delete(manager);
+                                      } else {
+                                        current.add(manager);
+                                      }
+                                      return Array.from(current);
+                                    });
+                                  }}
+                                />
+                                <span>{manager}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                              onClick={close}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </FilterDropdown>
+                  </div>
                   {formattedRosLastUpdated && (
                     <p className="mt-1 text-xs text-gray-500">
                       FantasyPros data last updated{' '}
