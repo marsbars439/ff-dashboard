@@ -9,6 +9,19 @@ This document outlines planned UI/UX improvements to enhance the user experience
 
 ### ✅ **COMPLETED SPRINTS**
 
+#### **Sprint 13: Analytics Filtering** - ✅ COMPLETE
+- **Status:** Fully implemented and production-ready
+- **Completion Date:** December 3, 2025
+- **Implemented Features:**
+  - ✅ Added a multi-select filter to the "Manager ROS Strength" table on the Analytics page.
+  - ✅ Users can now select specific managers to compare their rest-of-season roster strength.
+  - ✅ Relocated the filter icon from the main section title into the "Manager" table header for improved layout and user experience.
+  - ✅ Identified and flagged several unused, duplicate component files for cleanup.
+- **Files:** `src/features/analytics/components/Analytics.js`
+- **Metrics:** ✅ Enhanced data filtering on a key analytics view.
+
+---
+
 #### **Sprint 16: Performance Optimization** - ✅ COMPLETE
 - **Status:** Fully implemented and production-ready
 - **Completion Date:** December 2, 2025
@@ -142,22 +155,23 @@ This document outlines planned UI/UX improvements to enhance the user experience
 
 ---
 
-### 🔮 **FUTURE ENHANCEMENTS**
+### ✅ **COMPLETED ENHANCEMENTS**
 
-#### **Test Fixtures & Mock Data**
-- **Priority:** Medium
-- **Purpose:** Enable E2E and Lighthouse tests in CI pipeline
-- **Requirements:**
-  - Create mock backend API endpoints or test fixtures
-  - Set up test database with sample data
-  - Configure E2E tests to use mock data
-  - Re-enable E2E and Lighthouse jobs in ci.yml
-- **Benefits:**
-  - Full end-to-end testing in CI
-  - Performance monitoring with Lighthouse
-  - Catch UI regressions before deployment
-- **Estimated Effort:** 1-2 days
-- **Notes:** Current E2E tests are written and ready, just need backend data to run against
+#### **Test Fixtures & Mock Data** - ✅ COMPLETE
+- **Status:** Fully implemented and production-ready.
+- **Completion Date:** December 3, 2025
+- **Implemented Features:**
+  - ✅ Created a Python script to anonymize a real database dump, providing realistic test data.
+  - ✅ Configured the Playwright E2E test environment to automatically start the backend server.
+  - ✅ The backend server is now configured to use the anonymized database when running E2E tests.
+  - ✅ This enables the full E2E and Lighthouse test suites to be run in a consistent, data-rich environment.
+- **Files Created:** `backend/scripts/anonymize_db.py`, `backend/requirements-dev.txt`
+- **Files Modified:** `playwright.config.js`, `backend/server.js`
+- **Result:** E2E tests are now fully enabled and run against a predictable, anonymized dataset.
+
+---
+
+### 🔮 **FUTURE ENHANCEMENTS**
 
 ---
 
@@ -167,7 +181,6 @@ This document outlines planned UI/UX improvements to enhance the user experience
 ---
 
 ### ❌ **NOT STARTED (Lower Priority)**
-- Sprint 13: Search & Filtering - **MOSTLY NOT NEEDED**. The only place this could be added/improved is within the analytics page of the admin tab.
 - Sprint 15: Mobile-Specific (PWA, offline, gestures)
 - Sprint 17: Data Export & Sharing
 - Sprint 18: Advanced Features & Polish
