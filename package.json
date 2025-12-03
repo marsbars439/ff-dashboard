@@ -15,12 +15,14 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.9.6",
     "react-scripts": "5.0.1",
+    "react-window": "^2.2.3",
     "socket.io-client": "^4.8.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:analyze": "npm run build && npx webpack-bundle-analyzer build/static/js/*.js",
     "test": "echo \"Tests skipped in Codex environment\" && exit 0",
     "test:local": "react-scripts test",
     "eject": "react-scripts eject"
@@ -42,5 +44,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "babel-plugin-transform-remove-console": "^6.9.4",
+    "webpack-bundle-analyzer": "^5.0.1"
   }
 }

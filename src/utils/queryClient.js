@@ -7,23 +7,38 @@ import { QueryClient } from '@tanstack/react-query';
 import { API } from './constants';
 
 // Create Query Client with default options
+// Implements stale-while-revalidate caching strategy for optimal performance
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
-      cacheTime: 10 * 60 * 1000, // 10 minutes - cache persists
+      // Stale-while-revalidate configuration
+      staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh, won't refetch
+      gcTime: 30 * 60 * 1000, // 30 minutes - garbage collection time (formerly cacheTime in v4)
+
+      // Network optimization
       retry: 3,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
       refetchOnWindowFocus: false, // Don't refetch when user returns to window
       refetchOnReconnect: true, // Refetch when internet reconnects
+      refetchOnMount: true, // Refetch on component mount if data is stale
+
+      // Error handling
       onError: (error) => {
-        console.error('Query error:', error);
-      }
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Query error:', error);
+        }
+      },
+
+      // Network mode
+      networkMode: 'online' // Only fetch when online
     },
     mutations: {
       retry: 1, // Only retry mutations once
+      networkMode: 'online',
       onError: (error) => {
-        console.error('Mutation error:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Mutation error:', error);
+        }
       }
     }
   }
