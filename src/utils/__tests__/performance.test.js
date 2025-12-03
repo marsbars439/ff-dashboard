@@ -223,29 +223,31 @@ describe('Performance Utilities', () => {
       expect(fn).toHaveBeenCalledWith([1, 2, 3]);
     });
 
-    it('should execute immediately when batch size reached', () => {
+    it('should reset timer on new calls', () => {
       const fn = jest.fn((items) => items);
-      const batchedFn = batch(fn, 50, 3);
+      const batchedFn = batch(fn, 100);
 
       batchedFn(1);
+      jest.advanceTimersByTime(50);
       batchedFn(2);
+      jest.advanceTimersByTime(50);
+
       expect(fn).not.toHaveBeenCalled();
 
-      batchedFn(3);
-      expect(fn).toHaveBeenCalledWith([1, 2, 3]);
+      jest.advanceTimersByTime(50);
+      expect(fn).toHaveBeenCalledWith([1, 2]);
     });
 
-    it('should handle multiple batches', () => {
+    it('should cancel pending batch', () => {
       const fn = jest.fn((items) => items);
-      const batchedFn = batch(fn, 50, 2);
+      const batchedFn = batch(fn, 50);
 
       batchedFn(1);
       batchedFn(2);
-      expect(fn).toHaveBeenCalledTimes(1);
+      batchedFn.cancel();
 
-      batchedFn(3);
-      batchedFn(4);
-      expect(fn).toHaveBeenCalledTimes(2);
+      jest.advanceTimersByTime(50);
+      expect(fn).not.toHaveBeenCalled();
     });
 
     it('should flush pending items', () => {

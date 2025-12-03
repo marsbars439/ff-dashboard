@@ -40,7 +40,7 @@
       "!src/**/*.test.{js,jsx}",
       "!src/setupTests.js"
     ],
-    "coverageThresholds": {
+    "coverageThreshold": {
       "global": {
         "branches": 70,
         "functions": 70,
