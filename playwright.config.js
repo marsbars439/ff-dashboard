@@ -74,7 +74,7 @@ module.exports = defineConfig({
       timeout: 120 * 1000,
       env: {
         DATABASE_PATH: path.join(__dirname, 'backend', 'data', 'fantasy_football.db'),
-        VALIDATE_CLOUDFLARE_JWT: 'false',
+        CF_ACCESS_VALIDATE_JWT: 'false',
       },
     },
     {
