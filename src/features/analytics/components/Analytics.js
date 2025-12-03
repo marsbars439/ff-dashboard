@@ -920,7 +920,7 @@ const Analytics = ({ onBack }) => {
       default:
         return false;
     }
-  }, [filters, excludedPositions]);
+  }, [filters, excludedPositions, rosManagerFilter]);
 
   const toggleListFilter = useCallback((field, value) => {
     setFilters(prev => {
