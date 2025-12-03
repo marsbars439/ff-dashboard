@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardHeader from './DashboardHeader';
+import Breadcrumbs from './navigation/Breadcrumbs';
+import FloatingActionButton from './navigation/FloatingActionButton';
+import KeyboardShortcutsModal from './navigation/KeyboardShortcutsModal';
 import ActiveTabSection from './ActiveTabSection';
 import { LoadingSpinner } from '../shared/components';
 import { useAdminSession } from '../state/AdminSessionContext';
@@ -75,7 +78,9 @@ const FantasyFootballApp = () => {
   const [error, setError] = useState(null);
   const [rulesContent, setRulesContent] = useState('');
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const lastScrollY = useRef(0);
+  const scrollPositions = useRef({});
 
   const { selectedKeeperYear, setSelectedKeeperYear } = useKeeperTools();
 
@@ -246,12 +251,47 @@ const FantasyFootballApp = () => {
     }
   }, [location.pathname, activeTab, enforceAdminTabAccess, navigate]);
 
-  // Keyboard shortcuts for tab navigation
+  // Save scroll position when switching tabs
+  useEffect(() => {
+    // Save current scroll position when tab changes
+    return () => {
+      scrollPositions.current[activeTab] = window.scrollY;
+    };
+  }, [activeTab]);
+
+  // Restore scroll position when tab becomes active
+  useEffect(() => {
+    const savedPosition = scrollPositions.current[activeTab];
+    if (savedPosition !== undefined) {
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        window.scrollTo(0, savedPosition);
+      });
+    } else {
+      // New tab, scroll to top
+      window.scrollTo(0, 0);
+    }
+  }, [activeTab]);
+
+  // Keyboard shortcuts for tab navigation and help modal
   useEffect(() => {
     const handleKeyDown = (event) => {
       // Ignore shortcuts if user is typing in an input
       const activeElement = document.activeElement;
       if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT' || activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
+
+      // Show help modal with '?'
+      if (event.key === '?' && event.shiftKey) {
+        event.preventDefault();
+        setIsShortcutsModalOpen(true);
+        return;
+      }
+
+      // Close modal with Escape
+      if (event.key === 'Escape') {
+        setIsShortcutsModalOpen(false);
         return;
       }
 
@@ -538,6 +578,48 @@ const FantasyFootballApp = () => {
     });
   }, [currentWeekNumber]);
 
+  // Generate breadcrumbs based on active tab
+  const breadcrumbs = useMemo(() => {
+    const tabLabels = {
+      records: 'Hall of Records',
+      rules: 'Rules',
+      admin: 'Admin',
+      analytics: 'Analytics',
+      preseason: 'Preseason',
+      season: 'Season',
+      week: `Week ${currentWeekNumber}`,
+      playoffs: 'Playoff Simulator'
+    };
+
+    const items = [
+      { id: 'home', label: 'Dashboard', path: '/records' }
+    ];
+
+    if (activeTab && activeTab !== 'records') {
+      items.push({
+        id: activeTab,
+        label: tabLabels[activeTab] || activeTab,
+        path: `/${activeTab}`
+      });
+    } else if (activeTab === 'records') {
+      items.push({
+        id: 'records',
+        label: 'Hall of Records'
+      });
+    }
+
+    // For analytics, add admin as parent
+    if (activeTab === 'analytics') {
+      items.splice(1, 0, {
+        id: 'admin',
+        label: 'Admin',
+        path: '/admin'
+      });
+    }
+
+    return items;
+  }, [activeTab, currentWeekNumber]);
+
   const renderRecordsSection = () => (
     <Suspense fallback={<LoadingSpinner message="Loading Records..." />}>
       <RecordsView
@@ -656,10 +738,16 @@ const FantasyFootballApp = () => {
           activeTab={activeTab}
           onTabChange={updateActiveTab}
         />
+        <Breadcrumbs items={breadcrumbs} />
       </header>
       <main className="layout-section section-surface section-padding">
         <ActiveTabSection activeTab={activeTab} sections={tabSections} />
       </main>
+      <FloatingActionButton onShowHelp={() => setIsShortcutsModalOpen(true)} />
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+      />
     </div>
   );
 };
