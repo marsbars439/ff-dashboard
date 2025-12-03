@@ -1,4 +1,10 @@
 const { defineConfig, devices } = require('@playwright/test');
+const path = require('path');
+
+// Set the database path for E2E tests
+process.env.DATABASE_PATH = path.join(__dirname, 'backend', 'data', 'fantasy_football.db');
+// Disable Cloudflare JWT validation during tests
+process.env.VALIDATE_CLOUDFLARE_JWT = 'false';
 
 /**
  * @see https://playwright.dev/docs/test-configuration
