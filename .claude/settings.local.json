@@ -38,7 +38,11 @@
       "Bash(npx playwright install chromium --with-deps)",
       "Bash(npm test:*)",
       "Bash(del srccomponentsnavigation__tests__Breadcrumbs.test.js srccomponentsnavigation__tests__FloatingActionButton.test.js srccomponentsnavigation__tests__KeyboardShortcutsModal.test.js)",
-      "Bash(del nul:*)"
+      "Bash(del nul:*)",
+      "Bash(del:*)",
+      "Bash(ls:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(git check-ignore:*)"
     ],
     "deny": [],
     "ask": []
