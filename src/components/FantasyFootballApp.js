@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardHeader from './DashboardHeader';
 import ActiveTabSection from './ActiveTabSection';
