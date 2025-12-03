@@ -82,3 +82,6 @@ pids
 
 # TernJS port file
 .tern-port
+
+# Windows reserved filename
+nul
