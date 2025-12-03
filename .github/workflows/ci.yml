@@ -171,3 +171,29 @@ jobs:
           name: security-audit
           path: audit-results.json
           retention-days: 30
+
+  docker-validate:
+    name: Validate Docker Images
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image (validate)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+          load: true
+
+      - name: Build frontend image (validate)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
