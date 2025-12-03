@@ -72,6 +72,69 @@ def create_tables(cursor):
       )
     """)
 
+    # League Rules Table
+    cursor.execute("""
+      CREATE TABLE IF NOT EXISTS league_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rules_content TEXT NOT NULL,
+        version INTEGER,
+        active BOOLEAN DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    """)
+
+    # Additional tables that may be queried but can be empty
+    cursor.execute("""
+      CREATE TABLE IF NOT EXISTS manager_sleeper_ids (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name_id TEXT NOT NULL,
+        sleeper_user_id TEXT NOT NULL,
+        season INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    """)
+
+    cursor.execute("""
+      CREATE TABLE IF NOT EXISTS keepers (
+        year INTEGER NOT NULL,
+        roster_id INTEGER NOT NULL,
+        player_name TEXT NOT NULL,
+        previous_cost REAL,
+        years_kept INTEGER,
+        trade_from_roster_id INTEGER,
+        trade_amount REAL,
+        player_id TEXT,
+        trade_note TEXT,
+        PRIMARY KEY (year, roster_id, player_name)
+      )
+    """)
+
+    cursor.execute("""
+      CREATE TABLE IF NOT EXISTS rule_change_proposals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        season_year INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        options TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        display_order INTEGER
+      )
+    """)
+
+    cursor.execute("""
+      CREATE TABLE IF NOT EXISTS rule_change_votes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        proposal_id INTEGER NOT NULL,
+        voter_id TEXT NOT NULL,
+        option TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    """)
+
     print("Tables created successfully.")
 
 def populate_data(cursor, fake):
@@ -143,6 +206,32 @@ def populate_data(cursor, fake):
         VALUES (?, ?, ?, ?, ?, ?)
     """, ros_players)
     print(f"Inserted {len(ros_players)} ROS player rankings.")
+
+    # 5. Add sample league rules
+    cursor.execute("""
+        INSERT INTO league_rules (rules_content, version, active)
+        VALUES (?, 1, 1)
+    """, ("""# League Rules
+
+## Roster Settings
+- 1 QB, 2 RB, 2 WR, 1 TE, 1 FLEX, 1 K, 1 DEF
+- 6 Bench spots
+
+## Scoring
+- Standard PPR scoring
+- 4 points per passing TD
+- 6 points per rushing/receiving TD
+
+## Schedule
+- 14 regular season weeks
+- Top 6 teams make playoffs
+- Championship in Week 17
+
+## Keepers
+- Up to 2 keepers per team
+- Draft round penalty applies
+""",))
+    print("Inserted league rules.")
 
 def main():
     """Main function to seed the test database."""
