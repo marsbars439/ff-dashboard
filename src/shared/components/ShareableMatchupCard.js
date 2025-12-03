@@ -1,13 +1,14 @@
 import React from 'react';
+import { getPlayerStatus } from '../../utils/playerStatus';
 
 /**
  * ShareableMatchupCard Component
  *
- * Optimized card for social media sharing with full lineups
- * Renders a matchup in a clean, branded format with starting lineups
+ * Optimized card for social media sharing with full lineups and status indicators
+ * Renders a matchup in a clean, branded format with ALL starting lineup information
  *
  * @param {Object} props
- * @param {Object} props.matchup - Matchup data with home/away teams including starters
+ * @param {Object} props.matchup - Matchup data with home/away teams including ALL starters
  * @param {number} props.week - Week number
  * @param {string} props.leagueName - League name for branding
  */
@@ -19,7 +20,8 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
     if (points === null || points === undefined) return '--';
     const num = typeof points === 'number' ? points : parseFloat(points);
     if (Number.isNaN(num)) return '--';
-    return num.toFixed(2);
+    const rounded = Math.round(num * 100) / 100;
+    return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2);
   };
 
   const homePoints = formatPoints(home.points);
@@ -31,70 +33,112 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
   const homeWins = !isNaN(homeScore) && !isNaN(awayScore) && homeScore > awayScore;
   const awayWins = !isNaN(homeScore) && !isNaN(awayScore) && awayScore > homeScore;
 
-  // Get starters (limit to top scoring positions for space)
-  const getTopStarters = (team) => {
+  // Get ALL starters
+  const getAllStarters = (team) => {
     if (!team || !Array.isArray(team.starters)) return [];
-    return team.starters
-      .filter(s => s && s.name)
-      .slice(0, 7); // Show top 7 positions
+    return team.starters.filter(s => s && s.name);
   };
 
-  const homeStarters = getTopStarters(home);
-  const awayStarters = getTopStarters(away);
+  const homeStarters = getAllStarters(home);
+  const awayStarters = getAllStarters(away);
 
   const renderPlayer = (starter, isWinner) => {
     const points = formatPoints(starter.points);
+    const status = getPlayerStatus(starter);
     const textColor = isWinner ? '#ffffff' : '#e2e8f0';
     const pointsColor = isWinner ? '#10b981' : '#3b82f6';
+
+    // Get opponent info
+    const opponentLabel = starter.opponent
+      ? `${starter.home_away === 'home' ? 'vs' : '@'} ${starter.opponent}`
+      : null;
 
     return (
       <div
         key={`${starter.player_id}-${starter.slot}`}
         style={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'space-between',
-          padding: '8px 0',
-          borderBottom: '1px solid rgba(148, 163, 184, 0.1)',
+          padding: '10px 0',
+          borderBottom: '1px solid rgba(148, 163, 184, 0.15)',
+          minHeight: '60px',
         }}
       >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{
-              fontSize: '12px',
-              fontWeight: '700',
-              color: '#64748b',
-              width: '35px',
-              flexShrink: 0,
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <span style={{
+            fontSize: '11px',
+            fontWeight: '700',
+            color: '#64748b',
+            width: '45px',
+            flexShrink: 0,
+            paddingTop: '2px',
+          }}>
+            {starter.position || starter.slot}
+          </span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{
+              fontSize: '14px',
+              fontWeight: '600',
+              color: textColor,
+              marginBottom: '3px',
+              lineHeight: '1.3',
             }}>
-              {starter.position || starter.slot}
-            </span>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{
-                fontSize: '15px',
-                fontWeight: '600',
-                color: textColor,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}>
-                {starter.name}
-              </div>
+              {starter.name}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
               {starter.team && (
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>
                   {starter.team}
-                </div>
+                </span>
+              )}
+              {opponentLabel && (
+                <>
+                  <span style={{ fontSize: '10px', color: '#64748b' }}>•</span>
+                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    {opponentLabel}
+                  </span>
+                </>
               )}
             </div>
+            {/* Status Badge */}
+            {status.key !== 'finished' && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                marginTop: '4px',
+                padding: '3px 8px',
+                borderRadius: '12px',
+                backgroundColor: status.bgColor,
+                border: `1px solid ${status.badgeColor}40`,
+              }}>
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: status.dotColor,
+                }} />
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: '600',
+                  color: status.badgeColor,
+                }}>
+                  {status.label}
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <div style={{
-          fontSize: '16px',
+          fontSize: '15px',
           fontWeight: '700',
           color: pointsColor,
-          marginLeft: '16px',
-          minWidth: '50px',
+          marginLeft: '12px',
+          minWidth: '45px',
           textAlign: 'right',
+          paddingTop: '2px',
+          flexShrink: 0,
         }}>
           {points}
         </div>
@@ -102,14 +146,18 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
     );
   };
 
+  // Calculate height based on max number of starters
+  const maxStarters = Math.max(homeStarters.length, awayStarters.length);
+  const cardHeight = Math.max(1600, 500 + (maxStarters * 65));
+
   return (
     <div
       data-export-id="shareable-matchup"
       style={{
         width: '1200px',
-        minHeight: '1400px',
+        minHeight: `${cardHeight}px`,
         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-        padding: '40px',
+        padding: '36px',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         color: '#ffffff',
         display: 'flex',
@@ -126,7 +174,7 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
           right: '-100px',
           width: '400px',
           height: '400px',
-          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.06) 0%, transparent 70%)',
           borderRadius: '50%',
         }}
       />
@@ -137,17 +185,17 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
           left: '-150px',
           width: '500px',
           height: '500px',
-          background: 'radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(16, 185, 129, 0.06) 0%, transparent 70%)',
           borderRadius: '50%',
         }}
       />
 
       {/* Header */}
-      <div style={{ position: 'relative', zIndex: 1, marginBottom: '32px' }}>
-        <div style={{ fontSize: '20px', fontWeight: '600', color: '#94a3b8', marginBottom: '6px' }}>
+      <div style={{ position: 'relative', zIndex: 1, marginBottom: '28px' }}>
+        <div style={{ fontSize: '18px', fontWeight: '600', color: '#94a3b8', marginBottom: '6px' }}>
           {leagueName}
         </div>
-        <div style={{ fontSize: '42px', fontWeight: '700', color: '#ffffff' }}>
+        <div style={{ fontSize: '38px', fontWeight: '700', color: '#ffffff' }}>
           Week {week} Matchup
         </div>
       </div>
@@ -159,37 +207,37 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '24px',
-        marginBottom: '32px',
-        padding: '24px',
-        background: 'rgba(30, 41, 59, 0.4)',
-        borderRadius: '16px',
-        border: '1px solid rgba(148, 163, 184, 0.1)',
+        gap: '20px',
+        marginBottom: '28px',
+        padding: '20px',
+        background: 'rgba(30, 41, 59, 0.5)',
+        borderRadius: '14px',
+        border: '1px solid rgba(148, 163, 184, 0.15)',
       }}>
         {/* Home Team Summary */}
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{
-            fontSize: '28px',
+            fontSize: '24px',
             fontWeight: '700',
-            marginBottom: '8px',
+            marginBottom: '6px',
             color: homeWins ? '#10b981' : '#ffffff',
           }}>
             {home.manager_name || 'TBD'}
           </div>
           {home.team_name && (
-            <div style={{ fontSize: '16px', color: '#94a3b8', marginBottom: '12px' }}>
+            <div style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '10px' }}>
               {home.team_name}
             </div>
           )}
           <div style={{
-            fontSize: '56px',
+            fontSize: '52px',
             fontWeight: '900',
             color: homeWins ? '#10b981' : '#3b82f6',
           }}>
             {homePoints}
           </div>
           {homeWins && (
-            <div style={{ marginTop: '8px', fontSize: '16px', fontWeight: '600', color: '#10b981' }}>
+            <div style={{ marginTop: '6px', fontSize: '15px', fontWeight: '600', color: '#10b981' }}>
               ✓ WINNER
             </div>
           )}
@@ -197,12 +245,12 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
 
         {/* VS Divider */}
         <div style={{
-          fontSize: '24px',
+          fontSize: '22px',
           fontWeight: '700',
           color: '#64748b',
-          padding: '12px 20px',
-          background: 'rgba(15, 23, 42, 0.6)',
-          borderRadius: '12px',
+          padding: '10px 18px',
+          background: 'rgba(15, 23, 42, 0.7)',
+          borderRadius: '10px',
           border: '1px solid rgba(148, 163, 184, 0.2)',
         }}>
           VS
@@ -211,27 +259,27 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
         {/* Away Team Summary */}
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{
-            fontSize: '28px',
+            fontSize: '24px',
             fontWeight: '700',
-            marginBottom: '8px',
+            marginBottom: '6px',
             color: awayWins ? '#10b981' : '#ffffff',
           }}>
             {away.manager_name || 'TBD'}
           </div>
           {away.team_name && (
-            <div style={{ fontSize: '16px', color: '#94a3b8', marginBottom: '12px' }}>
+            <div style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '10px' }}>
               {away.team_name}
             </div>
           )}
           <div style={{
-            fontSize: '56px',
+            fontSize: '52px',
             fontWeight: '900',
             color: awayWins ? '#10b981' : '#3b82f6',
           }}>
             {awayPoints}
           </div>
           {awayWins && (
-            <div style={{ marginTop: '8px', fontSize: '16px', fontWeight: '600', color: '#10b981' }}>
+            <div style={{ marginTop: '6px', fontSize: '15px', fontWeight: '600', color: '#10b981' }}>
               ✓ WINNER
             </div>
           )}
@@ -243,26 +291,26 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
         position: 'relative',
         zIndex: 1,
         display: 'flex',
-        gap: '24px',
+        gap: '20px',
         flex: 1,
       }}>
         {/* Home Lineup */}
         <div style={{ flex: 1 }}>
           <div style={{
-            background: homeWins ? 'rgba(16, 185, 129, 0.1)' : 'rgba(30, 41, 59, 0.5)',
-            border: homeWins ? '2px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(148, 163, 184, 0.1)',
-            borderRadius: '16px',
-            padding: '20px',
+            background: homeWins ? 'rgba(16, 185, 129, 0.08)' : 'rgba(30, 41, 59, 0.5)',
+            border: homeWins ? '2px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(148, 163, 184, 0.15)',
+            borderRadius: '14px',
+            padding: '18px',
             backdropFilter: 'blur(10px)',
             height: '100%',
           }}>
             <div style={{
-              fontSize: '20px',
+              fontSize: '18px',
               fontWeight: '700',
-              marginBottom: '16px',
+              marginBottom: '14px',
               color: homeWins ? '#10b981' : '#ffffff',
-              borderBottom: '2px solid rgba(148, 163, 184, 0.1)',
-              paddingBottom: '12px',
+              borderBottom: '2px solid rgba(148, 163, 184, 0.15)',
+              paddingBottom: '10px',
             }}>
               {home.manager_name}'s Lineup
             </div>
@@ -270,7 +318,7 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
               {homeStarters.length > 0 ? (
                 homeStarters.map(starter => renderPlayer(starter, homeWins))
               ) : (
-                <div style={{ fontSize: '14px', color: '#94a3b8', textAlign: 'center', padding: '20px' }}>
+                <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '20px' }}>
                   Lineup not available
                 </div>
               )}
@@ -281,20 +329,20 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
         {/* Away Lineup */}
         <div style={{ flex: 1 }}>
           <div style={{
-            background: awayWins ? 'rgba(16, 185, 129, 0.1)' : 'rgba(30, 41, 59, 0.5)',
-            border: awayWins ? '2px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(148, 163, 184, 0.1)',
-            borderRadius: '16px',
-            padding: '20px',
+            background: awayWins ? 'rgba(16, 185, 129, 0.08)' : 'rgba(30, 41, 59, 0.5)',
+            border: awayWins ? '2px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(148, 163, 184, 0.15)',
+            borderRadius: '14px',
+            padding: '18px',
             backdropFilter: 'blur(10px)',
             height: '100%',
           }}>
             <div style={{
-              fontSize: '20px',
+              fontSize: '18px',
               fontWeight: '700',
-              marginBottom: '16px',
+              marginBottom: '14px',
               color: awayWins ? '#10b981' : '#ffffff',
-              borderBottom: '2px solid rgba(148, 163, 184, 0.1)',
-              paddingBottom: '12px',
+              borderBottom: '2px solid rgba(148, 163, 184, 0.15)',
+              paddingBottom: '10px',
             }}>
               {away.manager_name}'s Lineup
             </div>
@@ -302,7 +350,7 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
               {awayStarters.length > 0 ? (
                 awayStarters.map(starter => renderPlayer(starter, awayWins))
               ) : (
-                <div style={{ fontSize: '14px', color: '#94a3b8', textAlign: 'center', padding: '20px' }}>
+                <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '20px' }}>
                   Lineup not available
                 </div>
               )}
@@ -316,11 +364,11 @@ export function ShareableMatchupCard({ matchup, week, leagueName = 'Fantasy Foot
         position: 'relative',
         zIndex: 1,
         textAlign: 'center',
-        marginTop: '32px',
-        paddingTop: '24px',
-        borderTop: '1px solid rgba(148, 163, 184, 0.1)',
+        marginTop: '28px',
+        paddingTop: '20px',
+        borderTop: '1px solid rgba(148, 163, 184, 0.15)',
       }}>
-        <div style={{ fontSize: '14px', color: '#64748b' }}>
+        <div style={{ fontSize: '13px', color: '#64748b' }}>
           Generated by {leagueName} Dashboard
         </div>
       </div>
