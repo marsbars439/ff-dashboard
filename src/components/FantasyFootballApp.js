@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardHeader from './DashboardHeader';
-import Breadcrumbs from './navigation/Breadcrumbs';
 import FloatingActionButton from './navigation/FloatingActionButton';
 import KeyboardShortcutsModal from './navigation/KeyboardShortcutsModal';
 import ActiveTabSection from './ActiveTabSection';
@@ -578,48 +577,6 @@ const FantasyFootballApp = () => {
     });
   }, [currentWeekNumber]);
 
-  // Generate breadcrumbs based on active tab
-  const breadcrumbs = useMemo(() => {
-    const tabLabels = {
-      records: 'Hall of Records',
-      rules: 'Rules',
-      admin: 'Admin',
-      analytics: 'Analytics',
-      preseason: 'Preseason',
-      season: 'Season',
-      week: `Week ${currentWeekNumber}`,
-      playoffs: 'Playoff Simulator'
-    };
-
-    const items = [
-      { id: 'home', label: 'Dashboard', path: '/records' }
-    ];
-
-    if (activeTab && activeTab !== 'records') {
-      items.push({
-        id: activeTab,
-        label: tabLabels[activeTab] || activeTab,
-        path: `/${activeTab}`
-      });
-    } else if (activeTab === 'records') {
-      items.push({
-        id: 'records',
-        label: 'Hall of Records'
-      });
-    }
-
-    // For analytics, add admin as parent
-    if (activeTab === 'analytics') {
-      items.splice(1, 0, {
-        id: 'admin',
-        label: 'Admin',
-        path: '/admin'
-      });
-    }
-
-    return items;
-  }, [activeTab, currentWeekNumber]);
-
   const renderRecordsSection = () => (
     <Suspense fallback={<LoadingSpinner message="Loading Records..." />}>
       <RecordsView
@@ -738,7 +695,6 @@ const FantasyFootballApp = () => {
           activeTab={activeTab}
           onTabChange={updateActiveTab}
         />
-        <Breadcrumbs items={breadcrumbs} />
       </header>
       <main className="layout-section section-surface section-padding">
         <ActiveTabSection activeTab={activeTab} sections={tabSections} />
