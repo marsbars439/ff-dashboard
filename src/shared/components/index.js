@@ -20,3 +20,7 @@ export { default as ChartWrapper } from './charts/ChartWrapper';
 export { default as TrendLineChart } from './charts/TrendLineChart';
 export { default as BarChart } from './charts/BarChart';
 export { default as PieChart } from './charts/PieChart';
+
+// Share/Export Components
+export { default as ShareButton } from './ShareButton';
+export { default as ShareableMatchupCard } from './ShareableMatchupCard';

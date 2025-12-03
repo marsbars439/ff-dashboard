@@ -3,8 +3,9 @@ import { CalendarDays, ChevronDown } from 'lucide-react';
 import AISummary from '../../../components/AISummary';
 import AIPreview from '../../../components/AIPreview';
 import DashboardSection from '../../../components/DashboardSection';
-import { SkeletonMatchup } from '../../../shared/components';
+import { SkeletonMatchup, ShareButton, ShareableMatchupCard } from '../../../shared/components';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../../../utils/date';
+import { generateMatchupFilename } from '../../../utils/shareExport';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
 const ACTIVE_WEEK_REFRESH_INTERVAL_MS = 30000;
@@ -782,18 +783,39 @@ export function WeekView({ teamSeasons }) {
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => toggleMatchupExpansion(matchupKey)}
-          className="w-full px-1.5 py-1 sm:px-3 sm:py-2 border-t border-gray-200 flex items-center justify-center gap-1 sm:gap-2 text-[11px] sm:text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <span>{isExpanded ? 'Hide Lineups' : 'View Lineups'}</span>
-          <ChevronDown
-            className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform ${
-              isExpanded ? 'transform rotate-180' : ''
-            }`}
-          />
-        </button>
+        <div className="border-t border-gray-200 flex items-center">
+          <button
+            type="button"
+            onClick={() => toggleMatchupExpansion(matchupKey)}
+            className="flex-1 px-1.5 py-1 sm:px-3 sm:py-2 flex items-center justify-center gap-1 sm:gap-2 text-[11px] sm:text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <span>{isExpanded ? 'Hide Lineups' : 'View Lineups'}</span>
+            <ChevronDown
+              className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform ${
+                isExpanded ? 'transform rotate-180' : ''
+              }`}
+            />
+          </button>
+          <div className="border-l border-gray-200 px-2 sm:px-3 py-1 sm:py-2">
+            <ShareButton
+              getElement={() => document.getElementById(`shareable-matchup-${matchupKey}`)}
+              filename={generateMatchupFilename(matchup, currentWeekNumber)}
+              label="Share"
+              size="sm"
+              className="!text-[11px] sm:!text-sm !px-2 !py-1"
+            />
+          </div>
+        </div>
+        {/* Hidden shareable card for PNG export */}
+        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+          <div id={`shareable-matchup-${matchupKey}`}>
+            <ShareableMatchupCard
+              matchup={matchup}
+              week={currentWeekNumber}
+              leagueName="The League"
+            />
+          </div>
+        </div>
         {isExpanded && (
           <div className="border-t border-gray-200 px-1.5 py-1.5 sm:px-3 sm:py-3 bg-gray-50">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
