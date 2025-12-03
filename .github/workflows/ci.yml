@@ -74,74 +74,75 @@ jobs:
           path: build/
           retention-days: 7
 
-  # E2E tests disabled until backend test fixtures are set up
-  # e2e:
-  #   name: E2E Tests
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '20.x'
-  #         cache: 'npm'
-  #
-  #     - name: Install dependencies
-  #       run: npm ci
-  #
-  #     - name: Install Playwright Browsers
-  #       run: npx playwright install --with-deps chromium
-  #
-  #     - name: Run E2E tests
-  #       run: npx playwright test
-  #       env:
-  #         CI: true
-  #
-  #     - name: Upload Playwright Report
-  #       uses: actions/upload-artifact@v4
-  #       if: always()
-  #       with:
-  #         name: playwright-report
-  #         path: playwright-report/
-  #         retention-days: 7
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build
+  
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+  
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+  
+      - name: Install dependencies
+        run: npm ci
 
-  # Lighthouse disabled until backend test fixtures are set up
-  # lighthouse:
-  #   name: Lighthouse Performance Audit
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '20.x'
-  #         cache: 'npm'
-  #
-  #     - name: Install dependencies
-  #       run: npm ci
-  #
-  #     - name: Download build artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: build
-  #         path: build/
-  #
-  #     - name: Install Lighthouse CI
-  #       run: npm install -g @lhci/cli@0.13.x
-  #
-  #     - name: Run Lighthouse CI
-  #       run: |
-  #         lhci autorun --upload.target=temporary-public-storage
-  #       env:
-  #         LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+  
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+  
+      - name: Run E2E tests
+        run: npx playwright test
+        env:
+          CI: true
+  
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  lighthouse:
+    name: Lighthouse Performance Audit
+    runs-on: ubuntu-latest
+    needs: build
+  
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+  
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+  
+      - name: Install dependencies
+        run: npm ci
+  
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: build/
+  
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.13.x
+  
+      - name: Run Lighthouse CI
+        run: |
+          lhci autorun --upload.target=temporary-public-storage
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 
   security:
     name: Security Audit
