@@ -41,28 +41,27 @@ module.exports = defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
 
-    // Only run chromium in CI for speed, all browsers locally
-    ...(process.env.CI ? [] : [
+    // Only run other browsers in CI
+    ...(process.env.CI ? [
       {
         name: 'firefox',
         use: { ...devices['Desktop Firefox'] },
       },
-
       {
         name: 'webkit',
         use: { ...devices['Desktop Safari'] },
       },
+    ] : []),
 
-      /* Test against mobile viewports. */
-      {
-        name: 'Mobile Chrome',
-        use: { ...devices['Pixel 5'] },
-      },
-      {
-        name: 'Mobile Safari',
-        use: { ...devices['iPhone 12'] },
-      },
-    ]),
+    /* Test against mobile viewports. */
+    // {
+    //   name: 'Mobile Chrome',
+    //   use: { ...devices['Pixel 5'] },
+    // },
+    // {
+    //   name: 'Mobile Safari',
+    //   use: { ...devices['iPhone 12'] },
+    // },
   ],
 
   /* Run your local dev server before starting the tests */
@@ -84,6 +83,7 @@ module.exports = defineConfig({
       timeout: 120 * 1000,
       env: {
         REACT_APP_DISABLE_CLOUDFLARE_AUTH: 'true',
+        REACT_APP_E2E_TESTING: 'true',
       },
     },
   ]

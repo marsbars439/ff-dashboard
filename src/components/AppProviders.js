@@ -18,7 +18,7 @@ const AppProviders = ({ children }) => (
         </KeeperToolsProvider>
       </ManagerAuthProvider>
     </AdminSessionProvider>
-    {process.env.NODE_ENV === 'development' && (
+    {process.env.NODE_ENV === 'development' && !process.env.REACT_APP_E2E_TESTING && (
       <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
     )}
   </QueryClientProvider>

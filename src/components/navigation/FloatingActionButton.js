@@ -89,7 +89,7 @@ const FloatingActionButton = ({ onShowHelp }) => {
       <button
         onClick={toggleMenu}
         className={`fab ${isMenuOpen ? 'fab--open' : ''}`}
-        aria-label={isMenuOpen ? 'Close quick actions menu' : 'Open quick actions menu'}
+        aria-label={isMenuOpen ? 'Close quick actions menu' : 'Quick actions menu'}
         aria-expanded={isMenuOpen}
       >
         <svg
