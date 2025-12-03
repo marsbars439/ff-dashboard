@@ -55,7 +55,7 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL('/rules');
 
     // Navigate to Season
-    await page.getByRole('link', { name: 'Season' }).click();
+    await page.getByRole('link', { name: 'Season', exact: true }).click();
     await expect(page).toHaveURL('/season');
 
     // Go back

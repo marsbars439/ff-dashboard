@@ -1,11 +1,6 @@
 const { defineConfig, devices } = require('@playwright/test');
 const path = require('path');
 
-// Set the database path for E2E tests
-process.env.DATABASE_PATH = path.join(__dirname, 'backend', 'data', 'fantasy_football.db');
-// Disable Cloudflare JWT validation during tests
-process.env.VALIDATE_CLOUDFLARE_JWT = 'false';
-
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
@@ -77,6 +72,10 @@ module.exports = defineConfig({
       url: 'http://localhost:3001/api/managers', // Wait for the backend to be ready
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
+      env: {
+        DATABASE_PATH: path.join(__dirname, 'backend', 'data', 'fantasy_football.db'),
+        VALIDATE_CLOUDFLARE_JWT: 'false',
+      },
     },
     {
       command: 'npm start',
