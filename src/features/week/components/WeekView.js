@@ -3,7 +3,7 @@ import { CalendarDays, ChevronDown } from 'lucide-react';
 import AISummary from '../../../components/AISummary';
 import AIPreview from '../../../components/AIPreview';
 import DashboardSection from '../../../components/DashboardSection';
-import { SkeletonMatchup, SkeletonCard } from '../../../shared/components';
+import { SkeletonMatchup } from '../../../shared/components';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../../../utils/date';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');

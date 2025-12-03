@@ -95,6 +95,7 @@ export function SeasonsView({ teamSeasons, loading, error }) {
       fetchSeasonMatchups(selectedSeasonYear);
       fetchPlayoffBracket(selectedSeasonYear);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSeasonYear]);
 
   const fetchSeasonMatchups = async (year) => {
@@ -225,6 +226,7 @@ export function SeasonsView({ teamSeasons, loading, error }) {
         clearInterval(intervalId);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSeasonYear, teamSeasons]);
 
   useEffect(() => {

@@ -253,8 +253,9 @@ const FantasyFootballApp = () => {
   // Save scroll position when switching tabs
   useEffect(() => {
     // Save current scroll position when tab changes
+    const currentTab = activeTab;
     return () => {
-      scrollPositions.current[activeTab] = window.scrollY;
+      scrollPositions.current[currentTab] = window.scrollY;
     };
   }, [activeTab]);
 
@@ -327,7 +328,7 @@ const FantasyFootballApp = () => {
       const maxYear = Math.max(...teamSeasons.map(s => s.year));
       setSelectedKeeperYear(maxYear);
     }
-  }, [teamSeasons, selectedKeeperYear]);
+  }, [teamSeasons, selectedKeeperYear, setSelectedKeeperYear]);
 
   const fetchData = async (options = {}) => {
     const { silent = false } = options;
