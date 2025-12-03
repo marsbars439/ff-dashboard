@@ -84,7 +84,8 @@ async function getSeasonMatchups(req, res, next) {
     const leagueSettings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
 
     if (!leagueSettings || !leagueSettings.league_id) {
-      throw new NotFoundError('League ID not found for year');
+      logger.warn('League ID not found for year, returning empty matchups', { year });
+      return res.json({ matchups: [] });
     }
 
     const managers = await allAsync(`
@@ -108,12 +109,15 @@ async function getActiveWeekMatchups(req, res, next) {
   try {
     const { getAsync, allAsync } = req.db;
     const year = parseInt(req.params.year, 10);
-    const requestedWeek = req.query.week ? parseInt(req.query.week, 10) : null;
-
-    const leagueSettings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
-
     if (!leagueSettings || !leagueSettings.league_id) {
-      throw new NotFoundError('League ID not found for year');
+      logger.warn('League ID not found for year, returning empty active week matchups', { year });
+      const week = requestedWeek || await sleeperService.getCurrentNFLWeek() || 1;
+      return res.json({
+        matchups: [],
+        week,
+        source: 'db',
+        nfl_state: null,
+      });
     }
 
     // Try to fetch managers with season-specific sleeper IDs if table exists
@@ -177,7 +181,8 @@ async function getPlayoffMatchups(req, res, next) {
     const leagueSettings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
 
     if (!leagueSettings || !leagueSettings.league_id) {
-      throw new NotFoundError('League ID not found for year');
+      logger.warn('League ID not found for year, returning empty playoff bracket', { year });
+      return res.json({ bracket: null });
     }
 
     const managers = await allAsync(`
@@ -205,7 +210,8 @@ async function getFinalRosters(req, res, next) {
     const leagueSettings = await getAsync('SELECT league_id FROM league_settings WHERE year = ?', [year]);
 
     if (!leagueSettings || !leagueSettings.league_id) {
-      throw new NotFoundError('League ID not found for year');
+      logger.warn('League ID not found for year, returning empty rosters', { year });
+      return res.json({ rosters: [], draftedPlayers: [] });
     }
 
     // Try to fetch managers with season-specific sleeper IDs if table exists

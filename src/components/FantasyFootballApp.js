@@ -119,7 +119,7 @@ const FantasyFootballApp = () => {
     const nextTab = VALID_TABS.has(normalizedTab) ? normalizedTab : DEFAULT_TAB;
     const enforcedTab = enforceAdminTabAccess(nextTab);
     setActiveTab(enforcedTab);
-    navigate(`/${enforcedTab}`, { replace: true });
+    navigate(`/${enforcedTab}`);
   }, [navigate, enforceAdminTabAccess]);
 
   const mostRecentYear = useMemo(() => (
@@ -245,7 +245,7 @@ const FantasyFootballApp = () => {
       setActiveTab(enforcedTab);
       // If enforced tab is different from URL, update URL
       if (enforcedTab !== urlTab || needsNormalization) {
-        navigate(`/${enforcedTab}`, { replace: true });
+        navigate(`/${enforcedTab}`, { replace: needsNormalization });
       }
     }
   }, [location.pathname, activeTab, enforceAdminTabAccess, navigate]);

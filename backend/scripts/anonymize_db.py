@@ -1,32 +1,88 @@
 import sqlite3
 import shutil
 from faker import Faker
+import os
+import datetime
 
-def anonymize_db(input_db_path, output_db_path):
+def ensure_current_year_data(conn, cursor, fake):
     """
-    Anonymizes a fantasy football database by replacing personally identifiable information (PII)
-    with fake data.
-
-    Args:
-        input_db_path (str): The path to the input SQLite database file.
-        output_db_path (str): The path where the anonymized database will be saved.
+    Ensures that data exists for the current year to make E2E tests pass.
+    It copies the most recent year's league settings and team seasons.
     """
-    if input_db_path != output_db_path:
-        print(f"Copying database from {input_db_path} to {output_db_path}...")
-        try:
-            shutil.copyfile(input_db_path, output_db_path)
-            print("Database copied successfully.")
-        except IOError as e:
-            print(f"Error copying database: {e}")
-            return
-    else:
-        print("Input and output paths are the same. Modifying database in-place.")
+    current_year = datetime.datetime.now().year
+    print(f"--- Ensuring data exists for current year ({current_year}) ---")
 
-    fake = Faker()
+    # Check if data for the current year already exists
+    cursor.execute("SELECT COUNT(*) FROM league_settings WHERE year = ?", (current_year,))
+    if cursor.fetchone()[0] > 0:
+        print(f"Data for year {current_year} already exists. Skipping data generation.")
+        return
+
+    # 1. Create league_settings for the current year
+    print(f"Creating league_settings for {current_year}...")
+    cursor.execute("SELECT MAX(year) FROM league_settings")
+    last_year_row = cursor.fetchone()
+    if not last_year_row or not last_year_row[0]:
+        print("No previous league_settings found to copy from. Skipping.")
+        return
+    last_year = last_year_row[0]
+
+    new_league_id = str(fake.random_number(digits=10, fix_len=True))
     
     try:
-        print(f"Connecting to the anonymized database at {output_db_path}...")
-        conn = sqlite3.connect(output_db_path)
+        cursor.execute("INSERT INTO league_settings (year, league_id, sync_status) VALUES (?, ?, ?)", 
+                       (current_year, new_league_id, 'pending'))
+        print(f"Created league_settings for {current_year} with league_id {new_league_id}")
+    except sqlite3.IntegrityError:
+        print(f"league_settings for year {current_year} already exist.")
+
+
+    # 2. Copy team_seasons from the most recent year
+    print(f"Copying team_seasons for {current_year}...")
+    cursor.execute("SELECT MAX(year) FROM team_seasons")
+    last_season_year_row = cursor.fetchone()
+    if not last_season_year_row or not last_season_year_row[0]:
+        print("No previous team_seasons found to copy from. Skipping.")
+        return
+    last_season_year = last_season_year_row[0]
+        
+    cursor.execute("SELECT * FROM team_seasons WHERE year = ?", (last_season_year,))
+    column_names = [description[0] for description in cursor.description]
+    last_year_seasons = cursor.fetchall()
+
+    for season_row in last_year_seasons:
+        season_dict = dict(zip(column_names, season_row))
+        
+        # Reset season-specific stats for the new year
+        season_dict['year'] = current_year
+        season_dict['wins'] = 0
+        season_dict['losses'] = 0
+        season_dict['points_for'] = 0
+        season_dict['points_against'] = 0
+        season_dict['regular_season_rank'] = None
+        season_dict['playoff_finish'] = None
+        season_dict['payout'] = 0
+        season_dict['high_game'] = 0
+        
+        insert_columns = [col for col in column_names if col != 'id']
+        placeholders = ', '.join(['?' for _ in insert_columns])
+        insert_values = [season_dict.get(col) for col in insert_columns]
+        
+        cursor.execute(f"INSERT INTO team_seasons ({', '.join(insert_columns)}) VALUES ({placeholders})", insert_values)
+
+    print(f"Copied {len(last_year_seasons)} team seasons from {last_season_year} to {current_year}.")
+
+
+def anonymize_db(db_path):
+    """
+    Anonymizes a fantasy football database in-place by replacing PII with fake data.
+    """
+    fake = Faker()
+    conn = None
+    
+    try:
+        print(f"Connecting to the database at {db_path}...")
+        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         print("Database connection successful.")
 
@@ -38,10 +94,7 @@ def anonymize_db(input_db_path, output_db_path):
         name_id_map = {}
         used_new_name_ids = set()
 
-        for manager in managers:
-            manager_id, old_name_id = manager
-            
-            # Generate a unique new name_id
+        for manager_id, old_name_id in managers:
             new_name_id = fake.user_name()
             while new_name_id in used_new_name_ids:
                 new_name_id = fake.user_name()
@@ -54,18 +107,13 @@ def anonymize_db(input_db_path, output_db_path):
             new_sleeper_user_id = str(fake.random_number(digits=18, fix_len=True))
             new_email = fake.email()
             
-            print(f"  Updating manager ID {manager_id}: {old_name_id} -> {new_name_id}")
-            
             cursor.execute("""
                 UPDATE managers
-                SET name_id = ?,
-                    full_name = ?,
-                    sleeper_username = ?,
-                    sleeper_user_id = ?,
-                    email = ?,
-                    passcode = NULL
+                SET name_id = ?, full_name = ?, sleeper_username = ?,
+                    sleeper_user_id = ?, email = ?, passcode = NULL
                 WHERE id = ?
-            """, (new_name_id, new_full_name, new_sleeper_username, new_sleeper_user_id, new_email, manager_id))
+            """, (new_name_id, new_full_name, new_sleeper_username, 
+                  new_sleeper_user_id, new_email, manager_id))
 
         print("'managers' table anonymized.")
 
@@ -75,32 +123,25 @@ def anonymize_db(input_db_path, output_db_path):
             cursor.execute("UPDATE team_seasons SET name_id = ? WHERE name_id = ?", (new_name_id, old_name_id))
         print("'team_seasons' name_ids updated.")
 
-
-        # --- Anonymize 'team_seasons' table ---
+        # --- Anonymize 'team_seasons' team names ---
         print("Anonymizing 'team_seasons' team names...")
-        cursor.execute("SELECT id, team_name FROM team_seasons")
-        team_seasons = cursor.fetchall()
+        cursor.execute("SELECT id FROM team_seasons")
+        team_season_ids = cursor.fetchall()
 
-        for season in team_seasons:
-            season_id, old_team_name = season
-            if old_team_name:
-                new_team_name = f"{fake.word().capitalize()} {fake.word().capitalize()}"
-                print(f"  Updating team season ID {season_id}: team name -> {new_team_name}")
-                cursor.execute("UPDATE team_seasons SET team_name = ? WHERE id = ?", (new_team_name, season_id))
+        for (season_id,) in team_season_ids:
+            new_team_name = f"{fake.word().capitalize()} {fake.word().capitalize()}"
+            cursor.execute("UPDATE team_seasons SET team_name = ? WHERE id = ?", (new_team_name, season_id))
         
         print("'team_seasons' team names anonymized.")
 
         # --- Anonymize 'league_settings' table ---
         print("Anonymizing 'league_settings' table...")
         try:
-            cursor.execute("SELECT id, league_id FROM league_settings")
-            settings = cursor.fetchall()
-            for setting in settings:
-                setting_id, old_league_id = setting
-                if old_league_id:
-                    new_league_id = str(fake.random_number(digits=10, fix_len=True))
-                    print(f"  Updating league_settings ID {setting_id}: league_id -> {new_league_id}")
-                    cursor.execute("UPDATE league_settings SET league_id = ? WHERE id = ?", (new_league_id, setting_id))
+            cursor.execute("SELECT id FROM league_settings")
+            setting_ids = cursor.fetchall()
+            for (setting_id,) in setting_ids:
+                new_league_id = str(fake.random_number(digits=10, fix_len=True))
+                cursor.execute("UPDATE league_settings SET league_id = ? WHERE id = ?", (new_league_id, setting_id))
             print("'league_settings' table anonymized.")
         except sqlite3.OperationalError:
             print("  Could not find 'league_settings' table, skipping.")
@@ -109,11 +150,13 @@ def anonymize_db(input_db_path, output_db_path):
         sensitive_tables = ['manager_emails', 'manager_credentials', 'previews', 'summaries']
         for table in sensitive_tables:
             try:
-                print(f"Clearing '{table}' table...")
                 cursor.execute(f"DELETE FROM {table}")
-                print(f"'{table}' table cleared.")
+                print(f"Clearing '{table}' table...done.")
             except sqlite3.OperationalError:
                 print(f"  Table '{table}' does not exist, skipping.")
+
+        # --- Ensure data for current year ---
+        ensure_current_year_data(conn, cursor, fake)
 
         conn.commit()
         print("Database changes committed.")
@@ -124,29 +167,19 @@ def anonymize_db(input_db_path, output_db_path):
         if conn:
             conn.close()
             print("Database connection closed.")
-        print("\nAnonymization process complete.")
-        print(f"Anonymized database saved to: {output_db_path}")
 
 if __name__ == '__main__':
-    import os
-
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    
-    # The user is now providing the original DB in the final location
-    original_db = os.path.join(project_root, 'data', 'fantasy_football.db')
-    # We will work on this file in-place
-    anonymized_db = original_db
+    db_path = os.path.join(project_root, 'data', 'fantasy_football.db')
 
-    if not os.path.exists(original_db):
-        print(f"Error: Input database not found at {original_db}")
-        print("Please make sure the database file exists.")
+    if not os.path.exists(db_path):
+        print(f"Error: Input database not found at {db_path}")
     else:
-        # We pass the same path for input and output to modify the file in-place,
-        # but the function first creates a copy, so the original is not lost until the end.
-        # Let's make a backup first to be safe.
-        backup_path = original_db + '.bak'
-        print(f"Creating a backup of the original database at {backup_path}")
-        shutil.copyfile(original_db, backup_path)
+        backup_path = db_path + '.bak'
+        print(f"Creating a backup of the database at {backup_path}")
+        shutil.copyfile(db_path, backup_path)
         
-        anonymize_db(original_db, anonymized_db)
+        print("\nStarting anonymization process...")
+        anonymize_db(db_path)
+        print("\nAnonymization process complete.")
 
