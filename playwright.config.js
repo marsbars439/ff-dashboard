@@ -82,6 +82,9 @@ module.exports = defineConfig({
       url: 'http://localhost:3000',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
+      env: {
+        REACT_APP_DISABLE_CLOUDFLARE_AUTH: 'true',
+      },
     },
   ]
 });

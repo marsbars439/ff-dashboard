@@ -322,6 +322,10 @@ export const ManagerAuthProvider = ({
   }, [apiBaseUrl, managerAuthInitialized, persistManagerAuth]);
 
   useEffect(() => {
+    if (process.env.REACT_APP_DISABLE_CLOUDFLARE_AUTH === 'true') {
+      return;
+    }
+
     if (!managerAuthInitialized || managerAuth.status !== 'unauthenticated') {
       return;
     }
