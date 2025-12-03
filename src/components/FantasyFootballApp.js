@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense, useRef } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardHeader from './DashboardHeader';
 import ActiveTabSection from './ActiveTabSection';
@@ -110,13 +110,13 @@ const FantasyFootballApp = () => {
     };
   }, []);
 
-  const updateActiveTab = tab => {
+  const updateActiveTab = useCallback(tab => {
     const normalizedTab = normalizeTab(tab);
     const nextTab = VALID_TABS.has(normalizedTab) ? normalizedTab : DEFAULT_TAB;
     const enforcedTab = enforceAdminTabAccess(nextTab);
     setActiveTab(enforcedTab);
     navigate(`/${enforcedTab}`, { replace: true });
-  };
+  }, [navigate, enforceAdminTabAccess]);
 
   const mostRecentYear = useMemo(() => (
     teamSeasons.length > 0

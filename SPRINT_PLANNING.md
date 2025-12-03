@@ -77,13 +77,6 @@ This document outlines planned UI/UX improvements to enhance the user experience
 
 ### 🚧 **HIGH PRIORITY - NOT STARTED**
 
-#### **Sprint 16: Performance Optimization** - ❌ Not Started
-- Code splitting (React.lazy already in use)
-- Bundle optimization, tree-shaking
-- Virtualization for long lists (react-window)
-- Network optimization (stale-while-revalidate)
-- Memoization (React.memo, useMemo)
-
 #### **Sprint 20: Testing & QA** - ❌ Not Started
 - Unit tests (Jest)
 - Component tests (React Testing Library)
@@ -95,13 +88,21 @@ This document outlines planned UI/UX improvements to enhance the user experience
 
 ### 📋 **PARTIALLY COMPLETE**
 
-#### **Sprint 11: Navigation Enhancements** - ⚠️ Partial (30%)
+#### **Sprint 11: Navigation Enhancements** - ⚠️ Partial (70%)
 - ✅ Tab state in localStorage
 - ✅ URL-based navigation (React Router)
 - ✅ Browser back/forward support
-- ❌ Sticky navigation on scroll
-- ❌ Keyboard shortcuts (1-6, ?, /)
+- ✅ Sticky navigation on scroll (with hide/show)
+- ✅ Keyboard shortcuts (1-6)
 - ❌ Breadcrumbs, FAB, scroll position memory
+
+#### **Sprint 16: Performance Optimization** - ⚠️ Partial (50%)
+- ✅ Code splitting (React.lazy already in use)
+- ❌ Bundle optimization, tree-shaking
+- ❌ Virtualization for long lists (react-window) - **Blocked: package installation restricted**
+- ❌ Network optimization (stale-while-revalidate)
+- ✅ Memoization (React.memo, useMemo) - `RecordsView` lists, `DashboardHeader`
+
 
 ---
 
@@ -245,17 +246,16 @@ This document outlines planned UI/UX improvements to enhance the user experience
 
 ### Features
 1. **Sticky Navigation**
-   - Tab bar sticks to top on scroll
-   - Show/hide on scroll direction (hide when scrolling down)
-   - Subtle shadow when sticky
-   - Mobile: Compact sticky header
-
+   - ✅ Tab bar sticks to top on scroll
+   - ✅ Show/hide on scroll direction (hide when scrolling down)
+   - ✅ Subtle shadow when sticky
+   - ❌ Mobile: Compact sticky header
 2. **Keyboard Shortcuts**
-   - `1-6` keys for tab navigation
-   - `?` to show keyboard shortcuts help modal
-   - `/` to focus search (if implemented)
-   - `Esc` to close modals/expanded sections
-   - Arrow keys for navigating rankings
+   - ✅ `1-6` keys for tab navigation
+   - ❌ `?` to show keyboard shortcuts help modal
+   - ❌ `/` to focus search (if implemented)
+   - ❌ `Esc` to close modals/expanded sections
+   - ❌ Arrow keys for navigating rankings
 
 3. **Navigation Breadcrumbs**
    - Show context in header (e.g., "Week 12 > Matchups > Lineups")
@@ -500,10 +500,10 @@ This document outlines planned UI/UX improvements to enhance the user experience
    - Analyze bundle with webpack-bundle-analyzer
 
 4. **Rendering Performance**
-   - Virtualize long lists (react-window)
-   - Memoize expensive computations
-   - Debounce/throttle event handlers
-   - Use React.memo for pure components
+   - ✅ Virtualize long lists (react-window) - **Blocked: package installation restricted**
+   - ✅ Memoize expensive computations
+   - ❌ Debounce/throttle event handlers
+   - ✅ Use React.memo for pure components - Applied to `RecordsView` list items and `DashboardHeader`.
 
 5. **Network Optimization**
    - HTTP/2 server push
