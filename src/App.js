@@ -10,7 +10,7 @@ const MainLayout = ({ children }) => (
       Skip to main content
     </a>
     <div className="app-shell">
-      <div className="layout-container" id="main-content" role="main">
+      <div className="layout-container" id="main-content">
         {children}
       </div>
     </div>

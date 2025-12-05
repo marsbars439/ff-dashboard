@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Sparkles, RefreshCcw, Flame, BarChart3, GitBranch } from 'lucide-react';
 import DashboardSection from '../../../components/DashboardSection';
-import { ErrorMessage, SkeletonCard } from '../../../shared/components';
+import { ErrorMessage, SkeletonCard, ShareButton } from '../../../shared/components';
 import { useManagers } from '../../../hooks/useManagers';
 import { useTeamSeasons } from '../../../hooks/useTeamSeasons';
 import { useSeasonMatchups } from '../hooks/useSeasonMatchups';
-import { FANTASY } from '../../../utils/constants';
+import { generatePlayoffSimulatorFilename } from '../../../utils/shareExport';
 
 const normalizePoints = (value) => {
   if (value === '' || value === null || value === undefined) {
@@ -361,13 +361,6 @@ const PlayoffSimulator = () => {
     return Math.max(...baseEntries.map((t) => t.games));
   }, [baseEntries]);
 
-  const regularSeasonWeeks = useMemo(() => {
-    if (!Array.isArray(seasonMatchups) || seasonMatchups.length === 0) {
-      return FANTASY.REGULAR_SEASON_WEEKS;
-    }
-    return Math.max(...seasonMatchups.map((week) => week.week || 0), FANTASY.REGULAR_SEASON_WEEKS);
-  }, [seasonMatchups]);
-
   const upcomingWeeks = useMemo(() => {
     if (!Array.isArray(seasonMatchups)) return [];
     return seasonMatchups
@@ -592,15 +585,7 @@ const PlayoffSimulator = () => {
     return <ErrorMessage message="Season data is not available yet for the simulator." />;
   }
 
-  const gamesRemaining = simulatableMatchups.length;
   const unmappedCount = simulatableMatchups.length - mappableMatchups.length;
-  const simulationStartWeek = Math.min(lastCompletedWeek + 1, regularSeasonWeeks);
-  const simulationEndWeek = upcomingWeeks.length > 0
-    ? Math.max(...upcomingWeeks.map((w) => Number(w.week) || simulationStartWeek))
-    : simulationStartWeek;
-  const simulationLabel = simulationStartWeek === simulationEndWeek
-    ? `Simulating week ${simulationStartWeek}`
-    : `Simulating weeks ${simulationStartWeek}-${simulationEndWeek}`;
 
   return (
     <DashboardSection
@@ -626,26 +611,24 @@ const PlayoffSimulator = () => {
         )}
       </div>
 
-      <div className="card-primary space-y-2 sm:space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-50">Matchups</h3>
-              <p className="text-[10px] sm:text-[11px] text-slate-300">
-                {simulationLabel} ({gamesRemaining} games remaining)
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg border border-slate-400/40 bg-slate-900/60 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/60"
-          >
-            <RefreshCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>Reset picks</span>
-          </button>
-        </div>
+      <div className="flex items-center justify-between mb-2 sm:mb-3">
+        <button
+          type="button"
+          onClick={handleReset}
+          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg border border-slate-400/40 bg-slate-900/60 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/60"
+        >
+          <RefreshCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <span>Reset picks</span>
+        </button>
+        <ShareButton
+          getElement={() => document.getElementById('playoff-simulator-content')}
+          filename={generatePlayoffSimulatorFilename(mostRecentYear)}
+          label="Share"
+          size="sm"
+        />
+      </div>
+
+      <div id="playoff-simulator-content" className="card-primary space-y-2 sm:space-y-4" style={{ paddingBottom: '1.5rem' }}>
         {upcomingWeeks.length === 0 ? (
           <div className="rounded-lg border border-slate-700/40 bg-slate-900/30 p-2.5 sm:p-3">
             <p className="text-xs sm:text-sm text-slate-200">Regular season is complete. No matchups left to simulate.</p>
@@ -678,19 +661,19 @@ const PlayoffSimulator = () => {
             })}
           </div>
         )}
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
-        <ProjectedStandingsTable
-          standings={projectedStandings}
-          playoffIds={playoffSeeds.playoffIds}
-          wildcardId={playoffSeeds.wildcardId}
-          byeIds={byeIds}
-          chumpionId={chumpionId}
-          firstPlaceId={firstPlaceId}
-          highestPfIds={highestPfIds}
-        />
-        <ProjectedBracket seeds={playoffSeeds.seeds} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4" style={{ marginBottom: '0.5rem' }}>
+          <ProjectedStandingsTable
+            standings={projectedStandings}
+            playoffIds={playoffSeeds.playoffIds}
+            wildcardId={playoffSeeds.wildcardId}
+            byeIds={byeIds}
+            chumpionId={chumpionId}
+            firstPlaceId={firstPlaceId}
+            highestPfIds={highestPfIds}
+          />
+          <ProjectedBracket seeds={playoffSeeds.seeds} />
+        </div>
       </div>
     </DashboardSection>
   );

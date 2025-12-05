@@ -7,6 +7,9 @@
 
 # testing
 /coverage
+/test-results
+/backend/test-results
+/playwright-report
 
 # production
 /build
@@ -82,3 +85,12 @@ pids
 
 # TernJS port file
 .tern-port
+
+# Windows reserved filename
+nul
+
+# Temporary files
+/tmp
+
+# Database backups
+*.bak

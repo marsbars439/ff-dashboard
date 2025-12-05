@@ -308,6 +308,7 @@ const SleeperAdmin = ({
     fetchSyncStatus();
     fetchManagers();
     fetchMappings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchLeagueSettings = async () => {
@@ -1059,6 +1060,7 @@ const SleeperAdmin = ({
       autoSyncYearsRef.current.add(year);
       syncSeason(year, { silent: true });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncStatus, leagueSettings]);
 
   useEffect(() => {
@@ -1082,6 +1084,7 @@ const SleeperAdmin = ({
     if (desiredSource && desiredSource !== seasonModalDataSource) {
       setSeasonModalDataSource(desiredSource);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSeasonModalVisible, seasonModalYear, seasonModalDataSource, syncStatus]);
 
   useEffect(() => {

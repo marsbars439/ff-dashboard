@@ -117,7 +117,7 @@ export const SUCCESS_MESSAGES = {
   LOGOUT_SUCCESS: 'Logged out successfully'
 };
 
-export default {
+const constants = {
   API,
   POLLING,
   FANTASY,
@@ -131,3 +131,5 @@ export default {
   ERROR_MESSAGES,
   SUCCESS_MESSAGES
 };
+
+export default constants;

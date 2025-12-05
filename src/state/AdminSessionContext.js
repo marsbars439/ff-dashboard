@@ -128,7 +128,8 @@ export const AdminSessionProvider = ({ children }) => {
         setAdminAuthLoading(false);
       }
     },
-    [invalidateAdminSession, parseJsonResponse, persistAdminSession]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [invalidateAdminSession, persistAdminSession]
   );
 
   useEffect(() => {
@@ -194,7 +195,8 @@ export const AdminSessionProvider = ({ children }) => {
         setAdminAuthLoading(false);
       }
     },
-    [adminPasswordInput, invalidateAdminSession, parseJsonResponse, persistAdminSession]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adminPasswordInput, invalidateAdminSession, persistAdminSession]
   );
 
   const handleAdminSignOut = useCallback(() => {

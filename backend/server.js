@@ -91,7 +91,7 @@ const { summarizeLimiter, cloudflareAccessLimiter } = createRateLimiters({
 const cloudflareAccessService = createCloudflareAccessService({
   teamDomain: process.env.CF_ACCESS_TEAM_DOMAIN,
   jwtAudience: process.env.CF_ACCESS_JWT_AUD,
-  validateJwt: process.env.CF_ACCESS_VALIDATE_JWT,
+  validateJwt: process.env.CF_ACCESS_VALIDATE_JWT === 'true',
   jwksCacheMs: process.env.CF_ACCESS_JWKS_CACHE_MS,
   jwksTimeoutMs: process.env.CF_ACCESS_JWKS_TIMEOUT_MS
 });
@@ -255,7 +255,7 @@ app.use('/api/', speedLimiter);
 app.use(morgan('combined', { stream: logger.stream }));
 
 // Database connection
-const dbPath = path.join(__dirname, 'data', 'fantasy_football.db');
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'data', 'fantasy_football.db');
 const db = new sqlite3.Database(dbPath);
 
 const ensureColumnExists = (tableName, columnName, definition) => {

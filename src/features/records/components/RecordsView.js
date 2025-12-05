@@ -15,6 +15,10 @@ import { BarChart, PieChart } from '../../../shared/components';
 import { Line } from 'react-chartjs-2';
 import { getChartColors, mergeChartOptions } from '../../../shared/components/charts/chartConfig';
 import ChartWrapper from '../../../shared/components/charts/ChartWrapper';
+import MedalRankingCard from './MedalRankingCard';
+import ChumpionRankingCard from './ChumpionRankingCard';
+import WinPctRankingCard from './WinPctRankingCard';
+import PpgRankingCard from './PpgRankingCard';
 
 const RecordsView = ({
   allRecords,
@@ -123,54 +127,7 @@ const RecordsView = ({
 
           <div className="space-y-1.5 sm:space-y-2.5 mb-3">
             {medalRankings.map((manager, index) => (
-              <div
-                key={manager.name}
-                className="card-tertiary hover:bg-white/10 transition-all duration-200"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-                    <div
-                      className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-sm sm:text-base md:text-lg font-bold ${
-                        index === 0
-                          ? 'bg-amber-400 text-slate-900 shadow-lg'
-                          : index === 1
-                          ? 'bg-slate-200 text-slate-900 shadow'
-                          : index === 2
-                          ? 'bg-amber-700/80 text-white shadow'
-                          : 'bg-slate-800 text-slate-100 border border-white/10'
-                      }`}
-                    >
-                      #{index + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-xs sm:text-base md:text-lg truncate text-white">{manager.name}</h4>
-                      <p className="text-[10px] sm:text-xs md:text-sm text-slate-300">
-                        {manager.totalWins}-{manager.totalLosses} ({(manager.winPct * 100).toFixed(1)}%) • {manager.gamesPlayed} games
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-4 flex-shrink-0 w-full sm:w-auto">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="text-center">
-                        <div className="text-amber-300 font-bold text-base sm:text-lg md:text-xl">{manager.championships}</div>
-                        <div className="text-[10px] sm:text-[0.65rem] uppercase tracking-wide text-amber-100">🥇 titles</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-slate-200 font-bold text-base sm:text-lg md:text-xl">{manager.secondPlace}</div>
-                        <div className="text-[10px] sm:text-[0.65rem] uppercase tracking-wide text-slate-300">🥈</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-orange-300 font-bold text-base sm:text-lg md:text-xl">{manager.thirdPlace}</div>
-                        <div className="text-[10px] sm:text-[0.65rem] uppercase tracking-wide text-orange-200">🥉</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-xs sm:text-sm md:text-base text-indigo-200">{manager.pointsPerGame.toFixed(1)} PPG</p>
-                      <p className="text-[10px] sm:text-xs md:text-sm text-slate-300">{manager.totalMedals} total medals</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <MedalRankingCard key={manager.name} manager={manager} index={index} />
             ))}
           </div>
 
@@ -209,25 +166,7 @@ const RecordsView = ({
 
           <div className="space-y-1.5 sm:space-y-2.5">
             {chumpionRankings.map((manager, index) => (
-              <div key={manager.name} className="card-tertiary">
-                <div className="flex items-center justify-between mb-1 sm:mb-1.5">
-                  <div className="flex items-center space-x-2 min-w-0 flex-1">
-                    <span className="font-bold text-sm sm:text-base md:text-lg flex-shrink-0">#{index + 1}</span>
-                    <span className="font-semibold text-xs sm:text-sm md:text-base truncate text-gray-900">{manager.name}</span>
-                  </div>
-                  <span className={`text-base sm:text-lg md:text-xl font-bold flex-shrink-0 ${
-                    manager.chumpionships > 0 ? 'text-red-600' : 'text-gray-400'
-                  }`}>
-                    {manager.chumpionships}
-                  </span>
-                </div>
-                <div className="flex justify-between text-[10px] sm:text-xs md:text-sm">
-                  <span className="text-gray-600">{manager.seasons} seasons</span>
-                  <span className="text-gray-600">
-                    {manager.chumpionYears.length > 0 ? manager.chumpionYears.join(', ') : 'None'}
-                  </span>
-                </div>
-              </div>
+              <ChumpionRankingCard key={manager.name} manager={manager} index={index} />
             ))}
           </div>
         </div>
@@ -242,30 +181,7 @@ const RecordsView = ({
 
           <div className="space-y-0.5 sm:space-y-1.5 mb-3">
             {winPctRankings.map((manager, index) => (
-              <div
-                key={manager.name}
-                className={`card-tertiary ${
-                  manager.active ? '' : 'opacity-75'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-                  <div className="flex items-center space-x-2 min-w-0 flex-1">
-                    {manager.active ? <span className="font-bold text-sm sm:text-base md:text-lg flex-shrink-0">#{index + 1}</span> : null}
-                    <span className={`font-semibold text-xs sm:text-sm md:text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                      {manager.name}
-                    </span>
-                  </div>
-                  <span className={`text-base sm:text-lg md:text-xl font-bold flex-shrink-0 ${manager.active ? 'text-blue-600' : 'text-gray-500'}`}>
-                    {(manager.winPct * 100).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="flex justify-between text-[10px] sm:text-xs md:text-sm text-gray-600">
-                  <span className={manager.active ? 'text-gray-600' : 'text-gray-400'}>
-                    {manager.totalWins}-{manager.totalLosses}
-                  </span>
-                  <span className={manager.active ? 'text-gray-600' : 'text-gray-400'}>{manager.gamesPlayed} games played</span>
-                </div>
-              </div>
+              <WinPctRankingCard key={manager.name} manager={manager} index={index} />
             ))}
           </div>
 
@@ -296,30 +212,7 @@ const RecordsView = ({
 
           <div className="space-y-0.5 sm:space-y-1.5 mb-3">
             {ppgRankings.map((manager, index) => (
-              <div
-                key={`${manager.name}-${index}`}
-                className={`card-tertiary ${
-                  manager.active ? '' : 'opacity-75'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-                  <div className="flex items-center space-x-2 min-w-0 flex-1">
-                    {manager.active ? <span className="font-bold text-sm sm:text-base md:text-lg flex-shrink-0">#{index + 1}</span> : null}
-                    <span className={`font-semibold text-xs sm:text-sm md:text-base truncate ${manager.active ? 'text-gray-900' : 'text-gray-500'}`}>
-                      {manager.name}
-                    </span>
-                  </div>
-                  <span className={`text-base sm:text-lg md:text-xl font-bold flex-shrink-0 ${manager.active ? 'text-green-600' : 'text-gray-500'}`}>
-                    {manager.pointsPerGame.toFixed(1)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-[10px] sm:text-xs md:text-sm">
-                  <span className={manager.active ? 'text-gray-600' : 'text-gray-400'}>
-                    {manager.totalPointsFor.toLocaleString()} total
-                  </span>
-                  <span className={manager.active ? 'text-gray-600' : 'text-gray-400'}>{manager.gamesPlayed} games played</span>
-                </div>
-              </div>
+              <PpgRankingCard key={manager.name} manager={manager} index={index} />
             ))}
           </div>
 

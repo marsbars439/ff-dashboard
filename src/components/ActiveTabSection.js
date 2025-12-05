@@ -1,5 +1,3 @@
-import React from 'react';
-
 const ActiveTabSection = ({ activeTab, sections }) => {
   if (!sections || !activeTab) {
     return null;

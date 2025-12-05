@@ -177,21 +177,16 @@ export const ManagerAuthProvider = ({
   }, [storageKey, validateManagerToken]);
 
   const attemptCloudflareManagerVerification = useCallback(async () => {
-    console.log('Attempting Cloudflare manager verification...');
-
     if (typeof window === 'undefined' || !managerAuthInitialized) {
-      console.log('Skipping Cloudflare verification: window undefined or not initialized');
       return;
     }
 
     if (cloudflareAuthAttemptedRef.current) {
-      console.log('Skipping Cloudflare verification: already attempted');
       return;
     }
 
     const currentAuth = managerAuthRef.current || {};
     if (currentAuth.status !== 'unauthenticated') {
-      console.log('Skipping Cloudflare verification: status is', currentAuth.status);
       return;
     }
 
@@ -206,13 +201,11 @@ export const ManagerAuthProvider = ({
     }
 
     const timeoutId = window.setTimeout(() => {
-      console.log('Cloudflare verification timeout triggered');
       didTimeout = true;
       controller.abort();
     }, 8000);
     cloudflareAuthTimeoutRef.current = timeoutId;
 
-    console.log('Setting manager auth to pending (Cloudflare)...');
     setManagerAuth(prev => ({
       ...prev,
       status: 'pending',
@@ -222,22 +215,16 @@ export const ManagerAuthProvider = ({
     setManagerAuthLoading(true);
 
     try {
-      console.log('Fetching Cloudflare manager auth...');
       const response = await fetch(`${apiBaseUrl}/manager-auth/cloudflare`, {
         signal: controller.signal,
         credentials: 'include'
       });
 
-      console.log('Cloudflare response received:', response.status, response.ok);
       const data = await parseJsonResponse(response);
-      console.log('Parsed Cloudflare response data:', data);
 
       if (!response.ok || !data?.managerId || !data?.token) {
-        console.log('Cloudflare verification failed - throwing error');
         throw new Error(data?.error || 'Cloudflare manager verification failed');
       }
-
-      console.log('Cloudflare verification successful!');
 
       if (isUnmountedRef.current) {
         return;
@@ -273,26 +260,19 @@ export const ManagerAuthProvider = ({
         expiresAt: normalizedAuth.expiresAt
       });
     } catch (error) {
-      console.log('ENTERED CATCH BLOCK');
-      console.log('isUnmountedRef.current:', isUnmountedRef.current);
-
       console.warn('Cloudflare manager verification failed:', error);
       const latestAuth = managerAuthRef.current;
-      console.log('Latest auth state during Cloudflare failure:', latestAuth);
 
       const shouldApplyCloudflareFailure =
         !latestAuth ||
         latestAuth.status === 'unauthenticated' ||
         (latestAuth.status === 'pending' && latestAuth.verificationSource === 'cloudflare');
 
-      console.log('Should apply Cloudflare failure?', shouldApplyCloudflareFailure);
-
       if (shouldApplyCloudflareFailure) {
         const errorMessage = didTimeout
           ? 'Automatic manager verification timed out. Please enter your manager passcode.'
           : 'Unable to verify automatically. Please enter your manager passcode.';
 
-        console.log('Resetting manager auth state after Cloudflare failure');
         if (!isUnmountedRef.current) {
           setManagerAuth(INITIAL_MANAGER_AUTH_STATE);
           setManagerAuthSelection('');
@@ -300,8 +280,6 @@ export const ManagerAuthProvider = ({
           setManagerAuthError(errorMessage);
           setManagerAuthLoading(false);
           persistManagerAuth(null);
-        } else {
-          console.log('Skipping state updates because component is unmounted');
         }
       }
     } finally {
@@ -322,6 +300,10 @@ export const ManagerAuthProvider = ({
   }, [apiBaseUrl, managerAuthInitialized, persistManagerAuth]);
 
   useEffect(() => {
+    if (process.env.REACT_APP_DISABLE_CLOUDFLARE_AUTH === 'true') {
+      return;
+    }
+
     if (!managerAuthInitialized || managerAuth.status !== 'unauthenticated') {
       return;
     }

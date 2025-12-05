@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardHeader from './DashboardHeader';
+import FloatingActionButton from './navigation/FloatingActionButton';
+import KeyboardShortcutsModal from './navigation/KeyboardShortcutsModal';
 import ActiveTabSection from './ActiveTabSection';
 import { LoadingSpinner } from '../shared/components';
 import { useAdminSession } from '../state/AdminSessionContext';
@@ -74,16 +76,51 @@ const FantasyFootballApp = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rulesContent, setRulesContent] = useState('');
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const lastScrollY = useRef(0);
+  const scrollPositions = useRef({});
 
   const { selectedKeeperYear, setSelectedKeeperYear } = useKeeperTools();
 
-  const updateActiveTab = tab => {
+  // Scroll handler to show/hide header
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 200) {
+        // Scrolling down
+        setIsHeaderVisible(false);
+      } else {
+        // Scrolling up
+        setIsHeaderVisible(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    let ticking = false;
+    const throttledScrollHandler = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', throttledScrollHandler);
+    return () => {
+      window.removeEventListener('scroll', throttledScrollHandler);
+    };
+  }, []);
+
+  const updateActiveTab = useCallback(tab => {
     const normalizedTab = normalizeTab(tab);
     const nextTab = VALID_TABS.has(normalizedTab) ? normalizedTab : DEFAULT_TAB;
     const enforcedTab = enforceAdminTabAccess(nextTab);
     setActiveTab(enforcedTab);
-    navigate(`/${enforcedTab}`, { replace: true });
-  };
+    navigate(`/${enforcedTab}`);
+  }, [navigate, enforceAdminTabAccess]);
 
   const mostRecentYear = useMemo(() => (
     teamSeasons.length > 0
@@ -208,10 +245,78 @@ const FantasyFootballApp = () => {
       setActiveTab(enforcedTab);
       // If enforced tab is different from URL, update URL
       if (enforcedTab !== urlTab || needsNormalization) {
-        navigate(`/${enforcedTab}`, { replace: true });
+        navigate(`/${enforcedTab}`, { replace: needsNormalization });
       }
     }
   }, [location.pathname, activeTab, enforceAdminTabAccess, navigate]);
+
+  // Save scroll position when switching tabs
+  useEffect(() => {
+    // Save current scroll position when tab changes
+    const currentTab = activeTab;
+    const positions = scrollPositions.current;
+    return () => {
+      positions[currentTab] = window.scrollY;
+    };
+  }, [activeTab]);
+
+  // Restore scroll position when tab becomes active
+  useEffect(() => {
+    const savedPosition = scrollPositions.current[activeTab];
+    if (savedPosition !== undefined) {
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        window.scrollTo(0, savedPosition);
+      });
+    } else {
+      // New tab, scroll to top
+      window.scrollTo(0, 0);
+    }
+  }, [activeTab]);
+
+  // Keyboard shortcuts for tab navigation and help modal
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      // Ignore shortcuts if user is typing in an input
+      const activeElement = document.activeElement;
+      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT' || activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
+
+      // Show help modal with '?'
+      if (event.key === '?' && event.shiftKey) {
+        event.preventDefault();
+        setIsShortcutsModalOpen(true);
+        return;
+      }
+
+      // Close modal with Escape
+      if (event.key === 'Escape') {
+        setIsShortcutsModalOpen(false);
+        return;
+      }
+
+      const keyMap = {
+        '1': 'records',
+        '2': 'rules',
+        '3': 'admin',
+        '4': 'preseason',
+        '5': 'season',
+        '6': 'week',
+      };
+
+      const targetTab = keyMap[event.key];
+      if (targetTab) {
+        event.preventDefault();
+        updateActiveTab(targetTab);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [updateActiveTab]);
 
   useEffect(() => {
     fetchData();
@@ -224,7 +329,7 @@ const FantasyFootballApp = () => {
       const maxYear = Math.max(...teamSeasons.map(s => s.year));
       setSelectedKeeperYear(maxYear);
     }
-  }, [teamSeasons, selectedKeeperYear]);
+  }, [teamSeasons, selectedKeeperYear, setSelectedKeeperYear]);
 
   const fetchData = async (options = {}) => {
     const { silent = false } = options;
@@ -586,7 +691,7 @@ const FantasyFootballApp = () => {
 
   return (
     <div className="ff-dashboard section-stack">
-      <header className="layout-section">
+      <header className={`layout-section sticky-header ${!isHeaderVisible ? 'sticky-header--hidden' : ''}`}>
         <DashboardHeader
           tabs={dynamicTabs}
           activeTab={activeTab}
@@ -596,6 +701,11 @@ const FantasyFootballApp = () => {
       <main className="layout-section section-surface section-padding">
         <ActiveTabSection activeTab={activeTab} sections={tabSections} />
       </main>
+      <FloatingActionButton onShowHelp={() => setIsShortcutsModalOpen(true)} />
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+      />
     </div>
   );
 };
