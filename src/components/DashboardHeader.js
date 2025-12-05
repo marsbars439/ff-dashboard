@@ -30,6 +30,26 @@ const DashboardHeader = ({ tabs, activeTab, onTabChange }) => {
     }
   };
 
+  const renderTabLink = (tab) => {
+    const isActive = typeof tab.isActive === 'function'
+      ? tab.isActive(activeTab)
+      : activeTab === tab.id;
+
+    return (
+      <Link
+        key={tab.id}
+        to={`/${tab.id}`}
+        onClick={(e) => handleTabClick(e, tab.id)}
+        className={`px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
+          isActive ? 'bg-blue-500/20 text-blue-400 border border-blue-400/30' : 'text-slate-300 hover:text-slate-50 hover:bg-white/5'
+        }`}
+        aria-current={isActive ? 'page' : undefined}
+      >
+        {tab.label}
+      </Link>
+    );
+  };
+
   return (
     <div className="dashboard-header">
       <div className="dashboard-header__container">
