@@ -362,13 +362,6 @@ const PlayoffSimulator = () => {
     return Math.max(...baseEntries.map((t) => t.games));
   }, [baseEntries]);
 
-  const regularSeasonWeeks = useMemo(() => {
-    if (!Array.isArray(seasonMatchups) || seasonMatchups.length === 0) {
-      return FANTASY.REGULAR_SEASON_WEEKS;
-    }
-    return Math.max(...seasonMatchups.map((week) => week.week || 0), FANTASY.REGULAR_SEASON_WEEKS);
-  }, [seasonMatchups]);
-
   const upcomingWeeks = useMemo(() => {
     if (!Array.isArray(seasonMatchups)) return [];
     return seasonMatchups
@@ -593,15 +586,7 @@ const PlayoffSimulator = () => {
     return <ErrorMessage message="Season data is not available yet for the simulator." />;
   }
 
-  const gamesRemaining = simulatableMatchups.length;
   const unmappedCount = simulatableMatchups.length - mappableMatchups.length;
-  const simulationStartWeek = Math.min(lastCompletedWeek + 1, regularSeasonWeeks);
-  const simulationEndWeek = upcomingWeeks.length > 0
-    ? Math.max(...upcomingWeeks.map((w) => Number(w.week) || simulationStartWeek))
-    : simulationStartWeek;
-  const simulationLabel = simulationStartWeek === simulationEndWeek
-    ? `Simulating week ${simulationStartWeek}`
-    : `Simulating weeks ${simulationStartWeek}-${simulationEndWeek}`;
 
   return (
     <DashboardSection
