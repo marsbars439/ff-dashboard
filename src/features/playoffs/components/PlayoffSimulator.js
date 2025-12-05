@@ -6,7 +6,6 @@ import { useManagers } from '../../../hooks/useManagers';
 import { useTeamSeasons } from '../../../hooks/useTeamSeasons';
 import { useSeasonMatchups } from '../hooks/useSeasonMatchups';
 import { generatePlayoffSimulatorFilename } from '../../../utils/shareExport';
-import { FANTASY } from '../../../utils/constants';
 
 const normalizePoints = (value) => {
   if (value === '' || value === null || value === undefined) {
