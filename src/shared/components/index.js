@@ -24,3 +24,4 @@ export { default as PieChart } from './charts/PieChart';
 // Share/Export Components
 export { default as ShareButton } from './ShareButton';
 export { default as ShareableMatchupCard } from './ShareableMatchupCard';
+export { default as ShareablePlayoffSimulatorCard } from './ShareablePlayoffSimulatorCard';

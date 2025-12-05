@@ -3,7 +3,7 @@ import { CalendarDays, ChevronDown } from 'lucide-react';
 import AISummary from '../../../components/AISummary';
 import AIPreview from '../../../components/AIPreview';
 import DashboardSection from '../../../components/DashboardSection';
-import { SkeletonMatchup, ShareButton, ShareableMatchupCard } from '../../../shared/components';
+import { SkeletonMatchup, ShareButton } from '../../../shared/components';
 import { parseFlexibleTimestamp, formatInUserTimeZone } from '../../../utils/date';
 import { generateMatchupFilename } from '../../../utils/shareExport';
 
@@ -740,7 +740,7 @@ export function WeekView({ teamSeasons }) {
     const isExpanded = !!expandedMatchups[matchupKey];
 
     return (
-      <div key={matchupKey} className="rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm">
+      <div key={matchupKey} id={`matchup-card-${matchupKey}`} className="rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm">
         <div className="grid grid-cols-2 divide-x divide-gray-200">
           <div className={`p-1.5 sm:p-3 ${homeWin ? 'bg-emerald-600' : ''}`}>
             <div className="flex items-start justify-between gap-1 sm:gap-2">
@@ -798,7 +798,7 @@ export function WeekView({ teamSeasons }) {
           </button>
           <div className="border-l border-gray-200 px-2 sm:px-3 py-1 sm:py-2">
             <ShareButton
-              getElement={() => document.getElementById(`shareable-matchup-${matchupKey}`)}
+              getElement={() => document.getElementById(`matchup-card-${matchupKey}`)}
               filename={generateMatchupFilename(matchup, currentWeekNumber)}
               label="Share"
               size="sm"
@@ -806,24 +806,12 @@ export function WeekView({ teamSeasons }) {
             />
           </div>
         </div>
-        {/* Hidden shareable card for PNG export */}
-        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-          <div id={`shareable-matchup-${matchupKey}`}>
-            <ShareableMatchupCard
-              matchup={matchup}
-              week={currentWeekNumber}
-              leagueName="The League"
-            />
+        <div className={`border-t border-gray-200 px-1.5 py-1.5 sm:px-3 sm:py-3 bg-gray-50 ${!isExpanded ? 'hidden' : ''}`}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+            {renderTeamLineup(home, null, homeLineup)}
+            {renderTeamLineup(away, null, awayLineup)}
           </div>
         </div>
-        {isExpanded && (
-          <div className="border-t border-gray-200 px-1.5 py-1.5 sm:px-3 sm:py-3 bg-gray-50">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-              {renderTeamLineup(home, null, homeLineup)}
-              {renderTeamLineup(away, null, awayLineup)}
-            </div>
-          </div>
-        )}
       </div>
     );
   };

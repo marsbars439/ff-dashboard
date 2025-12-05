@@ -1,4 +1,4 @@
-import html2canvas from 'html2canvas';
+import * as htmlToImage from 'html-to-image';
 
 /**
  * Exports a DOM element as a PNG image
@@ -23,31 +23,15 @@ export async function exportToPNG(element, options = {}) {
   }
 
   try {
-    // Capture the element as canvas with html2canvas
-    const canvas = await html2canvas(element, {
-      scale,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#0f172a', // Dark theme background
-      logging: false,
-      // Ensure fonts and styles are rendered
-      onclone: (clonedDoc) => {
-        const clonedElement = clonedDoc.querySelector(`[data-export-id="${element.dataset.exportId}"]`);
-        if (clonedElement) {
-          // Force render any lazy-loaded content
-          clonedElement.style.display = 'block';
-          clonedElement.style.visibility = 'visible';
-        }
-      },
+    // Capture the element with html-to-image
+    const dataUrl = await htmlToImage.toPng(element, {
+      pixelRatio: scale,
+      cacheBust: true,
     });
 
-    // Convert canvas to blob
-    const blob = await new Promise((resolve) => {
-      canvas.toBlob(resolve, 'image/png', 1.0);
-    });
-
-    // Get data URL
-    const dataUrl = canvas.toDataURL('image/png', 1.0);
+    // Convert data URL to blob
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
 
     // Download if requested
     if (download) {
@@ -67,6 +51,7 @@ export async function exportToPNG(element, options = {}) {
             'image/png': blob,
           }),
         ]);
+        return { blob, dataUrl, clipboardSuccess: true };
       } catch (clipboardError) {
         console.warn('Failed to copy to clipboard:', clipboardError);
         // Fallback: just download instead
@@ -78,10 +63,11 @@ export async function exportToPNG(element, options = {}) {
           link.click();
           document.body.removeChild(link);
         }
+        return { blob, dataUrl, clipboardSuccess: false, clipboardError: clipboardError.message };
       }
     }
 
-    return { blob, dataUrl };
+    return { blob, dataUrl, clipboardSuccess: download ? null : false };
   } catch (error) {
     console.error('Error exporting PNG:', error);
     throw new Error(`Failed to export image: ${error.message}`);
@@ -126,6 +112,15 @@ export function generateRecordsFilename(managerName = null) {
     return `${sanitized}-career-stats.png`;
   }
   return 'league-records.png';
+}
+
+/**
+ * Generate a shareable playoff simulator filename
+ * @param {number} year - Season year
+ * @returns {string} Generated filename
+ */
+export function generatePlayoffSimulatorFilename(year) {
+  return `${year}-playoff-simulator.png`;
 }
 
 /**

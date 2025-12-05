@@ -59,22 +59,44 @@ export function ShareButton({
         throw new Error('Element not found for export');
       }
 
+      // Find any hidden lineup sections within the element and temporarily show them
+      const hiddenLineups = element.querySelectorAll('.hidden');
+      const previousClasses = Array.from(hiddenLineups).map(el => el.className);
+
+      // Temporarily remove 'hidden' class for export
+      hiddenLineups.forEach(el => {
+        el.classList.remove('hidden');
+      });
+
+      // Wait a moment for layout to settle
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const shouldCopy = action === 'copy';
       const shouldDownload = action === 'download';
 
-      await exportToPNG(element, {
+      const result = await exportToPNG(element, {
         filename,
         download: shouldDownload,
         copyToClipboard: shouldCopy,
         scale: 2,
       });
 
+      // Restore previous classes
+      hiddenLineups.forEach((el, index) => {
+        el.className = previousClasses[index];
+      });
+
       if (shouldCopy) {
-        setCopySuccess(true);
-        setTimeout(() => setCopySuccess(false), 2000);
+        if (result.clipboardSuccess) {
+          setCopySuccess(true);
+          setTimeout(() => setCopySuccess(false), 2000);
+        } else {
+          // Clipboard failed, fallback triggered download
+          alert('Copy to clipboard is not supported on this device. The image has been downloaded instead.');
+        }
       }
 
-      onExportComplete?.({ action });
+      onExportComplete?.({ action, clipboardSuccess: result.clipboardSuccess });
     } catch (error) {
       console.error('Export failed:', error);
       onExportError?.(error);
